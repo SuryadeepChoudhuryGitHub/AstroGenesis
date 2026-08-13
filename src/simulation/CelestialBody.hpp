@@ -53,6 +53,16 @@ struct CelestialBody {
     float rotationSpeed = 0.5f; // rad/s
     float axialTiltDeg = 23.44f;
     glm::vec3 color{0.0f, 0.83f, 1.0f}; // Default teal accent
+    std::string texturePath;
+
+    // True Astronomical Scale Data (SI & AU units)
+    double realRadiusAU = 0.0;
+    double realOrbitRadiusAU = 0.0;
+    double orbitalPeriodDays = 0.0;
+    double rotationPeriodHours = 0.0;
+    double orbitalAngleRad = 0.0;
+    double orbitalSpeedRadPerSec = 0.0;
+    double rotationSpeedRadPerSec = 0.0;
 };
 
 } // namespace AstroGenesis

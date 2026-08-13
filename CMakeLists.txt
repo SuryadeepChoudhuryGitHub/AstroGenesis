@@ -42,6 +42,7 @@ add_executable(AstroGenesis ${ASTROGENESIS_SOURCES})
 
 target_include_directories(AstroGenesis PRIVATE
     ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/external
 )
 
 target_link_libraries(AstroGenesis PRIVATE imgui glfw glad glm::glm opengl32)

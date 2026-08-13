@@ -237,8 +237,8 @@ CMakeFiles/imgui.dir/clean:
 
 # All Build rule for target.
 CMakeFiles/AstroGenesis.dir/all: CMakeFiles/glad.dir/all
-CMakeFiles/AstroGenesis.dir/all: CMakeFiles/imgui.dir/all
 CMakeFiles/AstroGenesis.dir/all: external/glm/glm/CMakeFiles/glm.dir/all
+CMakeFiles/AstroGenesis.dir/all: CMakeFiles/imgui.dir/all
 CMakeFiles/AstroGenesis.dir/all: external/glfw/src/CMakeFiles/glfw.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/build

@@ -61,6 +61,7 @@ bool Application::initialize(int width, int height, const char* title) {
 
     // Camera initial focus
     m_camera.setTargetPosition(m_physics.getSelectedBody().position, true);
+    m_camera.setTargetBodyRadius(m_physics.getSelectedBody().radius3D);
 
     return true;
 }
@@ -143,8 +144,19 @@ void Application::run() {
         glViewport((int)vpX, (int)(fbH - vpY - vpH), (int)vpW, (int)vpH);
         float aspect = vpW / std::max(vpH, 1.0f);
 
+        glm::vec3 solPos{0.0f};
         for (const auto& body : m_physics.getBodies()) {
-            m_renderer.renderWireframeSphere(m_camera, aspect, body);
+            if (body.id == "sol") {
+                solPos = body.position;
+                break;
+            }
+        }
+
+        // Camera target is the world-space position of the focused body.
+        // renderSphere subtracts this so the focused body is at origin (0,0,0).
+        glm::vec3 camTarget = m_camera.getTargetPosition();
+        for (const auto& body : m_physics.getBodies()) {
+            m_renderer.renderSphere(m_camera, aspect, body, solPos, camTarget);
         }
 
         m_renderer.endViewport(fbW, fbH);

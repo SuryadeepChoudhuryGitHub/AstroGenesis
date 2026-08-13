@@ -199,7 +199,8 @@ void UIManager::drawLeftPanel(PhysicsEngine& physics, Camera& camera, float topB
 
             if (ImGui::Selectable(("##body" + std::to_string(i)).c_str(), isSelected, 0, ImVec2(0, 36))) {
                 physics.selectBody(i);
-                camera.setTargetPosition(bodies[i].position);
+                camera.setTargetPosition(bodies[i].position, true);
+                camera.setTargetBodyRadius(bodies[i].radius3D);
             }
 
             ImVec2 p = ImGui::GetItemRectMin();
@@ -334,15 +335,24 @@ void UIManager::drawTimeControls(PhysicsEngine& physics, float x, float y, float
     ImGui::Separator();
 
     bool isPaused = physics.isPaused();
-    if (ImGui::Button("|<", ImVec2(32, 26))) { physics.stepFrameBackward(); }
+    if (ImGui::Button("|<", ImVec2(28, 24))) { physics.stepFrameBackward(); }
     ImGui::SameLine();
-    if (ImGui::Button(isPaused ? " > " : " || ", ImVec2(32, 26))) { physics.togglePause(); }
+    if (ImGui::Button(isPaused ? " > " : " || ", ImVec2(28, 24))) { physics.togglePause(); }
     ImGui::SameLine();
-    if (ImGui::Button(">|", ImVec2(32, 26))) { physics.stepFrameForward(); }
+    if (ImGui::Button(">|", ImVec2(28, 24))) { physics.stepFrameForward(); }
+
+    ImGui::SameLine(0, 8);
+    if (ImGui::Button("1s/s", ImVec2(36, 24))) { physics.setTimeScale(1.0f); }
+    ImGui::SameLine(0, 4);
+    if (ImGui::Button("1d/s", ImVec2(36, 24))) { physics.setTimeScale(86400.0f); }
+    ImGui::SameLine(0, 4);
+    if (ImGui::Button("1m/s", ImVec2(36, 24))) { physics.setTimeScale(2592000.0f); }
+    ImGui::SameLine(0, 4);
+    if (ImGui::Button("1y/s", ImVec2(36, 24))) { physics.setTimeScale(31536000.0f); }
 
     float scale = physics.getTimeScale();
-    ImGui::PushItemWidth(w - 30);
-    if (ImGui::SliderFloat("##speed", &scale, 0.0f, 10.0f, "Speed: %.1fx")) {
+    ImGui::PushItemWidth(w - 20);
+    if (ImGui::SliderFloat("##speed", &scale, 1.0f, 31536000.0f, "Speed: %.0f sec/s", ImGuiSliderFlags_Logarithmic)) {
         physics.setTimeScale(scale);
     }
     ImGui::PopItemWidth();

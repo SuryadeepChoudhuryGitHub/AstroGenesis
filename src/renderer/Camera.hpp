@@ -17,6 +17,8 @@ public:
     void resetCenter();
 
     void setTargetPosition(const glm::vec3& target, bool immediate = false);
+    void setTargetBodyRadius(float radius3D);
+    void setDistance(float dist) { m_distance = dist; }
 
     // Matrix getters
     glm::mat4 getViewMatrix() const;
@@ -36,8 +38,9 @@ private:
     float m_distance = 3.5f;
 
     float m_fov = 45.0f;       // In degrees
-    float m_nearPlane = 0.1f;
+    float m_nearPlane = 0.0000001f;
     float m_farPlane = 500.0f;
+    float m_targetRadius = 0.000042587f;
 };
 
 } // namespace AstroGenesis

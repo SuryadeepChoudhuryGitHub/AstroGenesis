@@ -21,6 +21,12 @@ public:
     float getTimeScale() const { return m_timeScale; }
     void setTimeScale(float scale) { m_timeScale = scale; }
 
+    bool isTrueScaleMode() const { return m_isTrueScaleMode; }
+    void setTrueScaleMode(bool enabled) { m_isTrueScaleMode = enabled; updateBodyScales(); }
+
+    float getSizeMultiplier() const { return m_sizeMultiplier; }
+    void setSizeMultiplier(float val) { m_sizeMultiplier = val; updateBodyScales(); }
+
     void stepFrameForward();
     void stepFrameBackward();
 
@@ -40,11 +46,15 @@ public:
     float getPhysicsStepTimeMs() const { return m_physicsStepMs; }
 
 private:
+    void updateBodyScales();
+
     std::vector<CelestialBody> m_bodies;
     int m_selectedBodyIndex = 3; // Earth default
 
     bool m_isPaused = false;
-    float m_timeScale = 1.0f; // 1.0 = 1 sec/sec
+    float m_timeScale = 86400.0f; // Default 1 day/sec for real astronomical motion
+    bool m_isTrueScaleMode = true; // True 1:1 Astronomical Scale by default
+    float m_sizeMultiplier = 1.0f;
     double m_simulatedTimeSeconds = 0.0;
     float m_physicsStepMs = 2.45f;
 };
