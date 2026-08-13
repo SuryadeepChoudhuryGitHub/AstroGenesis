@@ -1,0 +1,2 @@
+C:\msys64\ucrt64\bin\ar.exe qc libglm.a CMakeFiles/glm.dir/detail/glm.cpp.obj
+C:\msys64\ucrt64\bin\ranlib.exe libglm.a
