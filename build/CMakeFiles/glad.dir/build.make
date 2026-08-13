@@ -52,10 +52,10 @@ RM = "C:\Program Files\CMake\bin\cmake.exe" -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos"
+CMAKE_SOURCE_DIR = "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis"
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build"
+CMAKE_BINARY_DIR = "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build"
 
 # Include any dependencies generated for this target.
 include CMakeFiles/glad.dir/depend.make
@@ -73,18 +73,18 @@ CMakeFiles/glad.dir/codegen:
 
 CMakeFiles/glad.dir/external/glad/src/gl.c.obj: CMakeFiles/glad.dir/flags.make
 CMakeFiles/glad.dir/external/glad/src/gl.c.obj: CMakeFiles/glad.dir/includes_C.rsp
-CMakeFiles/glad.dir/external/glad/src/gl.c.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/Cosmos/external/glad/src/gl.c
+CMakeFiles/glad.dir/external/glad/src/gl.c.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glad/src/gl.c
 CMakeFiles/glad.dir/external/glad/src/gl.c.obj: CMakeFiles/glad.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building C object CMakeFiles/glad.dir/external/glad/src/gl.c.obj"
-	C:\msys64\ucrt64\bin\gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/glad.dir/external/glad/src/gl.c.obj -MF CMakeFiles\glad.dir\external\glad\src\gl.c.obj.d -o CMakeFiles\glad.dir\external\glad\src\gl.c.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\external\glad\src\gl.c"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building C object CMakeFiles/glad.dir/external/glad/src/gl.c.obj"
+	C:\msys64\ucrt64\bin\cc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/glad.dir/external/glad/src/gl.c.obj -MF CMakeFiles\glad.dir\external\glad\src\gl.c.obj.d -o CMakeFiles\glad.dir\external\glad\src\gl.c.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glad\src\gl.c"
 
 CMakeFiles/glad.dir/external/glad/src/gl.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/glad.dir/external/glad/src/gl.c.i"
-	C:\msys64\ucrt64\bin\gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\external\glad\src\gl.c" > CMakeFiles\glad.dir\external\glad\src\gl.c.i
+	C:\msys64\ucrt64\bin\cc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glad\src\gl.c" > CMakeFiles\glad.dir\external\glad\src\gl.c.i
 
 CMakeFiles/glad.dir/external/glad/src/gl.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/glad.dir/external/glad/src/gl.c.s"
-	C:\msys64\ucrt64\bin\gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\external\glad\src\gl.c" -o CMakeFiles\glad.dir\external\glad\src\gl.c.s
+	C:\msys64\ucrt64\bin\cc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glad\src\gl.c" -o CMakeFiles\glad.dir\external\glad\src\gl.c.s
 
 # Object files for target glad
 glad_OBJECTS = \
@@ -96,7 +96,7 @@ glad_EXTERNAL_OBJECTS =
 libglad.a: CMakeFiles/glad.dir/external/glad/src/gl.c.obj
 libglad.a: CMakeFiles/glad.dir/build.make
 libglad.a: CMakeFiles/glad.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Linking C static library libglad.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Linking C static library libglad.a"
 	$(CMAKE_COMMAND) -P CMakeFiles\glad.dir\cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles\glad.dir\link.txt --verbose=$(VERBOSE)
 
@@ -109,6 +109,6 @@ CMakeFiles/glad.dir/clean:
 .PHONY : CMakeFiles/glad.dir/clean
 
 CMakeFiles/glad.dir/depend:
-	$(CMAKE_COMMAND) -E cmake_depends "MinGW Makefiles" "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos" "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos" "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build" "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build" "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build\CMakeFiles\glad.dir\DependInfo.cmake" "--color=$(COLOR)" glad
+	$(CMAKE_COMMAND) -E cmake_depends "MinGW Makefiles" "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis" "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis" "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build" "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build" "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles\glad.dir\DependInfo.cmake" "--color=$(COLOR)" glad
 .PHONY : CMakeFiles/glad.dir/depend
 

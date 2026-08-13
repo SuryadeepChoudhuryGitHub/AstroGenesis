@@ -52,10 +52,10 @@ RM = "C:\Program Files\CMake\bin\cmake.exe" -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos"
+CMAKE_SOURCE_DIR = "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis"
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build"
+CMAKE_BINARY_DIR = "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build"
 
 # Utility rule file for update_mappings.
 
@@ -66,8 +66,8 @@ include external/glfw/src/CMakeFiles/update_mappings.dir/compiler_depend.make
 include external/glfw/src/CMakeFiles/update_mappings.dir/progress.make
 
 external/glfw/src/CMakeFiles/update_mappings:
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Updating gamepad mappings from upstream repository"
-	cd /d "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\external\glfw\src" && "C:\Program Files\CMake\bin\cmake.exe" -P "D:/# My Folder/My Work/Visual Studio script/C++/Cosmos/external/glfw/CMake/GenerateMappings.cmake" mappings.h.in mappings.h
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Updating gamepad mappings from upstream repository"
+	cd /d "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glfw\src" && "C:\Program Files\CMake\bin\cmake.exe" -P "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/external/glfw/CMake/GenerateMappings.cmake" mappings.h.in mappings.h
 
 external/glfw/src/CMakeFiles/update_mappings.dir/codegen:
 .PHONY : external/glfw/src/CMakeFiles/update_mappings.dir/codegen
@@ -81,10 +81,10 @@ external/glfw/src/CMakeFiles/update_mappings.dir/build: update_mappings
 .PHONY : external/glfw/src/CMakeFiles/update_mappings.dir/build
 
 external/glfw/src/CMakeFiles/update_mappings.dir/clean:
-	cd /d "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build\external\glfw\src" && $(CMAKE_COMMAND) -P CMakeFiles\update_mappings.dir\cmake_clean.cmake
+	cd /d "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\external\glfw\src" && $(CMAKE_COMMAND) -P CMakeFiles\update_mappings.dir\cmake_clean.cmake
 .PHONY : external/glfw/src/CMakeFiles/update_mappings.dir/clean
 
 external/glfw/src/CMakeFiles/update_mappings.dir/depend:
-	$(CMAKE_COMMAND) -E cmake_depends "MinGW Makefiles" "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos" "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\external\glfw\src" "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build" "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build\external\glfw\src" "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build\external\glfw\src\CMakeFiles\update_mappings.dir\DependInfo.cmake" "--color=$(COLOR)" update_mappings
+	$(CMAKE_COMMAND) -E cmake_depends "MinGW Makefiles" "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis" "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glfw\src" "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build" "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\external\glfw\src" "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\external\glfw\src\CMakeFiles\update_mappings.dir\DependInfo.cmake" "--color=$(COLOR)" update_mappings
 .PHONY : external/glfw/src/CMakeFiles/update_mappings.dir/depend
 

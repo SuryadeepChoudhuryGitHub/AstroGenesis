@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "D:/# My Folder/My Work/Visual Studio script/C++/Cosmos/external/glm/glm/detail/glm.cpp" "external/glm/glm/CMakeFiles/glm.dir/detail/glm.cpp.obj" "gcc" "external/glm/glm/CMakeFiles/glm.dir/detail/glm.cpp.obj.d"
+  "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/external/glm/glm/detail/glm.cpp" "external/glm/glm/CMakeFiles/glm.dir/detail/glm.cpp.obj" "gcc" "external/glm/glm/CMakeFiles/glm.dir/detail/glm.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

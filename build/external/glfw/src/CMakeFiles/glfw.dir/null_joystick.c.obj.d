@@ -1,7 +1,7 @@
 external/glfw/src/CMakeFiles/glfw.dir/null_joystick.c.obj: \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\glfw\src\null_joystick.c \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\glfw\src\internal.h \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/Cosmos/external/glfw/include/GLFW/glfw3.h \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\glfw\src\null_joystick.c \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\glfw\src\internal.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glfw/include/GLFW/glfw3.h \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stddef.h \
  C:/msys64/ucrt64/include/stddef.h C:/msys64/ucrt64/include/crtdefs.h \
  C:/msys64/ucrt64/include/corecrt.h C:/msys64/ucrt64/include/_mingw.h \
@@ -11,9 +11,9 @@ external/glfw/src/CMakeFiles/glfw.dir/null_joystick.c.obj: \
  C:/msys64/ucrt64/include/sdks/_mingw_ddk.h \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h \
  C:/msys64/ucrt64/include/stdint.h \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\glfw\src\platform.h \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\glfw\src\null_platform.h \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\glfw\src\win32_platform.h \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\glfw\src\platform.h \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\glfw\src\null_platform.h \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\glfw\src\win32_platform.h \
  C:/msys64/ucrt64/include/wctype.h C:/msys64/ucrt64/include/windows.h \
  C:/msys64/ucrt64/include/sdkddkver.h C:/msys64/ucrt64/include/excpt.h \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdarg.h \
@@ -208,8 +208,8 @@ external/glfw/src/CMakeFiles/glfw.dir/null_joystick.c.obj: \
  C:/msys64/ucrt64/include/propidl.h \
  C:/msys64/ucrt64/include/_mingw_dxhelper.h \
  C:/msys64/ucrt64/include/xinput.h C:/msys64/ucrt64/include/dbt.h \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\glfw\src\null_joystick.h \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\glfw\src\win32_joystick.h \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\glfw\src\win32_thread.h \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\glfw\src\win32_time.h \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/Cosmos/external/glfw/include/GLFW/glfw3native.h
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\glfw\src\null_joystick.h \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\glfw\src\win32_joystick.h \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\glfw\src\win32_thread.h \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\glfw\src\win32_time.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glfw/include/GLFW/glfw3native.h

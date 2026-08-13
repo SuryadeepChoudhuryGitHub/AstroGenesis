@@ -1,7 +1,7 @@
 CMakeFiles/imgui.dir/external/imgui/imgui_demo.cpp.obj: \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\imgui\imgui_demo.cpp \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\imgui\imgui.h \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\imgui\imconfig.h \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\imgui\imgui_demo.cpp \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\imgui\imgui.h \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\imgui\imconfig.h \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/float.h \
  C:/msys64/ucrt64/include/float.h C:/msys64/ucrt64/include/crtdefs.h \
  C:/msys64/ucrt64/include/corecrt.h C:/msys64/ucrt64/include/_mingw.h \

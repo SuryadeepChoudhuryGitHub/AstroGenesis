@@ -1,8 +1,8 @@
-# Install script for directory: D:/# My Folder/My Work/Visual Studio script/C++/Cosmos/external/glm
+# Install script for directory: D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/external/glm
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/Cosmos")
+  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/AstroGenesis")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -39,12 +39,12 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("D:/# My Folder/My Work/Visual Studio script/C++/Cosmos/build/external/glm/glm/cmake_install.cmake")
+  include("D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/external/glm/glm/cmake_install.cmake")
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "D:/# My Folder/My Work/Visual Studio script/C++/Cosmos/build/external/glm/install_local_manifest.txt"
+  file(WRITE "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/external/glm/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

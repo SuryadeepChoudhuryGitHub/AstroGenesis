@@ -1,7 +1,7 @@
-prefix=C:/Program Files (x86)/Cosmos
+prefix=C:/Program Files (x86)/AstroGenesis
 exec_prefix=${prefix}
-includedir=C:/Program Files (x86)/Cosmos/include
-libdir=C:/Program Files (x86)/Cosmos/lib
+includedir=C:/Program Files (x86)/AstroGenesis/include
+libdir=C:/Program Files (x86)/AstroGenesis/lib
 
 Name: GLFW
 Description: A multi-platform library for OpenGL, window and input

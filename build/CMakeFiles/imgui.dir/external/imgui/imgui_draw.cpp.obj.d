@@ -1,7 +1,7 @@
 CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.obj: \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\imgui\imgui_draw.cpp \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\imgui\imgui.h \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\imgui\imconfig.h \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\imgui\imgui_draw.cpp \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\imgui\imgui.h \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\imgui\imconfig.h \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/float.h \
  C:/msys64/ucrt64/include/float.h C:/msys64/ucrt64/include/crtdefs.h \
  C:/msys64/ucrt64/include/corecrt.h C:/msys64/ucrt64/include/_mingw.h \
@@ -32,7 +32,7 @@ CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.obj: \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mm_malloc.h \
  C:/msys64/ucrt64/include/errno.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/std_abs.h \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\imgui\imgui_internal.h \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\imgui\imgui_internal.h \
  C:/msys64/ucrt64/include/stdio.h \
  C:/msys64/ucrt64/include/corecrt_stdio_config.h \
  C:/msys64/ucrt64/include/_mingw_off_t.h \
@@ -178,5 +178,5 @@ CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.obj: \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/amxfp16intrin.h \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h \
  C:/msys64/ucrt64/include/stdint.h \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\imgui\imstb_rectpack.h \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\imgui\imstb_truetype.h
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\imgui\imstb_rectpack.h \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\imgui\imstb_truetype.h

@@ -1,11 +1,11 @@
 {
 	"InstallScripts" : 
 	[
-		"D:/# My Folder/My Work/Visual Studio script/C++/Cosmos/build/cmake_install.cmake",
-		"D:/# My Folder/My Work/Visual Studio script/C++/Cosmos/build/external/glfw/cmake_install.cmake",
-		"D:/# My Folder/My Work/Visual Studio script/C++/Cosmos/build/external/glfw/src/cmake_install.cmake",
-		"D:/# My Folder/My Work/Visual Studio script/C++/Cosmos/build/external/glm/cmake_install.cmake",
-		"D:/# My Folder/My Work/Visual Studio script/C++/Cosmos/build/external/glm/glm/cmake_install.cmake"
+		"D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/cmake_install.cmake",
+		"D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/external/glfw/cmake_install.cmake",
+		"D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/external/glfw/src/cmake_install.cmake",
+		"D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/external/glm/cmake_install.cmake",
+		"D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/external/glm/glm/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

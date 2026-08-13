@@ -1,5 +1,5 @@
 CMakeFiles/glad.dir/external/glad/src/gl.c.obj: \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\Cosmos\external\glad\src\gl.c \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\external\glad\src\gl.c \
  C:/msys64/ucrt64/include/stdio.h \
  C:/msys64/ucrt64/include/corecrt_stdio_config.h \
  C:/msys64/ucrt64/include/corecrt.h C:/msys64/ucrt64/include/_mingw.h \
@@ -20,8 +20,8 @@ CMakeFiles/glad.dir/external/glad/src/gl.c.obj: \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mm_malloc.h \
  C:/msys64/ucrt64/include/errno.h C:/msys64/ucrt64/include/string.h \
  C:/msys64/ucrt64/include/sec_api/string_s.h \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/Cosmos/external/glad/include/glad/gl.h \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/Cosmos/external/glad/include/KHR/khrplatform.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glad/include/glad/gl.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glad/include/KHR/khrplatform.h \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h \
  C:/msys64/ucrt64/include/stdint.h \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stddef.h \

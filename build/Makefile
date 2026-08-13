@@ -56,10 +56,10 @@ RM = "C:\Program Files\CMake\bin\cmake.exe" -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos"
+CMAKE_SOURCE_DIR = "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis"
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build"
+CMAKE_BINARY_DIR = "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build"
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -86,9 +86,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build\CMakeFiles" "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build\\CMakeFiles\progress.marks"
+	$(CMAKE_COMMAND) -E cmake_progress_start "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\\CMakeFiles\progress.marks"
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start "D:\# My Folder\My Work\Visual Studio script\C++\Cosmos\build\CMakeFiles" 0
+	$(CMAKE_COMMAND) -E cmake_progress_start "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" 0
 .PHONY : all
 
 # The main clean target
@@ -142,17 +142,17 @@ imgui/fast:
 .PHONY : imgui/fast
 
 #=============================================================================
-# Target rules for targets named Cosmos
+# Target rules for targets named AstroGenesis
 
 # Build rule for target.
-Cosmos: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 Cosmos
-.PHONY : Cosmos
+AstroGenesis: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 AstroGenesis
+.PHONY : AstroGenesis
 
 # fast build rule for target.
-Cosmos/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/build
-.PHONY : Cosmos/fast
+AstroGenesis/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/build
+.PHONY : AstroGenesis/fast
 
 #=============================================================================
 # Target rules for targets named glfw
@@ -390,7 +390,7 @@ src/core/Application.obj: src/core/Application.cpp.obj
 
 # target to build an object file
 src/core/Application.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/core/Application.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj
 .PHONY : src/core/Application.cpp.obj
 
 src/core/Application.i: src/core/Application.cpp.i
@@ -398,7 +398,7 @@ src/core/Application.i: src/core/Application.cpp.i
 
 # target to preprocess a source file
 src/core/Application.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/core/Application.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.i
 .PHONY : src/core/Application.cpp.i
 
 src/core/Application.s: src/core/Application.cpp.s
@@ -406,7 +406,7 @@ src/core/Application.s: src/core/Application.cpp.s
 
 # target to generate assembly for a file
 src/core/Application.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/core/Application.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.s
 .PHONY : src/core/Application.cpp.s
 
 src/main.obj: src/main.cpp.obj
@@ -414,7 +414,7 @@ src/main.obj: src/main.cpp.obj
 
 # target to build an object file
 src/main.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/main.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/main.cpp.obj
 .PHONY : src/main.cpp.obj
 
 src/main.i: src/main.cpp.i
@@ -422,7 +422,7 @@ src/main.i: src/main.cpp.i
 
 # target to preprocess a source file
 src/main.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/main.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/main.cpp.i
 .PHONY : src/main.cpp.i
 
 src/main.s: src/main.cpp.s
@@ -430,7 +430,7 @@ src/main.s: src/main.cpp.s
 
 # target to generate assembly for a file
 src/main.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/main.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
 src/renderer/Camera.obj: src/renderer/Camera.cpp.obj
@@ -438,7 +438,7 @@ src/renderer/Camera.obj: src/renderer/Camera.cpp.obj
 
 # target to build an object file
 src/renderer/Camera.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/renderer/Camera.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.obj
 .PHONY : src/renderer/Camera.cpp.obj
 
 src/renderer/Camera.i: src/renderer/Camera.cpp.i
@@ -446,7 +446,7 @@ src/renderer/Camera.i: src/renderer/Camera.cpp.i
 
 # target to preprocess a source file
 src/renderer/Camera.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/renderer/Camera.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.i
 .PHONY : src/renderer/Camera.cpp.i
 
 src/renderer/Camera.s: src/renderer/Camera.cpp.s
@@ -454,7 +454,7 @@ src/renderer/Camera.s: src/renderer/Camera.cpp.s
 
 # target to generate assembly for a file
 src/renderer/Camera.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/renderer/Camera.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.s
 .PHONY : src/renderer/Camera.cpp.s
 
 src/renderer/Renderer.obj: src/renderer/Renderer.cpp.obj
@@ -462,7 +462,7 @@ src/renderer/Renderer.obj: src/renderer/Renderer.cpp.obj
 
 # target to build an object file
 src/renderer/Renderer.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/renderer/Renderer.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj
 .PHONY : src/renderer/Renderer.cpp.obj
 
 src/renderer/Renderer.i: src/renderer/Renderer.cpp.i
@@ -470,7 +470,7 @@ src/renderer/Renderer.i: src/renderer/Renderer.cpp.i
 
 # target to preprocess a source file
 src/renderer/Renderer.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/renderer/Renderer.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.i
 .PHONY : src/renderer/Renderer.cpp.i
 
 src/renderer/Renderer.s: src/renderer/Renderer.cpp.s
@@ -478,7 +478,7 @@ src/renderer/Renderer.s: src/renderer/Renderer.cpp.s
 
 # target to generate assembly for a file
 src/renderer/Renderer.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/renderer/Renderer.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.s
 .PHONY : src/renderer/Renderer.cpp.s
 
 src/simulation/PhysicsEngine.obj: src/simulation/PhysicsEngine.cpp.obj
@@ -486,7 +486,7 @@ src/simulation/PhysicsEngine.obj: src/simulation/PhysicsEngine.cpp.obj
 
 # target to build an object file
 src/simulation/PhysicsEngine.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/simulation/PhysicsEngine.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj
 .PHONY : src/simulation/PhysicsEngine.cpp.obj
 
 src/simulation/PhysicsEngine.i: src/simulation/PhysicsEngine.cpp.i
@@ -494,7 +494,7 @@ src/simulation/PhysicsEngine.i: src/simulation/PhysicsEngine.cpp.i
 
 # target to preprocess a source file
 src/simulation/PhysicsEngine.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/simulation/PhysicsEngine.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.i
 .PHONY : src/simulation/PhysicsEngine.cpp.i
 
 src/simulation/PhysicsEngine.s: src/simulation/PhysicsEngine.cpp.s
@@ -502,7 +502,7 @@ src/simulation/PhysicsEngine.s: src/simulation/PhysicsEngine.cpp.s
 
 # target to generate assembly for a file
 src/simulation/PhysicsEngine.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/simulation/PhysicsEngine.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.s
 .PHONY : src/simulation/PhysicsEngine.cpp.s
 
 src/ui/UIManager.obj: src/ui/UIManager.cpp.obj
@@ -510,7 +510,7 @@ src/ui/UIManager.obj: src/ui/UIManager.cpp.obj
 
 # target to build an object file
 src/ui/UIManager.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/ui/UIManager.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj
 .PHONY : src/ui/UIManager.cpp.obj
 
 src/ui/UIManager.i: src/ui/UIManager.cpp.i
@@ -518,7 +518,7 @@ src/ui/UIManager.i: src/ui/UIManager.cpp.i
 
 # target to preprocess a source file
 src/ui/UIManager.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/ui/UIManager.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.i
 .PHONY : src/ui/UIManager.cpp.i
 
 src/ui/UIManager.s: src/ui/UIManager.cpp.s
@@ -526,7 +526,7 @@ src/ui/UIManager.s: src/ui/UIManager.cpp.s
 
 # target to generate assembly for a file
 src/ui/UIManager.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Cosmos.dir\build.make CMakeFiles/Cosmos.dir/src/ui/UIManager.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.s
 .PHONY : src/ui/UIManager.cpp.s
 
 # Help Target
@@ -538,7 +538,7 @@ help:
 	@echo ... edit_cache
 	@echo ... rebuild_cache
 	@echo ... update_mappings
-	@echo ... Cosmos
+	@echo ... AstroGenesis
 	@echo ... glad
 	@echo ... glfw
 	@echo ... glm
