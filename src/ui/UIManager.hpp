@@ -24,7 +24,7 @@ private:
     void drawRightPanel(const CelestialBody& body, float topBarH, float winW, float winH, float statusBarH);
     void drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vpX, float vpY, float vpW, float vpH);
     void drawTimeControls(PhysicsEngine& physics, float x, float y, float w, float h);
-    void drawSimMetrics(const PhysicsEngine& physics, float fps, float x, float y, float w, float h);
+    void drawSimMetrics(PhysicsEngine& physics, float fps, float x, float y, float w, float h);
     void drawOrbitVis(PhysicsEngine& physics, Camera& camera, float x, float y, float w, float h);
     void drawAIAssistant(float x, float y, float w, float h);
     void drawStatusBar(const PhysicsEngine& physics, const Camera& camera, float winW, float winH, float barH);

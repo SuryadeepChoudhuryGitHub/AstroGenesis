@@ -2,11 +2,19 @@
 #include <ctime>
 #include <cstdio>
 #include <cmath>
+#include <algorithm>
 
 namespace AstroGenesis {
 
-static const double PI_DBL = 3.14159265358979323846;
-static const double AU_KM  = 149597870.7; // 1 Astronomical Unit in km
+static const double PI_DBL        = 3.14159265358979323846;
+static const double G_CONST       = 6.67430e-11;      // Gravitational constant (m^3 kg^-1 s^-2)
+static const double C_LIGHT       = 299792458.0;      // Speed of light (m/s)
+static const double C_LIGHT_SQ    = C_LIGHT * C_LIGHT;
+static const double AU_METERS     = 149597870700.0;   // 1 AU in meters
+static const double AU_KM         = 149597870.7;      // 1 AU in km
+static const double L_SUN         = 3.828e26;         // Solar luminosity in Watts
+static const double SIGMA_SB      = 5.670374419e-8;   // Stefan-Boltzmann constant (W m^-2 K^-4)
+static const double SEC_PER_DAY   = 86400.0;
 
 PhysicsEngine::PhysicsEngine() {
     initializeDefaultSolarSystem();
@@ -18,252 +26,586 @@ void PhysicsEngine::initializeDefaultSolarSystem() {
     // 1. Sol (Sun)
     CelestialBody sol;
     sol.id = "sol"; sol.name = "Sol"; sol.type = "G2V Star";
-    sol.distanceStr = "0.00 AU"; sol.distanceAU = 0.0;
-    sol.radiusStr = "696,340 km"; sol.massStr = "1.989 x 10^30 kg";
-    sol.gravityStr = "274.0 m/s²"; sol.tempStr = "5,778 K";
-    sol.orbitalPeriodStr = "N/A"; sol.rotationPeriodStr = "25d 9h";
-    sol.axialTiltStr = "7.25°"; sol.atmosphereStr = "73.46% H₂, 24.85% He"; sol.moons = 8;
-    sol.escapeVelocityStr = "617.7 km/s"; sol.pressureStr = "N/A";
-    sol.densityStr = "1,408 kg/m³"; sol.yearLengthStr = "N/A"; sol.surfaceAreaStr = "6.09 x 10^12 km²";
-    sol.solarRadiationStr = "6.33 x 10^7 W/m²"; sol.radLevelStr = "Extreme";
-    sol.magneticFieldStr = "100–300 µT"; sol.auroraActivityStr = "None";
-    sol.composition = { {"Hydrogen", 73.46f, {1.0f, 0.8f, 0.2f, 1.0f}}, {"Helium", 24.85f, {0.9f, 0.5f, 0.1f, 1.0f}}, {"Oxygen", 0.77f, {0.2f, 0.8f, 0.4f, 1.0f}}, {"Carbon", 0.29f, {0.5f, 0.5f, 0.5f, 1.0f}} };
-    sol.position = glm::vec3(0.0f);
+    sol.massKg = 1.9885e30;
+    sol.radiusM = 696340000.0; // 696,340 km
+    sol.luminosityW = L_SUN;
+    sol.albedo = 0.0;
+    sol.greenhouseK = 0.0;
+    sol.moons = 8;
     sol.axialTiltDeg = 7.25f;
-    sol.color = glm::vec3(1.0f, 0.75f, 0.2f);
-    sol.realRadiusAU = 696340.0 / AU_KM; // ~0.00465474 AU
-    sol.realOrbitRadiusAU = 0.0;
-    sol.orbitalPeriodDays = 0.0;
+    sol.axialTiltStr = "7.25°";
     sol.rotationPeriodHours = 609.12; // 25.38 days
-    sol.orbitalAngleRad = 0.0;
-    sol.orbitalSpeedRadPerSec = 0.0;
-    sol.rotationSpeedRadPerSec = (2.0 * PI_DBL) / (609.12 * 3600.0);
+    sol.rotationPeriodStr = "25d 9h";
+    sol.atmosphereStr = "73.46% H₂, 24.85% He";
+    sol.pressureStr = "N/A";
+    sol.magneticFieldStr = "100–300 µT";
+    sol.auroraActivityStr = "None";
+    sol.orbitalPeriodStr = "N/A";
+    sol.yearLengthStr = "N/A";
+    sol.composition = { {"Hydrogen", 73.46f, {1.0f, 0.8f, 0.2f, 1.0f}}, {"Helium", 24.85f, {0.9f, 0.5f, 0.1f, 1.0f}}, {"Oxygen", 0.77f, {0.2f, 0.8f, 0.4f, 1.0f}}, {"Carbon", 0.29f, {0.5f, 0.5f, 0.5f, 1.0f}} };
+    sol.positionM = glm::dvec3(0.0);
+    sol.velocityMps = glm::dvec3(0.0);
+    sol.color = glm::vec3(1.0f, 0.75f, 0.2f);
+    sol.realRadiusAU = sol.radiusM / AU_METERS;
+    sol.rotationSpeedRadPerSec = (2.0 * PI_DBL) / (sol.rotationPeriodHours * 3600.0);
     m_bodies.push_back(sol);
 
+    // Lambda to configure planet initial physical orbital state (perihelion velocity)
+    auto addPlanet = [&](const std::string& id, const std::string& name, const std::string& type,
+                         double massKg, double radiusM, double semiMajorAU, double eccentricity,
+                         double initialAngleRad, double albedo, double greenhouseK,
+                         float axialTiltDeg, const std::string& axialTiltStr,
+                         double rotPeriodHours, const std::string& rotPeriodStr,
+                         const std::string& atmStr, const std::string& pressStr,
+                         const std::string& magStr, const std::string& auroraStr,
+                         int moons, const std::vector<CompositionItem>& comp,
+                         const glm::vec3& color, const std::string& texPath) {
+        CelestialBody b;
+        b.id = id; b.name = name; b.type = type;
+        b.massKg = massKg;
+        b.radiusM = radiusM;
+        b.albedo = albedo;
+        b.greenhouseK = greenhouseK;
+        b.axialTiltDeg = axialTiltDeg;
+        b.axialTiltStr = axialTiltStr;
+        b.rotationPeriodHours = rotPeriodHours;
+        b.rotationPeriodStr = rotPeriodStr;
+        b.atmosphereStr = atmStr;
+        b.pressureStr = pressStr;
+        b.magneticFieldStr = magStr;
+        b.auroraActivityStr = auroraStr;
+        b.moons = moons;
+        b.composition = comp;
+        b.color = color;
+        b.texturePath = texPath;
+        b.realRadiusAU = radiusM / AU_METERS;
+        b.rotationSpeedRadPerSec = (2.0 * PI_DBL) / (std::abs(rotPeriodHours) * 3600.0);
+        if (rotPeriodHours < 0.0) b.rotationSpeedRadPerSec = -b.rotationSpeedRadPerSec;
+
+        // Calculate initial Keplerian/relativistic state vector at perihelion (or specified true anomaly)
+        double aM = semiMajorAU * AU_METERS;
+        double e = eccentricity;
+        double rM = aM * (1.0 - e); // Perihelion distance in meters
+        double vPerihelion = std::sqrt((G_CONST * (sol.massKg + massKg) / aM) * ((1.0 + e) / (1.0 - e)));
+
+        // Position & velocity vectors oriented by initial angle
+        double cosA = std::cos(initialAngleRad);
+        double sinA = std::sin(initialAngleRad);
+        b.positionM = glm::dvec3(rM * cosA, 0.0, rM * sinA);
+        b.velocityMps = glm::dvec3(-vPerihelion * sinA, 0.0, vPerihelion * cosA);
+
+        b.position = glm::vec3((float)(b.positionM.x / AU_METERS), 0.0f, (float)(b.positionM.z / AU_METERS));
+        b.velocity = glm::vec3((float)(b.velocityMps.x / AU_METERS), 0.0f, (float)(b.velocityMps.z / AU_METERS));
+
+        // Theoretical period (Kepler's Third Law)
+        b.orbitalPeriodDays = (2.0 * PI_DBL * std::sqrt(std::pow(aM, 3.0) / (G_CONST * sol.massKg))) / SEC_PER_DAY;
+        char yearBuf[64];
+        if (b.orbitalPeriodDays >= 365.25 * 1.5) {
+            snprintf(yearBuf, sizeof(yearBuf), "%.2f years", b.orbitalPeriodDays / 365.256);
+        } else {
+            snprintf(yearBuf, sizeof(yearBuf), "%.2f days", b.orbitalPeriodDays);
+        }
+        b.orbitalPeriodStr = yearBuf;
+        b.yearLengthStr = yearBuf;
+
+        char radBuf[64], massBuf[64];
+        snprintf(radBuf, sizeof(radBuf), "%'.1f km", radiusM / 1000.0);
+        b.radiusStr = radBuf;
+        if (massKg > 1.0e26) snprintf(massBuf, sizeof(massBuf), "%.3f × 10²⁶ kg", massKg / 1.0e26);
+        else if (massKg > 1.0e24) snprintf(massBuf, sizeof(massBuf), "%.3f × 10²⁴ kg", massKg / 1.0e24);
+        else snprintf(massBuf, sizeof(massBuf), "%.3f × 10²³ kg", massKg / 1.0e23);
+        b.massStr = massBuf;
+
+        m_bodies.push_back(b);
+    };
+
     // 2. Mercury
-    CelestialBody mercury;
-    mercury.id = "mercury"; mercury.name = "Mercury"; mercury.type = "Terrestrial Planet";
-    mercury.distanceStr = "0.387 AU"; mercury.distanceAU = 0.387098;
-    mercury.radiusStr = "2,439.7 km"; mercury.massStr = "3.301 x 10^23 kg";
-    mercury.gravityStr = "3.70 m/s²"; mercury.tempStr = "440 K";
-    mercury.orbitalPeriodStr = "87.97 days"; mercury.rotationPeriodStr = "58d 15h";
-    mercury.axialTiltStr = "0.034°"; mercury.atmosphereStr = "42% O₂, 29% Na, 22% H₂"; mercury.moons = 0;
-    mercury.escapeVelocityStr = "4.25 km/s"; mercury.pressureStr = "10^-14 kPa";
-    mercury.densityStr = "5,427 kg/m³"; mercury.yearLengthStr = "87.97 days"; mercury.surfaceAreaStr = "74.8 M km²";
-    mercury.solarRadiationStr = "9,126 W/m²"; mercury.radLevelStr = "Very High";
-    mercury.magneticFieldStr = "0.3 µT"; mercury.auroraActivityStr = "None";
-    mercury.composition = { {"Oxygen", 42.0f, {0.2f, 0.8f, 0.4f, 1.0f}}, {"Sodium", 29.0f, {0.9f, 0.6f, 0.1f, 1.0f}}, {"Hydrogen", 22.0f, {0.4f, 0.7f, 1.0f, 1.0f}} };
-    mercury.axialTiltDeg = 0.034f;
-    mercury.color = glm::vec3(0.7f, 0.6f, 0.5f);
-    mercury.texturePath = "assets/textures/mercury_surface.jpg";
-    mercury.realRadiusAU = 2439.7 / AU_KM; // ~0.0000163084 AU
-    mercury.realOrbitRadiusAU = 0.387098;
-    mercury.orbitalPeriodDays = 87.969;
-    mercury.rotationPeriodHours = 1407.5; // 58.646 days
-    mercury.orbitalAngleRad = 0.2;
-    mercury.orbitalSpeedRadPerSec = (2.0 * PI_DBL) / (87.969 * 86400.0);
-    mercury.rotationSpeedRadPerSec = (2.0 * PI_DBL) / (1407.5 * 3600.0);
-    m_bodies.push_back(mercury);
+    addPlanet("mercury", "Mercury", "Terrestrial Planet",
+              3.3011e23, 2439700.0, 0.387098, 0.205630, 0.2,
+              0.088, 0.0, 0.034f, "0.034°", 1407.5, "58d 15h",
+              "42% O₂, 29% Na, 22% H₂", "10⁻¹⁴ kPa", "0.3 µT", "None", 0,
+              { {"Oxygen", 42.0f, {0.2f, 0.8f, 0.4f, 1.0f}}, {"Sodium", 29.0f, {0.9f, 0.6f, 0.1f, 1.0f}}, {"Hydrogen", 22.0f, {0.4f, 0.7f, 1.0f, 1.0f}} },
+              glm::vec3(0.7f, 0.6f, 0.5f), "assets/textures/mercury_surface.jpg");
 
-    // 3. Venus (Surface texture used)
-    CelestialBody venus;
-    venus.id = "venus"; venus.name = "Venus"; venus.type = "Terrestrial Planet";
-    venus.distanceStr = "0.723 AU"; venus.distanceAU = 0.723332;
-    venus.radiusStr = "6,051.8 km"; venus.massStr = "4.867 x 10^24 kg";
-    venus.gravityStr = "8.87 m/s²"; venus.tempStr = "737 K";
-    venus.orbitalPeriodStr = "224.70 days"; venus.rotationPeriodStr = "243d 0h";
-    venus.axialTiltStr = "177.36°"; venus.atmosphereStr = "96.5% CO₂, 3.5% N₂"; venus.moons = 0;
-    venus.escapeVelocityStr = "10.36 km/s"; venus.pressureStr = "9,200 kPa";
-    venus.densityStr = "5,243 kg/m³"; venus.yearLengthStr = "224.70 days"; venus.surfaceAreaStr = "460.2 M km²";
-    venus.solarRadiationStr = "2,613 W/m²"; venus.radLevelStr = "High";
-    venus.magneticFieldStr = "Induced"; venus.auroraActivityStr = "Weak";
-    venus.composition = { {"Carbon Dioxide", 96.5f, {0.9f, 0.3f, 0.3f, 1.0f}}, {"Nitrogen", 3.5f, {0.0f, 0.7f, 0.9f, 1.0f}} };
-    venus.axialTiltDeg = 177.36f;
-    venus.color = glm::vec3(0.9f, 0.7f, 0.3f);
-    venus.texturePath = "assets/textures/venus_surface.jpg";
-    venus.realRadiusAU = 6051.8 / AU_KM; // ~0.0000404538 AU
-    venus.realOrbitRadiusAU = 0.723332;
-    venus.orbitalPeriodDays = 224.701;
-    venus.rotationPeriodHours = -5832.6; // -243.025 days (retrograde)
-    venus.orbitalAngleRad = 1.1;
-    venus.orbitalSpeedRadPerSec = (2.0 * PI_DBL) / (224.701 * 86400.0);
-    venus.rotationSpeedRadPerSec = -(2.0 * PI_DBL) / (5832.6 * 3600.0);
-    m_bodies.push_back(venus);
+    // 3. Venus
+    addPlanet("venus", "Venus", "Terrestrial Planet",
+              4.8675e24, 6051800.0, 0.723332, 0.006772, 1.1,
+              0.760, 480.0, 177.36f, "177.36°", -5832.6, "243d 0h",
+              "96.5% CO₂, 3.5% N₂", "9,200 kPa", "Induced", "Weak", 0,
+              { {"Carbon Dioxide", 96.5f, {0.9f, 0.3f, 0.3f, 1.0f}}, {"Nitrogen", 3.5f, {0.0f, 0.7f, 0.9f, 1.0f}} },
+              glm::vec3(0.9f, 0.7f, 0.3f), "assets/textures/venus_surface.jpg");
 
-    // 4. Earth (Default focus)
-    CelestialBody earth;
-    earth.id = "earth"; earth.name = "Earth"; earth.type = "Terrestrial Planet";
-    earth.distanceStr = "1.000 AU"; earth.distanceAU = 1.000000;
-    earth.radiusStr = "6,371.0 km"; earth.massStr = "5.972 x 10^24 kg";
-    earth.gravityStr = "9.81 m/s²"; earth.tempStr = "287 K";
-    earth.orbitalPeriodStr = "365.26 days"; earth.rotationPeriodStr = "23h 56m";
-    earth.axialTiltStr = "23.44°"; earth.atmosphereStr = "78% N₂, 21% O₂"; earth.moons = 1;
-    earth.escapeVelocityStr = "11.19 km/s"; earth.pressureStr = "101.3 kPa";
-    earth.densityStr = "5,514 kg/m³"; earth.yearLengthStr = "365.26 days"; earth.surfaceAreaStr = "510.1 M km²";
-    earth.solarRadiationStr = "1,361 W/m²"; earth.radLevelStr = "Low";
-    earth.magneticFieldStr = "25.0–65.0 µT"; earth.auroraActivityStr = "Moderate";
-    earth.composition = { {"Nitrogen", 78.08f, {0.0f, 0.7f, 0.9f, 1.0f}}, {"Oxygen", 20.95f, {0.0f, 0.85f, 0.4f, 1.0f}}, {"Argon", 0.93f, {0.94f, 0.75f, 0.12f, 1.0f}}, {"Carbon Dioxide", 0.04f, {0.86f, 0.31f, 0.31f, 1.0f}}, {"Others", 0.00f, {0.5f, 0.5f, 0.5f, 1.0f}} };
-    earth.axialTiltDeg = 23.44f;
-    earth.color = glm::vec3(0.0f, 0.83f, 1.0f);
-    earth.texturePath = "assets/textures/earth_daymap.jpg";
-    earth.realRadiusAU = 6371.0 / AU_KM; // ~0.0000425875 AU
-    earth.realOrbitRadiusAU = 1.000000;
-    earth.orbitalPeriodDays = 365.256;
-    earth.rotationPeriodHours = 23.93446; // 23h 56m 4s
-    earth.orbitalAngleRad = 2.4;
-    earth.orbitalSpeedRadPerSec = (2.0 * PI_DBL) / (365.256 * 86400.0);
-    earth.rotationSpeedRadPerSec = (2.0 * PI_DBL) / (23.93446 * 3600.0);
-    m_bodies.push_back(earth);
+    // 4. Earth
+    addPlanet("earth", "Earth", "Terrestrial Planet",
+              5.9722e24, 6371000.0, 1.000000, 0.0167086, 2.4,
+              0.306, 33.0, 23.44f, "23.44°", 23.93446, "23h 56m",
+              "78% N₂, 21% O₂", "101.3 kPa", "25.0–65.0 µT", "Moderate", 1,
+              { {"Nitrogen", 78.08f, {0.0f, 0.7f, 0.9f, 1.0f}}, {"Oxygen", 20.95f, {0.0f, 0.85f, 0.4f, 1.0f}}, {"Argon", 0.93f, {0.94f, 0.75f, 0.12f, 1.0f}}, {"Carbon Dioxide", 0.04f, {0.86f, 0.31f, 0.31f, 1.0f}} },
+              glm::vec3(0.0f, 0.83f, 1.0f), "assets/textures/earth_daymap.jpg");
 
     // 5. Mars
-    CelestialBody mars;
-    mars.id = "mars"; mars.name = "Mars"; mars.type = "Terrestrial Planet";
-    mars.distanceStr = "1.524 AU"; mars.distanceAU = 1.523679;
-    mars.radiusStr = "3,389.5 km"; mars.massStr = "6.417 x 10^23 kg";
-    mars.gravityStr = "3.72 m/s²"; mars.tempStr = "210 K";
-    mars.orbitalPeriodStr = "686.98 days"; mars.rotationPeriodStr = "24h 37m";
-    mars.axialTiltStr = "25.19°"; mars.atmosphereStr = "95.3% CO₂, 2.6% N₂"; mars.moons = 2;
-    mars.escapeVelocityStr = "5.03 km/s"; mars.pressureStr = "0.61 kPa";
-    mars.densityStr = "3,934 kg/m³"; mars.yearLengthStr = "686.98 days"; mars.surfaceAreaStr = "144.8 M km²";
-    mars.solarRadiationStr = "586 W/m²"; mars.radLevelStr = "Moderate";
-    mars.magneticFieldStr = "Remnant"; mars.auroraActivityStr = "Localized";
-    mars.composition = { {"Carbon Dioxide", 95.32f, {0.9f, 0.3f, 0.2f, 1.0f}}, {"Nitrogen", 2.6f, {0.0f, 0.7f, 0.9f, 1.0f}}, {"Argon", 1.9f, {0.9f, 0.7f, 0.1f, 1.0f}} };
-    mars.axialTiltDeg = 25.19f;
-    mars.color = glm::vec3(0.95f, 0.35f, 0.2f);
-    mars.texturePath = "assets/textures/mars_surface.jpg";
-    mars.realRadiusAU = 3389.5 / AU_KM; // ~0.0000226574 AU
-    mars.realOrbitRadiusAU = 1.523679;
-    mars.orbitalPeriodDays = 686.980;
-    mars.rotationPeriodHours = 24.6229; // 24h 37m 22s
-    mars.orbitalAngleRad = 3.6;
-    mars.orbitalSpeedRadPerSec = (2.0 * PI_DBL) / (686.980 * 86400.0);
-    mars.rotationSpeedRadPerSec = (2.0 * PI_DBL) / (24.6229 * 3600.0);
-    m_bodies.push_back(mars);
+    addPlanet("mars", "Mars", "Terrestrial Planet",
+              6.4171e23, 3389500.0, 1.523679, 0.093400, 3.6,
+              0.250, 5.0, 25.19f, "25.19°", 24.6229, "24h 37m",
+              "95.3% CO₂, 2.6% N₂", "0.61 kPa", "Remnant", "Localized", 2,
+              { {"Carbon Dioxide", 95.32f, {0.9f, 0.3f, 0.2f, 1.0f}}, {"Nitrogen", 2.6f, {0.0f, 0.7f, 0.9f, 1.0f}}, {"Argon", 1.9f, {0.9f, 0.7f, 0.1f, 1.0f}} },
+              glm::vec3(0.95f, 0.35f, 0.2f), "assets/textures/mars_surface.jpg");
 
     // 6. Jupiter
-    CelestialBody jupiter;
-    jupiter.id = "jupiter"; jupiter.name = "Jupiter"; jupiter.type = "Gas Giant";
-    jupiter.distanceStr = "5.204 AU"; jupiter.distanceAU = 5.2044;
-    jupiter.radiusStr = "69,911 km"; jupiter.massStr = "1.898 x 10^27 kg";
-    jupiter.gravityStr = "24.79 m/s²"; jupiter.tempStr = "165 K";
-    jupiter.orbitalPeriodStr = "11.86 years"; jupiter.rotationPeriodStr = "9h 55m";
-    jupiter.axialTiltStr = "3.13°"; jupiter.atmosphereStr = "89% H₂, 10% He"; jupiter.moons = 95;
-    jupiter.escapeVelocityStr = "59.5 km/s"; jupiter.pressureStr = "100 kPa";
-    jupiter.densityStr = "1,326 kg/m³"; jupiter.yearLengthStr = "4,332.59 days"; jupiter.surfaceAreaStr = "6.14 x 10^10 km²";
-    jupiter.solarRadiationStr = "50.5 W/m²"; jupiter.radLevelStr = "Extreme";
-    jupiter.magneticFieldStr = "420 µT"; jupiter.auroraActivityStr = "Very High";
-    jupiter.composition = { {"Hydrogen", 89.8f, {0.9f, 0.8f, 0.6f, 1.0f}}, {"Helium", 10.2f, {0.9f, 0.6f, 0.3f, 1.0f}} };
-    jupiter.axialTiltDeg = 3.13f;
-    jupiter.color = glm::vec3(0.85f, 0.65f, 0.45f);
-    jupiter.texturePath = "assets/textures/jupiter_surface.jpg";
-    jupiter.realRadiusAU = 69911.0 / AU_KM; // ~0.000467326 AU
-    jupiter.realOrbitRadiusAU = 5.2044;
-    jupiter.orbitalPeriodDays = 4332.59;
-    jupiter.rotationPeriodHours = 9.925; // 9h 55m 30s
-    jupiter.orbitalAngleRad = 4.5;
-    jupiter.orbitalSpeedRadPerSec = (2.0 * PI_DBL) / (4332.59 * 86400.0);
-    jupiter.rotationSpeedRadPerSec = (2.0 * PI_DBL) / (9.925 * 3600.0);
-    m_bodies.push_back(jupiter);
+    addPlanet("jupiter", "Jupiter", "Gas Giant",
+              1.8982e27, 69911000.0, 5.204400, 0.048900, 4.5,
+              0.503, 0.0, 3.13f, "3.13°", 9.925, "9h 55m",
+              "89% H₂, 10% He", "100 kPa", "420 µT", "Very High", 95,
+              { {"Hydrogen", 89.8f, {0.9f, 0.8f, 0.6f, 1.0f}}, {"Helium", 10.2f, {0.9f, 0.6f, 0.3f, 1.0f}} },
+              glm::vec3(0.85f, 0.65f, 0.45f), "assets/textures/jupiter_surface.jpg");
 
     // 7. Saturn
-    CelestialBody saturn;
-    saturn.id = "saturn"; saturn.name = "Saturn"; saturn.type = "Gas Giant";
-    saturn.distanceStr = "9.583 AU"; saturn.distanceAU = 9.5826;
-    saturn.radiusStr = "58,232 km"; saturn.massStr = "5.683 x 10^26 kg";
-    saturn.gravityStr = "10.44 m/s²"; saturn.tempStr = "134 K";
-    saturn.orbitalPeriodStr = "29.46 years"; saturn.rotationPeriodStr = "10h 39m";
-    saturn.axialTiltStr = "26.73°"; saturn.atmosphereStr = "96% H₂, 3% He"; saturn.moons = 146;
-    saturn.escapeVelocityStr = "35.5 km/s"; saturn.pressureStr = "100 kPa";
-    saturn.densityStr = "687 kg/m³"; saturn.yearLengthStr = "10,759 days"; saturn.surfaceAreaStr = "4.27 x 10^10 km²";
-    saturn.solarRadiationStr = "14.9 W/m²"; saturn.radLevelStr = "High";
-    saturn.magneticFieldStr = "21 µT"; saturn.auroraActivityStr = "High";
-    saturn.composition = { {"Hydrogen", 96.3f, {0.9f, 0.85f, 0.5f, 1.0f}}, {"Helium", 3.2f, {0.9f, 0.7f, 0.4f, 1.0f}} };
-    saturn.axialTiltDeg = 26.73f;
-    saturn.color = glm::vec3(0.9f, 0.8f, 0.5f);
-    saturn.texturePath = "assets/textures/saturn_surface.jpg";
-    saturn.realRadiusAU = 58232.0 / AU_KM; // ~0.000389257 AU
-    saturn.realOrbitRadiusAU = 9.5826;
-    saturn.orbitalPeriodDays = 10759.22;
-    saturn.rotationPeriodHours = 10.656; // 10h 39m
-    saturn.orbitalAngleRad = 5.2;
-    saturn.orbitalSpeedRadPerSec = (2.0 * PI_DBL) / (10759.22 * 86400.0);
-    saturn.rotationSpeedRadPerSec = (2.0 * PI_DBL) / (10.656 * 3600.0);
-    m_bodies.push_back(saturn);
+    addPlanet("saturn", "Saturn", "Gas Giant",
+              5.6834e26, 58232000.0, 9.582600, 0.056500, 5.2,
+              0.342, 0.0, 26.73f, "26.73°", 10.656, "10h 39m",
+              "96% H₂, 3% He", "100 kPa", "21 µT", "High", 146,
+              { {"Hydrogen", 96.3f, {0.9f, 0.85f, 0.5f, 1.0f}}, {"Helium", 3.2f, {0.9f, 0.7f, 0.4f, 1.0f}} },
+              glm::vec3(0.9f, 0.8f, 0.5f), "assets/textures/saturn_surface.jpg");
 
     // 8. Uranus
-    CelestialBody uranus;
-    uranus.id = "uranus"; uranus.name = "Uranus"; uranus.type = "Ice Giant";
-    uranus.distanceStr = "19.201 AU"; uranus.distanceAU = 19.2012;
-    uranus.radiusStr = "25,362 km"; uranus.massStr = "8.681 x 10^25 kg";
-    uranus.gravityStr = "8.69 m/s²"; uranus.tempStr = "76 K";
-    uranus.orbitalPeriodStr = "84.02 years"; uranus.rotationPeriodStr = "17h 14m";
-    uranus.axialTiltStr = "97.77°"; uranus.atmosphereStr = "83% H₂, 15% He, 2.3% CH₄"; uranus.moons = 28;
-    uranus.escapeVelocityStr = "21.3 km/s"; uranus.pressureStr = "100 kPa";
-    uranus.densityStr = "1,270 kg/m³"; uranus.yearLengthStr = "30,687 days"; uranus.surfaceAreaStr = "8.08 x 10^9 km²";
-    uranus.solarRadiationStr = "3.7 W/m²"; uranus.radLevelStr = "Low";
-    uranus.magneticFieldStr = "23 µT"; uranus.auroraActivityStr = "Moderate";
-    uranus.composition = { {"Hydrogen", 83.0f, {0.3f, 0.8f, 0.9f, 1.0f}}, {"Helium", 15.0f, {0.5f, 0.7f, 0.9f, 1.0f}}, {"Methane", 2.3f, {0.1f, 0.5f, 0.8f, 1.0f}} };
-    uranus.axialTiltDeg = 97.77f;
-    uranus.color = glm::vec3(0.5f, 0.8f, 0.9f);
-    uranus.texturePath = "assets/textures/uranus_surface.jpg";
-    uranus.realRadiusAU = 25362.0 / AU_KM; // ~0.000169534 AU
-    uranus.realOrbitRadiusAU = 19.2012;
-    uranus.orbitalPeriodDays = 30687.15;
-    uranus.rotationPeriodHours = -17.24; // -17h 14m (retrograde)
-    uranus.orbitalAngleRad = 5.8;
-    uranus.orbitalSpeedRadPerSec = (2.0 * PI_DBL) / (30687.15 * 86400.0);
-    uranus.rotationSpeedRadPerSec = -(2.0 * PI_DBL) / (17.24 * 3600.0);
-    m_bodies.push_back(uranus);
+    addPlanet("uranus", "Uranus", "Ice Giant",
+              8.6810e25, 25362000.0, 19.20120, 0.047170, 5.8,
+              0.300, 0.0, 97.77f, "97.77°", -17.24, "17h 14m",
+              "83% H₂, 15% He, 2.3% CH₄", "100 kPa", "23 µT", "Moderate", 28,
+              { {"Hydrogen", 83.0f, {0.3f, 0.8f, 0.9f, 1.0f}}, {"Helium", 15.0f, {0.5f, 0.7f, 0.9f, 1.0f}}, {"Methane", 2.3f, {0.1f, 0.5f, 0.8f, 1.0f}} },
+              glm::vec3(0.5f, 0.8f, 0.9f), "assets/textures/uranus_surface.jpg");
 
     // 9. Neptune
-    CelestialBody neptune;
-    neptune.id = "neptune"; neptune.name = "Neptune"; neptune.type = "Ice Giant";
-    neptune.distanceStr = "30.047 AU"; neptune.distanceAU = 30.0472;
-    neptune.radiusStr = "24,622 km"; neptune.massStr = "1.024 x 10^26 kg";
-    neptune.gravityStr = "11.15 m/s²"; neptune.tempStr = "72 K";
-    neptune.orbitalPeriodStr = "164.79 years"; neptune.rotationPeriodStr = "16h 6m";
-    neptune.axialTiltStr = "28.32°"; neptune.atmosphereStr = "80% H₂, 19% He, 1.5% CH₄"; neptune.moons = 16;
-    neptune.escapeVelocityStr = "23.5 km/s"; neptune.pressureStr = "100 kPa";
-    neptune.densityStr = "1,638 kg/m³"; neptune.yearLengthStr = "60,190 days"; neptune.surfaceAreaStr = "7.61 x 10^9 km²";
-    neptune.solarRadiationStr = "1.5 W/m²"; neptune.radLevelStr = "Low";
-    neptune.magneticFieldStr = "14 µT"; neptune.auroraActivityStr = "Moderate";
-    neptune.composition = { {"Hydrogen", 80.0f, {0.1f, 0.3f, 0.9f, 1.0f}}, {"Helium", 19.0f, {0.3f, 0.5f, 0.9f, 1.0f}}, {"Methane", 1.5f, {0.0f, 0.2f, 0.7f, 1.0f}} };
-    neptune.axialTiltDeg = 28.32f;
-    neptune.color = glm::vec3(0.2f, 0.4f, 0.9f);
-    neptune.texturePath = "assets/textures/neptune_surface.jpg";
-    neptune.realRadiusAU = 24622.0 / AU_KM; // ~0.000164588 AU
-    neptune.realOrbitRadiusAU = 30.0472;
-    neptune.orbitalPeriodDays = 60190.03;
-    neptune.rotationPeriodHours = 16.11; // 16h 6m
-    neptune.orbitalAngleRad = 0.5;
-    neptune.orbitalSpeedRadPerSec = (2.0 * PI_DBL) / (60190.03 * 86400.0);
-    neptune.rotationSpeedRadPerSec = (2.0 * PI_DBL) / (16.11 * 3600.0);
-    m_bodies.push_back(neptune);
+    addPlanet("neptune", "Neptune", "Ice Giant",
+              1.02413e26, 24622000.0, 30.04720, 0.008678, 0.5,
+              0.290, 0.0, 28.32f, "28.32°", 16.11, "16h 6m",
+              "80% H₂, 19% He, 1.5% CH₄", "100 kPa", "14 µT", "Moderate", 16,
+              { {"Hydrogen", 80.0f, {0.1f, 0.3f, 0.9f, 1.0f}}, {"Helium", 19.0f, {0.3f, 0.5f, 0.9f, 1.0f}}, {"Methane", 1.5f, {0.0f, 0.2f, 0.7f, 1.0f}} },
+              glm::vec3(0.2f, 0.4f, 0.9f), "assets/textures/neptune_surface.jpg");
+
+    // 10. Transform into Solar System Barycentric Frame (Center of Mass & Zero Total Momentum)
+    // Scientifically standard (NASA JPL Barycentric Frame): Net momentum P_total = 0
+    // and Center of Mass R_COM = 0 guarantees the Solar System never drifts through space.
+    double totalMass = 0.0;
+    glm::dvec3 centerOfMassM(0.0);
+    glm::dvec3 totalMomentumMps(0.0);
+
+    for (const auto& b : m_bodies) {
+        totalMass += b.massKg;
+        centerOfMassM += b.massKg * b.positionM;
+        totalMomentumMps += b.massKg * b.velocityMps;
+    }
+
+    glm::dvec3 vBarycenter = totalMomentumMps / totalMass;
+    glm::dvec3 rBarycenter = centerOfMassM / totalMass;
+
+    for (auto& b : m_bodies) {
+        b.positionM -= rBarycenter;
+        b.velocityMps -= vBarycenter;
+        b.position = glm::vec3((float)(b.positionM.x / AU_METERS), 0.0f, (float)(b.positionM.z / AU_METERS));
+        b.velocity = glm::vec3((float)(b.velocityMps.x / AU_METERS), 0.0f, (float)(b.velocityMps.z / AU_METERS));
+    }
 
     m_selectedBodyIndex = 3; // Earth default
     updateBodyScales();
+    updatePhysicalQuantities();
 
-    // Initialize initial positions and pre-seed smooth trails
+    // Pre-seed smooth 3D trails along initial orbits relative to the barycenter
     for (auto& body : m_bodies) {
         if (body.id != "sol") {
-            body.orbitalAngleRad = std::fmod(body.orbitalAngleRad, 2.0 * PI_DBL);
-            if (body.orbitalAngleRad < 0.0) body.orbitalAngleRad += 2.0 * PI_DBL;
-
-            float x = (float)(body.realOrbitRadiusAU * std::cos(body.orbitalAngleRad));
-            float z = (float)(body.realOrbitRadiusAU * std::sin(body.orbitalAngleRad));
-            body.position = glm::vec3(x, 0.0f, z);
-
             body.trailHistory.clear();
-            const int initialSteps = std::min((int)body.maxTrailPoints, 240);
+            const int initialSteps = 240;
+            double r = glm::length(body.positionM) / AU_METERS;
+            double curAngle = std::atan2(body.positionM.z, body.positionM.x);
+
             for (int s = initialSteps; s >= 0; --s) {
-                double angle = body.orbitalAngleRad - (2.0 * PI_DBL * (double)s / (double)initialSteps);
-                float px = (float)(body.realOrbitRadiusAU * std::cos(angle));
-                float pz = (float)(body.realOrbitRadiusAU * std::sin(angle));
+                double angle = curAngle - (2.0 * PI_DBL * (double)s / (double)initialSteps);
+                float px = (float)(r * std::cos(angle));
+                float pz = (float)(r * std::sin(angle));
                 body.trailHistory.push_back(glm::vec3(px, 0.0f, pz));
             }
-        } else {
-            body.position = glm::vec3(0.0f);
         }
+    }
+}
+
+void PhysicsEngine::computeAccelerations(const std::vector<glm::dvec3>& positions,
+                                        const std::vector<glm::dvec3>& velocities,
+                                        std::vector<glm::dvec3>& outAccelerations) {
+    size_t n = m_bodies.size();
+    outAccelerations.assign(n, glm::dvec3(0.0));
+
+    for (size_t i = 0; i < n; ++i) {
+        glm::dvec3 pos_i = positions[i];
+        glm::dvec3 vel_i = velocities[i];
+        double v_i_sq = glm::dot(vel_i, vel_i);
+
+        for (size_t j = 0; j < n; ++j) {
+            if (i == j) continue;
+
+            glm::dvec3 pos_j = positions[j];
+            glm::dvec3 r_ij = pos_j - pos_i; // Vector from body i towards body j
+            double dist_sq = glm::dot(r_ij, r_ij);
+            double dist = std::sqrt(dist_sq);
+            if (dist < 1000.0) continue; // Softening to prevent singularity
+
+            double dist_cubed = dist_sq * dist;
+            double GM_j = G_CONST * m_bodies[j].massKg;
+
+            // 1. Classical Newtonian Gravitational Acceleration
+            glm::dvec3 a_newton = (GM_j / dist_cubed) * r_ij;
+            outAccelerations[i] += a_newton;
+
+            // 2. Einstein General Relativity 1PN (Post-Newtonian) Correction
+            // EIH Post-Newtonian term producing Mercury perihelion precession & frame-dragging
+            if (m_enableGeneralRelativity) {
+                double r_dot_v = glm::dot(r_ij, vel_i);
+                double gr_scalar = (4.0 * GM_j / dist) - v_i_sq;
+                glm::dvec3 a_gr = (GM_j / (C_LIGHT_SQ * dist_cubed)) * (gr_scalar * r_ij + 4.0 * r_dot_v * vel_i);
+                outAccelerations[i] += a_gr;
+            }
+        }
+    }
+}
+
+void PhysicsEngine::integrateNBody(double deltaSeconds) {
+    if (deltaSeconds == 0.0) return;
+
+    // Sub-stepping for symplectic stability: max 3600s (1 hr) per sub-step
+    double maxSubDt = 3600.0;
+    int numSubSteps = std::max(1, (int)std::ceil(std::abs(deltaSeconds) / maxSubDt));
+    numSubSteps = std::min(numSubSteps, 400); // Cap for 60fps real-time interactive rendering
+    double subDt = deltaSeconds / (double)numSubSteps;
+
+    size_t n = m_bodies.size();
+    std::vector<glm::dvec3> positions(n), velocities(n), accelerations(n);
+    for (size_t i = 0; i < n; ++i) {
+        positions[i] = m_bodies[i].positionM;
+        velocities[i] = m_bodies[i].velocityMps;
+    }
+
+    computeAccelerations(positions, velocities, accelerations);
+
+    for (int step = 0; step < numSubSteps; ++step) {
+        // Velocity-Verlet Step 1: v(t + dt/2) = v(t) + 0.5 * a(t) * dt
+        for (size_t i = 0; i < n; ++i) {
+            velocities[i] += 0.5 * accelerations[i] * subDt;
+        }
+
+        // Velocity-Verlet Step 2: x(t + dt) = x(t) + v(t + dt/2) * dt
+        for (size_t i = 0; i < n; ++i) {
+            positions[i] += velocities[i] * subDt;
+        }
+
+        // Velocity-Verlet Step 3: Compute new accelerations a(t + dt)
+        computeAccelerations(positions, velocities, accelerations);
+
+        // Velocity-Verlet Step 4: v(t + dt) = v(t + dt/2) + 0.5 * a(t + dt) * dt
+        for (size_t i = 0; i < n; ++i) {
+            velocities[i] += 0.5 * accelerations[i] * subDt;
+        }
+
+        // Record dynamic sub-step trail points for perfectly continuous curves at high speeds
+        if (numSubSteps > 1) {
+            for (size_t i = 1; i < n; ++i) {
+                glm::vec3 subPos(
+                    (float)(positions[i].x / AU_METERS),
+                    (float)(positions[i].y / AU_METERS),
+                    (float)(positions[i].z / AU_METERS)
+                );
+                if (m_bodies[i].trailHistory.empty() || glm::distance(m_bodies[i].trailHistory.back(), subPos) > 0.0003f) {
+                    m_bodies[i].trailHistory.push_back(subPos);
+                    while (m_bodies[i].trailHistory.size() > m_bodies[i].maxTrailPoints) {
+                        m_bodies[i].trailHistory.pop_front();
+                    }
+                }
+            }
+        }
+    }
+
+    // Barycentric zero-drift preservation (astrophysical conservation of linear momentum)
+    double totalMass = 0.0;
+    glm::dvec3 comPos(0.0);
+    glm::dvec3 comVel(0.0);
+    for (size_t i = 0; i < n; ++i) {
+        totalMass += m_bodies[i].massKg;
+        comPos += m_bodies[i].massKg * positions[i];
+        comVel += m_bodies[i].massKg * velocities[i];
+    }
+    glm::dvec3 driftPos = comPos / totalMass;
+    glm::dvec3 driftVel = comVel / totalMass;
+
+    // Commit physical state & map to AU visualization coordinates
+    for (size_t i = 0; i < n; ++i) {
+        positions[i] -= driftPos;
+        velocities[i] -= driftVel;
+
+        m_bodies[i].positionM = positions[i];
+        m_bodies[i].velocityMps = velocities[i];
+        m_bodies[i].accelerationMps2 = accelerations[i];
+
+        // AU coordinates for rendering
+        m_bodies[i].position = glm::vec3(
+            (float)(positions[i].x / AU_METERS),
+            (float)(positions[i].y / AU_METERS),
+            (float)(positions[i].z / AU_METERS)
+        );
+        m_bodies[i].velocity = glm::vec3(
+            (float)(velocities[i].x / AU_METERS),
+            (float)(velocities[i].y / AU_METERS),
+            (float)(velocities[i].z / AU_METERS)
+        );
+    }
+}
+
+void PhysicsEngine::updatePhysicalQuantities() {
+    glm::dvec3 solPosM = m_bodies.empty() ? glm::dvec3(0.0) : m_bodies[0].positionM;
+    double solMass = m_bodies.empty() ? 1.989e30 : m_bodies[0].massKg;
+
+    for (size_t i = 0; i < m_bodies.size(); ++i) {
+        auto& body = m_bodies[i];
+
+        // 1. Real-time Distance to Sol
+        glm::dvec3 relToSol = body.positionM - solPosM;
+        double distM = glm::length(relToSol);
+        body.distanceKm = distM / 1000.0;
+        body.distanceAU = distM / AU_METERS;
+        body.realOrbitRadiusAU = body.distanceAU;
+
+        if (body.id == "sol") {
+            body.distanceStr = "0.00 AU";
+            body.orbitalSpeedStr = "0.00 km/s";
+        } else {
+            char distBuf[64];
+            if (body.distanceAU < 0.1) {
+                snprintf(distBuf, sizeof(distBuf), "%.4f AU", body.distanceAU);
+            } else if (body.distanceAU < 10.0) {
+                snprintf(distBuf, sizeof(distBuf), "%.3f AU", body.distanceAU);
+            } else {
+                snprintf(distBuf, sizeof(distBuf), "%.2f AU", body.distanceAU);
+            }
+            body.distanceStr = distBuf;
+        }
+
+        // 2. Real-time Orbital Velocity
+        double speedMps = glm::length(body.velocityMps);
+        body.orbitalSpeedKmpS = speedMps / 1000.0;
+        char spdBuf[64];
+        snprintf(spdBuf, sizeof(spdBuf), "%.2f km/s", body.orbitalSpeedKmpS);
+        body.orbitalSpeedStr = spdBuf;
+
+        // 3. Real-time Surface Gravity: g = GM / R^2
+        if (body.radiusM > 0.0) {
+            body.surfaceGravityMps2 = (G_CONST * body.massKg) / (body.radiusM * body.radiusM);
+            char gravBuf[64];
+            snprintf(gravBuf, sizeof(gravBuf), "%.2f m/s² (%.2fg)", body.surfaceGravityMps2, body.surfaceGravityMps2 / 9.80665);
+            body.gravityStr = gravBuf;
+
+            // 4. Real-time Escape Velocity: v_esc = sqrt(2GM / R)
+            body.escapeVelocityKmpS = std::sqrt(2.0 * G_CONST * body.massKg / body.radiusM) / 1000.0;
+            char escBuf[64];
+            snprintf(escBuf, sizeof(escBuf), "%.2f km/s", body.escapeVelocityKmpS);
+            body.escapeVelocityStr = escBuf;
+
+            // 5. Mean Density: rho = M / (4/3 * pi * R^3)
+            double volM3 = (4.0 / 3.0) * PI_DBL * std::pow(body.radiusM, 3.0);
+            body.meanDensityKgM3 = body.massKg / volM3;
+            char denBuf[64];
+            snprintf(denBuf, sizeof(denBuf), "%.0f kg/m³", body.meanDensityKgM3);
+            body.densityStr = denBuf;
+
+            // 6. Surface Area: A = 4 * pi * R^2
+            body.surfaceAreaKm2 = (4.0 * PI_DBL * std::pow(body.radiusM / 1000.0, 2.0));
+            char areaBuf[64];
+            if (body.surfaceAreaKm2 > 1.0e9) {
+                snprintf(areaBuf, sizeof(areaBuf), "%.2f B km²", body.surfaceAreaKm2 / 1.0e9);
+            } else if (body.surfaceAreaKm2 > 1.0e6) {
+                snprintf(areaBuf, sizeof(areaBuf), "%.1f M km²", body.surfaceAreaKm2 / 1.0e6);
+            } else {
+                snprintf(areaBuf, sizeof(areaBuf), "%.0f km²", body.surfaceAreaKm2);
+            }
+            body.surfaceAreaStr = areaBuf;
+        }
+
+        // 7. Real-time Solar Radiation Flux & Surface Temperature (Stefan-Boltzmann Law)
+        if (body.id == "sol") {
+            body.solarRadiationFlux = 6.33e7;
+            body.surfaceTempK = 5778.0;
+            body.tempStr = "5,778 K (5,505 °C)";
+            body.solarRadiationStr = "6.33 × 10⁷ W/m²";
+            body.radLevelStr = "Extreme";
+        } else {
+            if (distM > 0.0) {
+                // F = L_sun / (4 * pi * r^2)
+                body.solarRadiationFlux = L_SUN / (4.0 * PI_DBL * distM * distM);
+                char radBuf[64];
+                if (body.solarRadiationFlux >= 10000.0) {
+                    snprintf(radBuf, sizeof(radBuf), "%.0f W/m²", body.solarRadiationFlux);
+                } else if (body.solarRadiationFlux >= 10.0) {
+                    snprintf(radBuf, sizeof(radBuf), "%.1f W/m²", body.solarRadiationFlux);
+                } else {
+                    snprintf(radBuf, sizeof(radBuf), "%.2f W/m²", body.solarRadiationFlux);
+                }
+                body.solarRadiationStr = radBuf;
+
+                if (body.solarRadiationFlux > 5000.0) body.radLevelStr = "Extreme";
+                else if (body.solarRadiationFlux > 1500.0) body.radLevelStr = "Very High";
+                else if (body.solarRadiationFlux > 800.0) body.radLevelStr = "High";
+                else if (body.solarRadiationFlux > 100.0) body.radLevelStr = "Moderate";
+                else body.radLevelStr = "Low";
+
+                // Equilibrium Temperature: T_eq = (( (1 - A) * F ) / (4 * sigma))^0.25 + T_greenhouse
+                double t_eq = std::pow(((1.0 - body.albedo) * body.solarRadiationFlux) / (4.0 * SIGMA_SB), 0.25);
+                body.surfaceTempK = t_eq + body.greenhouseK;
+                double tempC = body.surfaceTempK - 273.15;
+                char tempBuf[64];
+                snprintf(tempBuf, sizeof(tempBuf), "%.0f K (%.0f °C)", body.surfaceTempK, tempC);
+                body.tempStr = tempBuf;
+            }
+        }
+
+        // 8. General Relativistic Time Dilation & Gravitational Redshift
+        if (body.id != "sol" && distM > 0.0) {
+            // dt_proper / dt_coord = 1 - (GM_sun / (c^2 * r)) - (v^2 / (2 * c^2))
+            double gravPotentialShift = (G_CONST * solMass) / (C_LIGHT_SQ * distM);
+            double kinematicShift = (speedMps * speedMps) / (2.0 * C_LIGHT_SQ);
+            body.timeDilationShift = gravPotentialShift + kinematicShift;
+            // Shift in microseconds per Earth day (86,400 s)
+            body.timeDriftMicrosecPerDay = -body.timeDilationShift * SEC_PER_DAY * 1.0e6;
+            char tdBuf[64];
+            snprintf(tdBuf, sizeof(tdBuf), "%.1f µs/day (GR+SR)", body.timeDriftMicrosecPerDay);
+            body.timeDilationStr = tdBuf;
+        } else {
+            body.timeDilationStr = "Reference (Sol)";
+        }
+
+        // 9. Dynamic Keplerian Elements & Orbital Mechanics (Relative to Sol)
+        if (body.id != "sol" && distM > 0.0) {
+            glm::dvec3 rVec = relToSol;
+            glm::dvec3 vVec = body.velocityMps;
+            double mu = G_CONST * (solMass + body.massKg);
+
+            // Specific Angular Momentum: h = r x v
+            glm::dvec3 hVec = glm::cross(rVec, vVec);
+            body.specificAngularMomentum = glm::length(hVec);
+            char hBuf[64];
+            snprintf(hBuf, sizeof(hBuf), "%.3e m²/s", body.specificAngularMomentum);
+            body.angularMomentumStr = hBuf;
+
+            // Specific Orbital Energy: E = v^2/2 - mu/r
+            body.specificOrbitalEnergy = (speedMps * speedMps * 0.5) - (mu / distM);
+            char eBuf[64];
+            snprintf(eBuf, sizeof(eBuf), "%.1f MJ/kg", body.specificOrbitalEnergy / 1.0e6);
+            body.orbitalEnergyStr = eBuf;
+
+            // Semi-Major Axis: a = -mu / (2 * E)
+            if (std::abs(body.specificOrbitalEnergy) > 1.0e-9) {
+                body.semiMajorAxisM = -mu / (2.0 * body.specificOrbitalEnergy);
+                body.semiMajorAxisAU = body.semiMajorAxisM / AU_METERS;
+                char aBuf[64];
+                snprintf(aBuf, sizeof(aBuf), "%.3f AU (%.1fM km)", body.semiMajorAxisAU, body.semiMajorAxisM / 1.0e9);
+                body.semiMajorAxisStr = aBuf;
+            }
+
+            // Eccentricity Vector: e = (v x h)/mu - r/|r|
+            glm::dvec3 eVec = (glm::cross(vVec, hVec) / mu) - (rVec / distM);
+            body.eccentricity = glm::length(eVec);
+            char eccBuf[64];
+            snprintf(eccBuf, sizeof(eccBuf), "%.4f", body.eccentricity);
+            body.eccentricityStr = eccBuf;
+
+            // Periapsis (Perihelion) & Apoapsis (Aphelion)
+            if (body.semiMajorAxisM > 0.0) {
+                body.periapsisM = body.semiMajorAxisM * (1.0 - body.eccentricity);
+                body.periapsisAU = body.periapsisM / AU_METERS;
+                body.apoapsisM = body.semiMajorAxisM * (1.0 + body.eccentricity);
+                body.apoapsisAU = body.apoapsisM / AU_METERS;
+
+                char pBuf[64], apBuf[64];
+                snprintf(pBuf, sizeof(pBuf), "%.3f AU (%.1fM km)", body.periapsisAU, body.periapsisM / 1.0e9);
+                snprintf(apBuf, sizeof(apBuf), "%.3f AU (%.1fM km)", body.apoapsisAU, body.apoapsisM / 1.0e9);
+                body.periapsisStr = pBuf;
+                body.apoapsisStr = apBuf;
+            }
+
+            // True Anomaly: angle between eccentricity vector and position vector
+            double eLen = glm::length(eVec);
+            if (eLen > 1.0e-7) {
+                double cosNu = glm::clamp(glm::dot(eVec, rVec) / (eLen * distM), -1.0, 1.0);
+                double nuRad = std::acos(cosNu);
+                if (glm::dot(rVec, vVec) < 0.0) nuRad = 2.0 * PI_DBL - nuRad;
+                body.trueAnomalyDeg = nuRad * 180.0 / PI_DBL;
+                char nuBuf[64];
+                snprintf(nuBuf, sizeof(nuBuf), "%.1f°", body.trueAnomalyDeg);
+                body.trueAnomalyStr = nuBuf;
+            }
+
+            // Einstein General Relativistic Perihelion Precession Rate per Century
+            // Delta phi = 6 * pi * G * M / (c^2 * a * (1 - e^2)) radians/revolution
+            if (body.semiMajorAxisM > 0.0 && body.eccentricity < 0.999) {
+                double term1 = (6.0 * PI_DBL * G_CONST * solMass);
+                double term2 = (C_LIGHT_SQ * body.semiMajorAxisM * (1.0 - body.eccentricity * body.eccentricity));
+                double deltaPhiRadPerRev = term1 / term2;
+                double periodSec = 2.0 * PI_DBL * std::sqrt(std::pow(body.semiMajorAxisM, 3.0) / mu);
+                double revsPerCentury = (100.0 * 365.256 * SEC_PER_DAY) / periodSec;
+                double radToArcsec = 206264.806247;
+                body.grPrecessionArcsecCentury = deltaPhiRadPerRev * revsPerCentury * radToArcsec;
+
+                char precBuf[64];
+                snprintf(precBuf, sizeof(precBuf), "+%.2f\"/century (GR)", body.grPrecessionArcsecCentury);
+                body.grPrecessionStr = precBuf;
+            }
+        } else {
+            body.semiMajorAxisStr = "Central Star (Sol)";
+            body.eccentricityStr = "0.0000";
+            body.periapsisStr = "0.00 AU";
+            body.apoapsisStr = "0.00 AU";
+            body.angularMomentumStr = "Reference (Sol)";
+            body.orbitalEnergyStr = "Reference (Sol)";
+            body.grPrecessionStr = "Reference Source";
+            body.trueAnomalyStr = "N/A";
+        }
+    }
+}
+
+void PhysicsEngine::computeSystemConservationStats() {
+    size_t n = m_bodies.size();
+    if (n == 0) return;
+
+    double kinetic = 0.0;
+    double potential = 0.0;
+    glm::dvec3 totalAngMom(0.0);
+
+    for (size_t i = 0; i < n; ++i) {
+        double mass = m_bodies[i].massKg;
+        glm::dvec3 pos = m_bodies[i].positionM;
+        glm::dvec3 vel = m_bodies[i].velocityMps;
+
+        // Kinetic Energy: 0.5 * m * v^2
+        kinetic += 0.5 * mass * glm::dot(vel, vel);
+
+        // Angular Momentum: r x (m * v)
+        totalAngMom += mass * glm::cross(pos, vel);
+
+        // Potential Energy: - G * m_i * m_j / r_ij
+        for (size_t j = i + 1; j < n; ++j) {
+            double dist = glm::length(pos - m_bodies[j].positionM);
+            if (dist > 1000.0) {
+                potential -= (G_CONST * mass * m_bodies[j].massKg) / dist;
+            }
+        }
+    }
+
+    m_totalSystemKineticJ = kinetic;
+    m_totalSystemPotentialJ = potential;
+    m_totalSystemEnergyJ = kinetic + potential;
+    m_totalSystemAngularMomentum = glm::length(totalAngMom);
+
+    if (m_initialSystemEnergyJ == 0.0) {
+        m_initialSystemEnergyJ = m_totalSystemEnergyJ;
+    }
+
+    if (std::abs(m_initialSystemEnergyJ) > 1.0e-9) {
+        m_energyConservationDriftPct = (std::abs(m_totalSystemEnergyJ - m_initialSystemEnergyJ) / std::abs(m_initialSystemEnergyJ)) * 100.0;
     }
 }
 
@@ -295,56 +637,31 @@ void PhysicsEngine::updateBodyScales() {
 void PhysicsEngine::update(float deltaTime) {
     if (m_isPaused) return;
 
+    m_realTimeElapsedSeconds += (double)deltaTime;
     double effectiveDelta = (double)deltaTime * (double)m_timeScale;
     m_simulatedTimeSeconds += effectiveDelta;
 
-    const double maxStepAngle = 2.0 * PI_DBL / 240.0; // ~1.5 degrees per arc sub-step
+    // Run symplectic N-body integration (Newtonian + Einstein 1PN General Relativity)
+    integrateNBody(effectiveDelta);
 
+    // Update real-time reacting astrophysical properties & Keplerian orbital elements
+    updatePhysicalQuantities();
+
+    // Compute global energy and angular momentum conservation
+    computeSystemConservationStats();
+
+    // Record dynamic 3D trail points along true gravitational trajectory
     for (auto& body : m_bodies) {
         if (body.id != "sol") {
-            double totalDeltaAngle = body.orbitalSpeedRadPerSec * effectiveDelta;
-            double startAngle = body.orbitalAngleRad;
-            double endAngle = startAngle + totalDeltaAngle;
-
-            // Normalize current angle to [0, 2pi)
-            body.orbitalAngleRad = std::fmod(endAngle, 2.0 * PI_DBL);
-            if (body.orbitalAngleRad < 0.0) {
-                body.orbitalAngleRad += 2.0 * PI_DBL;
-            }
-
-            float x = (float)(body.realOrbitRadiusAU * std::cos(body.orbitalAngleRad));
-            float z = (float)(body.realOrbitRadiusAU * std::sin(body.orbitalAngleRad));
-            body.position = glm::vec3(x, 0.0f, z);
-
-            // Sub-stepped dynamic trail recording to maintain perfectly smooth curvature
-            // even at massive time scale multipliers (1,000x to 1,000,000x)
-            double absDeltaAngle = std::abs(totalDeltaAngle);
-            if (absDeltaAngle > 0.0000001) {
-                // If delta angle exceeds a full orbit in 1 frame, sample the most recent 1.0 revolution
-                double arcToSample = std::min(absDeltaAngle, 2.0 * PI_DBL);
-                int numSteps = std::max(1, (int)std::ceil(arcToSample / maxStepAngle));
-                double stepAngle = arcToSample / (double)numSteps;
-                double direction = (totalDeltaAngle >= 0.0) ? 1.0 : -1.0;
-
-                for (int k = 1; k <= numSteps; ++k) {
-                    double sampleAngle = endAngle - direction * (numSteps - k) * stepAngle;
-                    float sx = (float)(body.realOrbitRadiusAU * std::cos(sampleAngle));
-                    float sz = (float)(body.realOrbitRadiusAU * std::sin(sampleAngle));
-                    glm::vec3 samplePos(sx, 0.0f, sz);
-
-                    if (body.trailHistory.empty() || glm::distance(body.trailHistory.back(), samplePos) > 0.000001f) {
-                        body.trailHistory.push_back(samplePos);
-                        while (body.trailHistory.size() > body.maxTrailPoints) {
-                            body.trailHistory.pop_front();
-                        }
-                    }
+            if (body.trailHistory.empty() || glm::distance(body.trailHistory.back(), body.position) > 0.0002f) {
+                body.trailHistory.push_back(body.position);
+                while (body.trailHistory.size() > body.maxTrailPoints) {
+                    body.trailHistory.pop_front();
                 }
             }
-        } else {
-            body.position = glm::vec3(0.0f, 0.0f, 0.0f);
         }
 
-        // Calculate axial rotation with fmod
+        // Calculate axial rotation
         body.rotationAngle = (float)std::fmod((double)body.rotationAngle + (double)body.rotationSpeedRadPerSec * effectiveDelta, 2.0 * PI_DBL);
         if (body.rotationAngle < 0.0f) {
             body.rotationAngle += (float)(2.0 * PI_DBL);
@@ -381,6 +698,33 @@ std::string PhysicsEngine::getSimulationTimeStr() const {
     #endif
     char buf[64];
     strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S UTC", &t);
+    return std::string(buf);
+}
+
+std::string PhysicsEngine::getTotalEnergyStr() const {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%.3e J (ΔE: %.4f%%)", m_totalSystemEnergyJ, m_energyConservationDriftPct);
+    return std::string(buf);
+}
+
+std::string PhysicsEngine::getTotalAngularMomentumStr() const {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%.3e kg·m²/s", m_totalSystemAngularMomentum);
+    return std::string(buf);
+}
+
+std::string PhysicsEngine::getSimVsRealTimeStr() const {
+    char buf[128];
+    double simYears = m_simulatedTimeSeconds / (365.256 * SEC_PER_DAY);
+    int realMins = (int)(m_realTimeElapsedSeconds / 60.0);
+    int realSecs = (int)m_realTimeElapsedSeconds % 60;
+    if (simYears >= 1.0) {
+        snprintf(buf, sizeof(buf), "Sim: %.2f yrs | Real: %02d:%02d (%s)", simYears, realMins, realSecs,
+                 (m_timeScale >= 86400.0f) ? "Fast-Forward" : "Real-time");
+    } else {
+        double simDays = m_simulatedTimeSeconds / SEC_PER_DAY;
+        snprintf(buf, sizeof(buf), "Sim: %.1f days | Real: %02d:%02d (%.0fx)", simDays, realMins, realSecs, m_timeScale);
+    }
     return std::string(buf);
 }
 

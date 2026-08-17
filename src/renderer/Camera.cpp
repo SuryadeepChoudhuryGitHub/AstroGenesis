@@ -26,6 +26,9 @@ void Camera::setTargetBodyRadius(float radius3D) {
 }
 
 void Camera::focusOnBody(const glm::vec3& targetPos, float targetRadius3D, float durationSeconds) {
+    if (!m_isTransitioning && glm::distance(m_currentTarget, targetPos) < 0.000001f) {
+        return; // Already focused on this object
+    }
     m_startPos = m_currentTarget;
     m_startDistance = m_distance;
     m_targetRadius = targetRadius3D;

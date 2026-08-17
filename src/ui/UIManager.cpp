@@ -232,8 +232,8 @@ void UIManager::drawLeftPanel(PhysicsEngine& physics, Camera& camera, float topB
 
 void UIManager::drawInfoOverlay(const CelestialBody& body, float x, float y) {
     ImGui::SetNextWindowPos(ImVec2(x + 12, y + 12));
-    ImGui::SetNextWindowSize(ImVec2(260, 0));
-    ImGui::SetNextWindowBgAlpha(0.75f);
+    ImGui::SetNextWindowSize(ImVec2(280, 0));
+    ImGui::SetNextWindowBgAlpha(0.78f);
     ImGui::Begin("##EarthInfo", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize);
 
     ImGui::TextColored(Col::Accent, "%s", body.name.c_str());
@@ -244,20 +244,30 @@ void UIManager::drawInfoOverlay(const CelestialBody& body, float x, float y) {
 
     auto InfoRow = [](const char* label, const std::string& value) {
         ImGui::TextColored(Col::TextSecondary, "%-18s", label);
-        ImGui::SameLine(120);
+        ImGui::SameLine(125);
         ImGui::TextColored(Col::TextPrimary, "%s", value.c_str());
     };
 
-    InfoRow("Distance",        body.distanceStr);
-    InfoRow("Radius",          body.radiusStr);
-    InfoRow("Mass",            body.massStr);
-    InfoRow("Gravity",         body.gravityStr);
-    InfoRow("Temperature",     body.tempStr);
-    InfoRow("Orbital Period",  body.orbitalPeriodStr);
-    InfoRow("Rotation Period", body.rotationPeriodStr);
-    InfoRow("Axial Tilt",      body.axialTiltStr);
-    InfoRow("Atmosphere",      body.atmosphereStr);
-    InfoRow("Moons",           std::to_string(body.moons));
+    InfoRow("Distance (Sol)",   body.distanceStr);
+    if (body.id != "sol") {
+        InfoRow("Orbital Velocity", body.orbitalSpeedStr);
+        InfoRow("Semi-Major Axis",  body.semiMajorAxisStr);
+        InfoRow("Eccentricity",     body.eccentricityStr);
+        InfoRow("Perihelion",       body.periapsisStr);
+        InfoRow("Aphelion",         body.apoapsisStr);
+        InfoRow("GR Precession",    body.grPrecessionStr);
+    }
+    InfoRow("Radius",           body.radiusStr);
+    InfoRow("Mass",             body.massStr);
+    InfoRow("Surface Gravity",  body.gravityStr);
+    InfoRow("Surface Temp.",    body.tempStr);
+    InfoRow("Solar Flux",       body.solarRadiationStr);
+    if (body.id != "sol") {
+        InfoRow("Time Dilation", body.timeDilationStr);
+    }
+    InfoRow("Axial Tilt",       body.axialTiltStr);
+    InfoRow("Atmosphere",       body.atmosphereStr);
+    InfoRow("Moons",            std::to_string(body.moons));
 
     ImGui::End();
 }
@@ -300,12 +310,47 @@ void UIManager::drawRightPanel(const CelestialBody& body, float topBarH, float w
 
     ImGui::Separator();
 
-    if (SectionHeader("RADIATION & ENVIRONMENT")) {
+    if (SectionHeader("ORBITAL MECHANICS & KEPLERIAN ELEMENTS")) {
+        float hw = (panelW - 40) / 2.0f;
+        ImGui::BeginGroup();
+        StatItem("\xE2\x97\x86", "Semi-Major Axis", body.semiMajorAxisStr.c_str());
+        ImGui::SameLine(hw);
+        StatItem("\xE2\x97\x87", "Eccentricity", body.eccentricityStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("\xE2\x86\x98", "Perihelion (Closest)", body.periapsisStr.c_str());
+        ImGui::SameLine(hw);
+        StatItem("\xE2\x86\x97", "Aphelion (Farthest)", body.apoapsisStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("\xE2\x86\xBB", "Angular Momentum", body.angularMomentumStr.c_str());
+        ImGui::SameLine(hw);
+        StatItem("\xE2\x9A\xA1", "Orbital Energy", body.orbitalEnergyStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("\xE2\x8C\x9B", "GR Precession", body.grPrecessionStr.c_str());
+        ImGui::SameLine(hw);
+        StatItem("\xE2\x88\xA0", "True Anomaly", body.trueAnomalyStr.c_str());
+        ImGui::EndGroup();
+    }
+
+    ImGui::Separator();
+
+    if (SectionHeader("RADIATION & GENERAL RELATIVITY")) {
         float hw = (panelW - 40) / 2.0f;
         ImGui::BeginGroup();
         StatItem("\xE2\x98\x80", "Solar Radiation", body.solarRadiationStr.c_str());
         ImGui::SameLine(hw);
         StatItem("\xE2\x9A\xA0", "Radiation Level", body.radLevelStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("\xE2\x8F\xB1", "Relativistic Drift", body.timeDilationStr.c_str());
+        ImGui::SameLine(hw);
+        StatItem("\xE2\x9C\xA8", "Orbital Velocity", body.orbitalSpeedStr.c_str());
         ImGui::EndGroup();
 
         ImGui::BeginGroup();
@@ -405,12 +450,12 @@ void UIManager::drawTimeControls(PhysicsEngine& physics, float x, float y, float
     ImGui::End();
 }
 
-void UIManager::drawSimMetrics(const PhysicsEngine& physics, float fps, float x, float y, float w, float h) {
+void UIManager::drawSimMetrics(PhysicsEngine& physics, float fps, float x, float y, float w, float h) {
     ImGui::SetNextWindowPos(ImVec2(x, y));
     ImGui::SetNextWindowSize(ImVec2(w, h));
     ImGui::Begin("##SimMetrics", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
-    ImGui::TextColored(Col::Accent, "SIMULATION METRICS");
+    ImGui::TextColored(Col::Accent, "PHYSICS & RELATIVITY ENGINE");
     ImGui::Separator();
 
     float colW = (w - 30) / 4.0f;
@@ -421,27 +466,62 @@ void UIManager::drawSimMetrics(const PhysicsEngine& physics, float fps, float x,
 
     ImGui::SameLine(colW);
     ImGui::BeginGroup();
-    ImGui::TextColored(Col::TextSecondary, "Objects");
+    ImGui::TextColored(Col::TextSecondary, "Bodies");
     ImGui::TextColored(Col::TextPrimary, "%d", physics.getObjectCount());
     ImGui::EndGroup();
 
     ImGui::SameLine(colW * 2);
     ImGui::BeginGroup();
-    ImGui::TextColored(Col::TextSecondary, "Physics Step");
+    ImGui::TextColored(Col::TextSecondary, "Step Time");
     ImGui::TextColored(Col::TextPrimary, "%.2f ms", physics.getPhysicsStepTimeMs());
     ImGui::EndGroup();
 
+    ImGui::SameLine(colW * 3);
+    ImGui::BeginGroup();
+    ImGui::TextColored(Col::TextSecondary, "Integrator");
+    ImGui::TextColored(Col::Accent, "Verlet (Sym)");
+    ImGui::EndGroup();
+
     ImGui::Spacing();
-    float aiCol = (w - 30) / 2.0f;
+    float halfW = (w - 30) / 2.0f;
+
+    // Energy & Angular Momentum Conservation Row
     ImGui::BeginGroup();
-    ImGui::TextColored(Col::TextSecondary, "AI Load");
-    ImGui::TextColored(Col::Yellow, "18%%");
+    ImGui::TextColored(Col::TextSecondary, "Total System Energy");
+    ImGui::TextColored(Col::TextPrimary, "%s", physics.getTotalEnergyStr().c_str());
     ImGui::EndGroup();
-    ImGui::SameLine(aiCol);
+
+    ImGui::SameLine(halfW);
     ImGui::BeginGroup();
-    ImGui::TextColored(Col::TextSecondary, "Memory");
-    ImGui::TextColored(Col::TextPrimary, "%.1f / 16 GB", 2.4f);
+    ImGui::TextColored(Col::TextSecondary, "System Angular Momentum");
+    ImGui::TextColored(Col::TextPrimary, "%s", physics.getTotalAngularMomentumStr().c_str());
     ImGui::EndGroup();
+
+    ImGui::Spacing();
+    // Simulation Time vs Real Time Tracking
+    ImGui::TextColored(Col::TextSecondary, "Time Flow: ");
+    ImGui::SameLine();
+    ImGui::TextColored(Col::Accent, "%s", physics.getSimVsRealTimeStr().c_str());
+
+    ImGui::Spacing();
+    ImGui::Separator();
+
+    // General Relativity Toggle Button
+    bool grOn = physics.isGeneralRelativityEnabled();
+    if (grOn) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.45f, 0.25f, 0.9f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 1.0f, 0.85f, 1.0f));
+        if (ImGui::Button("EINSTEIN GR (1PN): ACTIVE", ImVec2(w - 20, 24))) {
+            physics.toggleGeneralRelativity();
+        }
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.4f, 0.2f, 0.1f, 0.9f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.85f, 0.75f, 1.0f));
+        if (ImGui::Button("GRAVITY: NEWTONIAN ONLY", ImVec2(w - 20, 24))) {
+            physics.toggleGeneralRelativity();
+        }
+    }
+    ImGui::PopStyleColor(2);
 
     ImGui::End();
 }
@@ -693,7 +773,7 @@ void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vp
         float hitboxRadius = std::max(baseHitbox, sRadius + 12.0f);
         float distToMouse = 1e9f;
 
-        if (m_viewportHovered && inViewport) {
+        if (m_viewportHovered && inViewport && i != selectedIdx) {
             float dx = mousePos.x - sPos.x;
             float dy = mousePos.y - sPos.y;
             distToMouse = std::sqrt(dx * dx + dy * dy);
@@ -709,8 +789,8 @@ void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vp
 
     m_hoveredBodyIndex = bestHoverIdx;
 
-    // Handle left click inside the 3D viewport on a hovered body
-    if (m_viewportHovered && m_hoveredBodyIndex >= 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+    // Handle left click inside the 3D viewport on a hovered body (only when different from current selection)
+    if (m_viewportHovered && m_hoveredBodyIndex >= 0 && m_hoveredBodyIndex != selectedIdx && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         physics.selectBody(m_hoveredBodyIndex);
         camera.focusOnBody(bodies[m_hoveredBodyIndex].position, bodies[m_hoveredBodyIndex].radius3D, 0.85f);
     }
