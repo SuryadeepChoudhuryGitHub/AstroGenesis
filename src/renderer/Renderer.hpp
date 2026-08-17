@@ -26,6 +26,7 @@ public:
 
     void beginViewport(int x, int y, int width, int height, const glm::vec4& clearColor);
     void renderSphere(const Camera& camera, float aspect, const CelestialBody& body, const glm::vec3& sunPos, const glm::vec3& cameraTarget);
+    void renderSkybox(const Camera& camera, float aspect);
     void endViewport(int windowWidth, int windowHeight);
 
     GLuint loadTexture(const std::string& filepath);
@@ -41,6 +42,12 @@ private:
     GLint m_uTextureLoc = -1;
     GLint m_uLightPosLoc = -1;
     GLint m_uIsSunLoc = -1;
+
+    // Skybox shader
+    GLuint m_skyboxProgram = 0;
+    GLint m_skyUVPLoc = -1;
+    GLint m_skyTexLoc = -1;
+    GLuint m_skyboxTexture = 0;
 
     MeshData m_sphereMesh;
     std::unordered_map<std::string, GLuint> m_textures;

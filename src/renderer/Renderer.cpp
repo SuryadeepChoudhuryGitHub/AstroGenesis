@@ -68,6 +68,35 @@ void main() {
 }
 )GLSL";
 
+// ---------- Skybox shaders (unlit, textured inside of a sphere) ----------
+static const char* skyboxVertSrc = R"GLSL(
+#version 330 core
+layout(location = 0) in vec3 aPos;
+layout(location = 2) in vec2 aTexCoord;
+
+out vec2 TexCoord;
+
+uniform mat4 uVP;
+
+void main() {
+    TexCoord = aTexCoord;
+    gl_Position = uVP * vec4(aPos, 1.0);
+}
+)GLSL";
+
+static const char* skyboxFragSrc = R"GLSL(
+#version 330 core
+out vec4 FragColor;
+
+in vec2 TexCoord;
+
+uniform sampler2D uTexture;
+
+void main() {
+    FragColor = texture(uTexture, TexCoord);
+}
+)GLSL";
+
 static GLuint compileShader(GLenum type, const char* src) {
     GLuint s = glCreateShader(type);
     glShaderSource(s, 1, &src, nullptr);
@@ -110,6 +139,26 @@ bool Renderer::initialize() {
     m_uIsSunLoc      = glGetUniformLocation(m_shaderProgram, "uIsSun");
 
     m_sphereMesh = createSphereMesh(1.0f, 48, 64);
+
+    // ---------- Skybox shader program ----------
+    GLuint skyV = compileShader(GL_VERTEX_SHADER, skyboxVertSrc);
+    GLuint skyF = compileShader(GL_FRAGMENT_SHADER, skyboxFragSrc);
+    m_skyboxProgram = glCreateProgram();
+    glAttachShader(m_skyboxProgram, skyV);
+    glAttachShader(m_skyboxProgram, skyF);
+    glLinkProgram(m_skyboxProgram);
+    glDeleteShader(skyV);
+    glDeleteShader(skyF);
+
+    m_skyUVPLoc = glGetUniformLocation(m_skyboxProgram, "uVP");
+    m_skyTexLoc = glGetUniformLocation(m_skyboxProgram, "uTexture");
+
+    // Pre-load the skybox texture
+    m_skyboxTexture = loadTexture("assets/textures/stars_milky_way.jpg");
+    if (m_skyboxTexture == 0) {
+        fprintf(stderr, "WARNING: Skybox texture failed to load!\n");
+    }
+
     return true;
 }
 
@@ -130,6 +179,10 @@ void Renderer::shutdown() {
     if (m_shaderProgram) {
         glDeleteProgram(m_shaderProgram);
         m_shaderProgram = 0;
+    }
+    if (m_skyboxProgram) {
+        glDeleteProgram(m_skyboxProgram);
+        m_skyboxProgram = 0;
     }
 }
 
@@ -300,6 +353,46 @@ void Renderer::renderSphere(const Camera& camera, float aspect, const CelestialB
 
 void Renderer::endViewport(int windowWidth, int windowHeight) {
     glViewport(0, 0, windowWidth, windowHeight);
+}
+
+void Renderer::renderSkybox(const Camera& camera, float aspect) {
+    // Skybox renders first — disable depth entirely, no depth tricks needed
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+    // Cull front faces so we see the inside of the sphere
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_FRONT);
+
+    glUseProgram(m_skyboxProgram);
+
+    // Use a fixed projection that guarantees the skybox sphere is visible.
+    // Near=0.1, Far=1000 ensures the sphere at radius 100 is never clipped.
+    glm::mat4 proj = glm::perspective(glm::radians(45.0f), std::max(aspect, 0.1f), 0.1f, 1000.0f);
+
+    // Strip translation from view matrix so the skybox stays centered on camera
+    glm::mat4 view = glm::mat4(glm::mat3(camera.getViewMatrix()));
+
+    // Scale the unit sphere to radius 100 — well within [0.1, 1000] frustum
+    glm::mat4 model = glm::scale(glm::mat4(1.0f), glm::vec3(100.0f));
+    glm::mat4 vp = proj * view * model;
+
+    glUniformMatrix4fv(m_skyUVPLoc, 1, GL_FALSE, glm::value_ptr(vp));
+
+    if (m_skyboxTexture > 0) {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, m_skyboxTexture);
+        glUniform1i(m_skyTexLoc, 0);
+    }
+
+    glBindVertexArray(m_sphereMesh.vao);
+    glDrawElements(GL_TRIANGLES, m_sphereMesh.indexCount, GL_UNSIGNED_INT, 0);
+
+    // Restore state
+    glCullFace(GL_BACK);
+    glDisable(GL_CULL_FACE);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
 }
 
 } // namespace AstroGenesis

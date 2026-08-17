@@ -144,6 +144,9 @@ void Application::run() {
         glViewport((int)vpX, (int)(fbH - vpY - vpH), (int)vpW, (int)vpH);
         float aspect = vpW / std::max(vpH, 1.0f);
 
+        // Render skybox (stars background) first, before planets
+        m_renderer.renderSkybox(m_camera, aspect);
+
         glm::vec3 solPos{0.0f};
         for (const auto& body : m_physics.getBodies()) {
             if (body.id == "sol") {
@@ -153,8 +156,9 @@ void Application::run() {
         }
 
         // Camera target is the world-space position of the focused body.
-        // renderSphere subtracts this so the focused body is at origin (0,0,0).
-        glm::vec3 camTarget = m_camera.getTargetPosition();
+        // Use actual body position directly (not interpolated) so the camera
+        // stays perfectly locked to the planet even at high time multipliers.
+        glm::vec3 camTarget = m_physics.getSelectedBody().position;
         for (const auto& body : m_physics.getBodies()) {
             m_renderer.renderSphere(m_camera, aspect, body, solPos, camTarget);
         }

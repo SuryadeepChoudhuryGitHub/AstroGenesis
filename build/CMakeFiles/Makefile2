@@ -237,9 +237,9 @@ CMakeFiles/imgui.dir/clean:
 
 # All Build rule for target.
 CMakeFiles/AstroGenesis.dir/all: CMakeFiles/glad.dir/all
-CMakeFiles/AstroGenesis.dir/all: external/glm/glm/CMakeFiles/glm.dir/all
 CMakeFiles/AstroGenesis.dir/all: CMakeFiles/imgui.dir/all
 CMakeFiles/AstroGenesis.dir/all: external/glfw/src/CMakeFiles/glfw.dir/all
+CMakeFiles/AstroGenesis.dir/all: external/glm/glm/CMakeFiles/glm.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=1,2,3,4,5,6,7 "Built target AstroGenesis"
