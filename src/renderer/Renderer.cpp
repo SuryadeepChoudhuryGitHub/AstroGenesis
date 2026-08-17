@@ -91,9 +91,14 @@ out vec4 FragColor;
 in vec2 TexCoord;
 
 uniform sampler2D uTexture;
+uniform bool uHasTexture;
 
 void main() {
-    FragColor = texture(uTexture, TexCoord);
+    if (uHasTexture) {
+        FragColor = texture(uTexture, TexCoord);
+    } else {
+        FragColor = vec4(0.015, 0.025, 0.05, 1.0);
+    }
 }
 )GLSL";
 
@@ -152,11 +157,12 @@ bool Renderer::initialize() {
 
     m_skyUVPLoc = glGetUniformLocation(m_skyboxProgram, "uVP");
     m_skyTexLoc = glGetUniformLocation(m_skyboxProgram, "uTexture");
+    m_skyHasTexLoc = glGetUniformLocation(m_skyboxProgram, "uHasTexture");
 
     // Pre-load the skybox texture
     m_skyboxTexture = loadTexture("assets/textures/stars_milky_way.jpg");
     if (m_skyboxTexture == 0) {
-        fprintf(stderr, "WARNING: Skybox texture failed to load!\n");
+        fprintf(stderr, "WARNING: Skybox texture failed to load initially (will retry on demand).\n");
     }
 
     return true;
@@ -193,11 +199,45 @@ GLuint Renderer::loadTexture(const std::string& filepath) {
         return it->second;
     }
 
-    int width, height, nrChannels;
+    // Extract filename from filepath
+    std::string filename = filepath;
+    size_t lastSlash = filepath.find_last_of("/\\");
+    if (lastSlash != std::string::npos) {
+        filename = filepath.substr(lastSlash + 1);
+    }
+
+    // Try multiple candidate paths to find the file from any working directory
+    std::vector<std::string> candidates = {
+        filepath,
+        "../" + filepath,
+        "../../" + filepath,
+        "assets/textures/" + filename,
+        "../assets/textures/" + filename,
+        "../../assets/textures/" + filename,
+        "build/" + filepath,
+        "build/Debug/" + filepath,
+        "build/Release/" + filepath,
+        "../Debug/" + filepath,
+        "../Release/" + filepath,
+        "Debug/" + filepath,
+        "Release/" + filepath
+    };
+
+    int width = 0, height = 0, nrChannels = 0;
+    unsigned char* data = nullptr;
+    std::string matchedPath;
+
     stbi_set_flip_vertically_on_load(false);
-    unsigned char* data = stbi_load(filepath.c_str(), &width, &height, &nrChannels, 0);
+    for (const auto& path : candidates) {
+        data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
+        if (data) {
+            matchedPath = path;
+            break;
+        }
+    }
+
     if (!data) {
-        fprintf(stderr, "Failed to load texture: %s\n", filepath.c_str());
+        fprintf(stderr, "Failed to load texture: %s (searched candidate directories)\n", filepath.c_str());
         m_textures[filepath] = 0;
         return 0;
     }
@@ -207,9 +247,10 @@ GLuint Renderer::loadTexture(const std::string& filepath) {
     else if (nrChannels == 3) format = GL_RGB;
     else if (nrChannels == 4) format = GL_RGBA;
 
-    GLuint textureID;
+    GLuint textureID = 0;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_2D, textureID);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -219,7 +260,7 @@ GLuint Renderer::loadTexture(const std::string& filepath) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     stbi_image_free(data);
-    printf("Successfully loaded planet texture: %s (%dx%d, %d channels)\n", filepath.c_str(), width, height, nrChannels);
+    printf("Successfully loaded texture: %s from %s (%dx%d, %d channels)\n", filepath.c_str(), matchedPath.c_str(), width, height, nrChannels);
 
     m_textures[filepath] = textureID;
     return textureID;
@@ -356,24 +397,24 @@ void Renderer::endViewport(int windowWidth, int windowHeight) {
 }
 
 void Renderer::renderSkybox(const Camera& camera, float aspect) {
-    // Skybox renders first — disable depth entirely, no depth tricks needed
+    if (m_skyboxTexture == 0) {
+        m_skyboxTexture = loadTexture("assets/textures/stars_milky_way.jpg");
+    }
+
+    // Skybox renders first — disable depth test and depth writing
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
-
-    // Cull front faces so we see the inside of the sphere
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
+    glDisable(GL_CULL_FACE);
 
     glUseProgram(m_skyboxProgram);
 
-    // Use a fixed projection that guarantees the skybox sphere is visible.
-    // Near=0.1, Far=1000 ensures the sphere at radius 100 is never clipped.
+    // Fixed projection: 45 degree FOV matching scene, guaranteed within near/far planes
     glm::mat4 proj = glm::perspective(glm::radians(45.0f), std::max(aspect, 0.1f), 0.1f, 1000.0f);
 
-    // Strip translation from view matrix so the skybox stays centered on camera
+    // Strip translation from view matrix so skybox is always centered at camera origin
     glm::mat4 view = glm::mat4(glm::mat3(camera.getViewMatrix()));
 
-    // Scale the unit sphere to radius 100 — well within [0.1, 1000] frustum
+    // Scale unit sphere to radius 100
     glm::mat4 model = glm::scale(glm::mat4(1.0f), glm::vec3(100.0f));
     glm::mat4 vp = proj * view * model;
 
@@ -383,14 +424,19 @@ void Renderer::renderSkybox(const Camera& camera, float aspect) {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, m_skyboxTexture);
         glUniform1i(m_skyTexLoc, 0);
+        if (m_skyHasTexLoc != -1) {
+            glUniform1i(m_skyHasTexLoc, 1);
+        }
+    } else {
+        if (m_skyHasTexLoc != -1) {
+            glUniform1i(m_skyHasTexLoc, 0);
+        }
     }
 
     glBindVertexArray(m_sphereMesh.vao);
     glDrawElements(GL_TRIANGLES, m_sphereMesh.indexCount, GL_UNSIGNED_INT, 0);
 
-    // Restore state
-    glCullFace(GL_BACK);
-    glDisable(GL_CULL_FACE);
+    // Restore state for subsequent celestial body rendering
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
 }

@@ -47,6 +47,7 @@ private:
     GLuint m_skyboxProgram = 0;
     GLint m_skyUVPLoc = -1;
     GLint m_skyTexLoc = -1;
+    GLint m_skyHasTexLoc = -1;
     GLuint m_skyboxTexture = 0;
 
     MeshData m_sphereMesh;

@@ -23,7 +23,7 @@ private:
     void drawRightPanel(const CelestialBody& body, float topBarH, float winW, float winH, float statusBarH);
     void drawTimeControls(PhysicsEngine& physics, float x, float y, float w, float h);
     void drawSimMetrics(const PhysicsEngine& physics, float fps, float x, float y, float w, float h);
-    void drawOrbitVis(float x, float y, float w, float h);
+    void drawOrbitVis(PhysicsEngine& physics, Camera& camera, float x, float y, float w, float h);
     void drawAIAssistant(float x, float y, float w, float h);
     void drawStatusBar(const PhysicsEngine& physics, const Camera& camera, float winW, float winH, float barH);
 
@@ -32,6 +32,7 @@ private:
     float m_viewportY = 48.0f;
     float m_viewportW = 1080.0f;
     float m_viewportH = 614.0f;
+    float m_orbitVisZoom = 1.0f;  // 1.0 = fit all planets, >1 = zoom in
 };
 
 } // namespace AstroGenesis

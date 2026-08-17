@@ -124,7 +124,7 @@ void UIManager::renderUI(PhysicsEngine& physics, Camera& camera, float windowWid
     float bpW = m_viewportW / 4.0f;
     drawTimeControls(physics, leftPanelW,           bottomY, bpW, bottomH);
     drawSimMetrics  (physics, fps, leftPanelW + bpW, bottomY, bpW, bottomH);
-    drawOrbitVis    (leftPanelW + bpW * 2,          bottomY, bpW, bottomH);
+    drawOrbitVis    (physics, camera, leftPanelW + bpW * 2, bottomY, bpW, bottomH);
     drawAIAssistant (leftPanelW + bpW * 3,          bottomY, bpW, bottomH);
 
     drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
@@ -211,7 +211,8 @@ void UIManager::drawLeftPanel(PhysicsEngine& physics, Camera& camera, float topB
 
             ImGui::GetWindowDrawList()->AddCircleFilled(
                 ImVec2(p.x + 14, p.y + 18), 8.0f,
-                isSelected ? ImGui::ColorConvertFloat4ToU32(Col::Accent) : ImGui::ColorConvertFloat4ToU32(Col::TextSecondary));
+                isSelected ? ImGui::ColorConvertFloat4ToU32(Col::Accent)
+                           : ImGui::ColorConvertFloat4ToU32(ImVec4(bodies[i].color.r, bodies[i].color.g, bodies[i].color.b, 0.8f)));
 
             if (isSelected) ImGui::PopStyleColor(2);
         }
@@ -316,9 +317,50 @@ void UIManager::drawRightPanel(const CelestialBody& body, float topBarH, float w
     ImGui::Separator();
 
     if (SectionHeader("COMPOSITION")) {
-        for (const auto& item : body.composition) {
-            ColorDot(ImVec4(item.color.r, item.color.g, item.color.b, item.color.a));
-            ImGui::Text("%.2f%%  %s", item.percentage, item.name.c_str());
+        // Donut chart
+        float totalPct = 0.0f;
+        for (const auto& item : body.composition) totalPct += item.percentage;
+        if (totalPct > 0.0f && !body.composition.empty()) {
+            float chartRadius = 40.0f;
+            float innerRadius = 24.0f;
+            ImVec2 chartCenter = ImVec2(ImGui::GetCursorScreenPos().x + chartRadius + 10.0f,
+                                        ImGui::GetCursorScreenPos().y + chartRadius + 5.0f);
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            float startAngle = -3.14159f / 2.0f; // Start from top
+            for (const auto& item : body.composition) {
+                float sweep = (item.percentage / totalPct) * 2.0f * 3.14159f;
+                if (sweep < 0.01f) continue;
+                ImU32 col = ImGui::ColorConvertFloat4ToU32(ImVec4(item.color.r, item.color.g, item.color.b, 1.0f));
+                // Draw arc segments
+                int segments = std::max(4, (int)(sweep * 20.0f));
+                for (int s = 0; s < segments; ++s) {
+                    float a0 = startAngle + sweep * (float)s / (float)segments;
+                    float a1 = startAngle + sweep * (float)(s + 1) / (float)segments;
+                    dl->AddTriangleFilled(
+                        chartCenter,
+                        ImVec2(chartCenter.x + chartRadius * cosf(a0), chartCenter.y + chartRadius * sinf(a0)),
+                        ImVec2(chartCenter.x + chartRadius * cosf(a1), chartCenter.y + chartRadius * sinf(a1)),
+                        col);
+                }
+                startAngle += sweep;
+            }
+            // Inner circle to create donut hole
+            dl->AddCircleFilled(chartCenter, innerRadius, ImGui::ColorConvertFloat4ToU32(Col::BgChild), 32);
+
+            // Legend on the right side
+            float legendX = chartCenter.x + chartRadius + 16.0f;
+            float legendY = chartCenter.y - chartRadius + 4.0f;
+            for (const auto& item : body.composition) {
+                ImVec2 dotPos = ImVec2(legendX, legendY + 4.0f);
+                dl->AddCircleFilled(dotPos, 4.0f, ImGui::ColorConvertFloat4ToU32(ImVec4(item.color.r, item.color.g, item.color.b, 1.0f)));
+                ImGui::SetCursorScreenPos(ImVec2(legendX + 10.0f, legendY - 2.0f));
+                ImGui::TextColored(Col::Accent, "%.2f%%", item.percentage);
+                ImGui::SameLine();
+                ImGui::TextColored(Col::TextSecondary, " %s", item.name.c_str());
+                legendY += 18.0f;
+            }
+            ImGui::SetCursorScreenPos(ImVec2(chartCenter.x - chartRadius, chartCenter.y + chartRadius + 10.0f));
+            ImGui::Dummy(ImVec2(0, 5));
         }
     }
 
@@ -388,17 +430,180 @@ void UIManager::drawSimMetrics(const PhysicsEngine& physics, float fps, float x,
     ImGui::TextColored(Col::TextPrimary, "%.2f ms", physics.getPhysicsStepTimeMs());
     ImGui::EndGroup();
 
+    ImGui::Spacing();
+    float aiCol = (w - 30) / 2.0f;
+    ImGui::BeginGroup();
+    ImGui::TextColored(Col::TextSecondary, "AI Load");
+    ImGui::TextColored(Col::Yellow, "18%%");
+    ImGui::EndGroup();
+    ImGui::SameLine(aiCol);
+    ImGui::BeginGroup();
+    ImGui::TextColored(Col::TextSecondary, "Memory");
+    ImGui::TextColored(Col::TextPrimary, "%.1f / 16 GB", 2.4f);
+    ImGui::EndGroup();
+
     ImGui::End();
 }
 
-void UIManager::drawOrbitVis(float x, float y, float w, float h) {
+void UIManager::drawOrbitVis(PhysicsEngine& physics, Camera& camera, float x, float y, float w, float h) {
     ImGui::SetNextWindowPos(ImVec2(x, y));
     ImGui::SetNextWindowSize(ImVec2(w, h));
-    ImGui::Begin("##OrbitVis", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+    ImGui::Begin("##OrbitVis", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
 
     ImGui::TextColored(Col::Accent, "ORBIT VISUALIZATION");
     ImGui::Separator();
-    ImGui::TextColored(Col::TextSecondary, "Interactive solar orbit map");
+
+    // Get available drawing area below the header
+    ImVec2 contentMin = ImGui::GetCursorScreenPos();
+    ImVec2 contentMax = ImVec2(x + w - 10.0f, y + h - 10.0f);
+    float areaW = contentMax.x - contentMin.x;
+    float areaH = contentMax.y - contentMin.y;
+    float halfSize = std::min(areaW, areaH) * 0.45f;
+    ImVec2 center = ImVec2(contentMin.x + areaW * 0.5f, contentMin.y + areaH * 0.5f);
+
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 mousePos = ImGui::GetMousePos();
+    bool panelHovered = (mousePos.x >= x && mousePos.x <= x + w && mousePos.y >= y && mousePos.y <= y + h);
+
+    // Scroll zoom within the orbit vis panel
+    if (panelHovered && io.MouseWheel != 0.0f) {
+        m_orbitVisZoom *= (io.MouseWheel > 0) ? 1.15f : 0.87f;
+        m_orbitVisZoom = std::clamp(m_orbitVisZoom, 0.15f, 20.0f);
+    }
+
+    // Max orbit radius for scaling (Neptune ~30 AU)
+    float maxAU = 32.0f / m_orbitVisZoom;
+    float scale = halfSize / maxAU;
+
+    const auto& bodies = physics.getBodies();
+    int selectedIdx = physics.getSelectedBodyIndex();
+    float hitRadius = 12.0f; // generous click area
+
+    // Draw orbit rings
+    for (const auto& body : bodies) {
+        if (body.realOrbitRadiusAU <= 0.0) continue;
+        float ringRadius = (float)body.realOrbitRadiusAU * scale;
+        if (ringRadius < 2.0f || ringRadius > halfSize * 2.5f) continue;
+        dl->AddCircle(center, ringRadius,
+            ImGui::ColorConvertFloat4ToU32(ImVec4(0.2f, 0.3f, 0.5f, 0.35f)), 64, 1.0f);
+    }
+
+    // --- Compute screen positions for all bodies ---
+    struct BodyScreenInfo { int index; float px, py, dotR; bool visible; };
+    std::vector<BodyScreenInfo> screenBodies;
+
+    for (int i = 0; i < (int)bodies.size(); ++i) {
+        float px, py;
+        if (i == 0) { // Sun
+            px = center.x;
+            py = center.y;
+        } else {
+            px = center.x + bodies[i].position.x * scale;
+            py = center.y + bodies[i].position.z * scale;
+        }
+        bool visible = (px >= x - 20 && px <= x + w + 20 && py >= y - 20 && py <= y + h + 20);
+        bool isSelected = (i == selectedIdx);
+        float dotR = (i == 0) ? std::min(8.0f, std::max(3.0f, (float)bodies[0].realRadiusAU * scale * 50.0f))
+                              : (isSelected ? 5.0f : 3.0f);
+        screenBodies.push_back({i, px, py, dotR, visible});
+    }
+
+    // --- Detect hover and click ---
+    int hoveredIdx = -1;
+    if (panelHovered) {
+        float closestDist = hitRadius;
+        for (auto& sb : screenBodies) {
+            if (!sb.visible) continue;
+            float dx = mousePos.x - sb.px;
+            float dy = mousePos.y - sb.py;
+            float dist = sqrtf(dx * dx + dy * dy);
+            if (dist < closestDist) {
+                closestDist = dist;
+                hoveredIdx = sb.index;
+            }
+        }
+    }
+
+    // Handle click to select
+    if (hoveredIdx >= 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        physics.selectBody(hoveredIdx);
+        camera.setTargetPosition(bodies[hoveredIdx].position, true);
+        camera.setTargetBodyRadius(bodies[hoveredIdx].radius3D);
+    }
+
+    // --- Draw Sun ---
+    {
+        auto& sb = screenBodies[0];
+        bool isSunHovered = (hoveredIdx == 0);
+        bool isSunSelected = (selectedIdx == 0);
+        float sunR = sb.dotR;
+        if (isSunHovered) sunR += 2.0f;
+
+        dl->AddCircleFilled(ImVec2(sb.px, sb.py), sunR,
+            ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 0.85f, 0.3f, 1.0f)), 16);
+        // Sun glow
+        dl->AddCircle(ImVec2(sb.px, sb.py), sunR + 3.0f,
+            ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 0.75f, 0.2f, isSunHovered ? 0.5f : 0.25f)), 16, 2.0f);
+        if (isSunSelected) {
+            dl->AddCircle(ImVec2(sb.px, sb.py), sunR + 5.0f,
+                ImGui::ColorConvertFloat4ToU32(Col::Accent), 16, 1.5f);
+        }
+    }
+
+    // --- Draw planet dots ---
+    for (int i = 1; i < (int)screenBodies.size(); ++i) {
+        auto& sb = screenBodies[i];
+        if (!sb.visible) continue;
+        const auto& body = bodies[sb.index];
+        bool isSelected = (sb.index == selectedIdx);
+        bool isHovered = (sb.index == hoveredIdx);
+
+        float dotR = sb.dotR;
+        if (isHovered && !isSelected) dotR += 2.0f;
+
+        ImU32 dotCol = ImGui::ColorConvertFloat4ToU32(
+            ImVec4(body.color.r, body.color.g, body.color.b, 1.0f));
+
+        // Hover glow
+        if (isHovered) {
+            dl->AddCircleFilled(ImVec2(sb.px, sb.py), dotR + 4.0f,
+                ImGui::ColorConvertFloat4ToU32(ImVec4(body.color.r, body.color.g, body.color.b, 0.15f)), 12);
+        }
+
+        dl->AddCircleFilled(ImVec2(sb.px, sb.py), dotR, dotCol, 12);
+
+        if (isSelected) {
+            // Selection ring
+            dl->AddCircle(ImVec2(sb.px, sb.py), dotR + 3.0f,
+                ImGui::ColorConvertFloat4ToU32(Col::Accent), 12, 1.5f);
+        }
+
+        // Show label for selected or hovered
+        if (isSelected || isHovered) {
+            const char* label = body.name.c_str();
+            ImVec2 textSize = ImGui::CalcTextSize(label);
+            ImU32 labelCol = ImGui::ColorConvertFloat4ToU32(isSelected ? Col::Accent : Col::TextPrimary);
+            dl->AddText(ImVec2(sb.px - textSize.x * 0.5f, sb.py + dotR + 4.0f), labelCol, label);
+        }
+    }
+
+    // Tooltip for hovered body
+    if (hoveredIdx >= 0) {
+        ImGui::SetCursorScreenPos(mousePos);
+        ImGui::BeginTooltip();
+        ImGui::TextColored(Col::Accent, "%s", bodies[hoveredIdx].name.c_str());
+        ImGui::TextColored(Col::TextSecondary, "%s", bodies[hoveredIdx].type.c_str());
+        if (hoveredIdx > 0) {
+            ImGui::TextColored(Col::TextPrimary, "Distance: %s", bodies[hoveredIdx].distanceStr.c_str());
+        }
+        ImGui::TextColored(Col::TextSecondary, "Click to select");
+        ImGui::EndTooltip();
+    }
+
+    // Zoom level indicator
+    ImGui::SetCursorScreenPos(ImVec2(contentMin.x + 2, contentMax.y - 14));
+    ImGui::TextColored(Col::TextSecondary, "%.1fx", m_orbitVisZoom);
 
     ImGui::End();
 }
@@ -437,11 +642,17 @@ void UIManager::drawStatusBar(const PhysicsEngine& physics, const Camera& camera
     ImGui::SameLine(0, 20);
     ImGui::TextColored(Col::TextSecondary, "Pos:");
     ImGui::SameLine();
-    ImGui::TextColored(Col::TextPrimary, "X %.2f  Y %.2f  Z %.2f", eye.x, eye.y, eye.z);
+    ImGui::TextColored(Col::TextPrimary, "X %.2f  Y %.2f  Z %.2f AU", eye.x, eye.y, eye.z);
+    ImGui::SameLine(0, 20);
+    ImGui::TextColored(Col::TextSecondary, "Dist:");
+    ImGui::SameLine();
+    ImGui::TextColored(Col::TextPrimary, "%.4f AU", camera.getDistance());
     ImGui::SameLine(0, 20);
     ImGui::TextColored(Col::TextSecondary, "Focus:");
     ImGui::SameLine();
     ImGui::TextColored(Col::Accent, "%s", target.name.c_str());
+    ImGui::SameLine(winW - 130);
+    ImGui::TextColored(Col::Green, "Realistic");
 
     ImGui::End();
     ImGui::PopStyleColor();
