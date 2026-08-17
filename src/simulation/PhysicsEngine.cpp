@@ -242,6 +242,35 @@ void PhysicsEngine::initializeDefaultSolarSystem() {
 
     m_selectedBodyIndex = 3; // Earth default
     updateBodyScales();
+
+    // Initialize initial positions and pre-seed smooth trails
+    for (auto& body : m_bodies) {
+        if (body.id != "sol") {
+            body.orbitalAngleRad = std::fmod(body.orbitalAngleRad, 2.0 * PI_DBL);
+            if (body.orbitalAngleRad < 0.0) body.orbitalAngleRad += 2.0 * PI_DBL;
+
+            float x = (float)(body.realOrbitRadiusAU * std::cos(body.orbitalAngleRad));
+            float z = (float)(body.realOrbitRadiusAU * std::sin(body.orbitalAngleRad));
+            body.position = glm::vec3(x, 0.0f, z);
+
+            body.trailHistory.clear();
+            const int initialSteps = std::min((int)body.maxTrailPoints, 240);
+            for (int s = initialSteps; s >= 0; --s) {
+                double angle = body.orbitalAngleRad - (2.0 * PI_DBL * (double)s / (double)initialSteps);
+                float px = (float)(body.realOrbitRadiusAU * std::cos(angle));
+                float pz = (float)(body.realOrbitRadiusAU * std::sin(angle));
+                body.trailHistory.push_back(glm::vec3(px, 0.0f, pz));
+            }
+        } else {
+            body.position = glm::vec3(0.0f);
+        }
+    }
+}
+
+void PhysicsEngine::clearTrails() {
+    for (auto& body : m_bodies) {
+        body.trailHistory.clear();
+    }
 }
 
 void PhysicsEngine::updateBodyScales() {
@@ -269,26 +298,55 @@ void PhysicsEngine::update(float deltaTime) {
     double effectiveDelta = (double)deltaTime * (double)m_timeScale;
     m_simulatedTimeSeconds += effectiveDelta;
 
+    const double maxStepAngle = 2.0 * PI_DBL / 240.0; // ~1.5 degrees per arc sub-step
+
     for (auto& body : m_bodies) {
         if (body.id != "sol") {
-            // Calculate orbital movement around Sol according to Keplerian velocity
-            body.orbitalAngleRad += body.orbitalSpeedRadPerSec * effectiveDelta;
-            if (body.orbitalAngleRad > 2.0 * PI_DBL) {
-                body.orbitalAngleRad -= 2.0 * PI_DBL;
+            double totalDeltaAngle = body.orbitalSpeedRadPerSec * effectiveDelta;
+            double startAngle = body.orbitalAngleRad;
+            double endAngle = startAngle + totalDeltaAngle;
+
+            // Normalize current angle to [0, 2pi)
+            body.orbitalAngleRad = std::fmod(endAngle, 2.0 * PI_DBL);
+            if (body.orbitalAngleRad < 0.0) {
+                body.orbitalAngleRad += 2.0 * PI_DBL;
             }
 
             float x = (float)(body.realOrbitRadiusAU * std::cos(body.orbitalAngleRad));
             float z = (float)(body.realOrbitRadiusAU * std::sin(body.orbitalAngleRad));
             body.position = glm::vec3(x, 0.0f, z);
+
+            // Sub-stepped dynamic trail recording to maintain perfectly smooth curvature
+            // even at massive time scale multipliers (1,000x to 1,000,000x)
+            double absDeltaAngle = std::abs(totalDeltaAngle);
+            if (absDeltaAngle > 0.0000001) {
+                // If delta angle exceeds a full orbit in 1 frame, sample the most recent 1.0 revolution
+                double arcToSample = std::min(absDeltaAngle, 2.0 * PI_DBL);
+                int numSteps = std::max(1, (int)std::ceil(arcToSample / maxStepAngle));
+                double stepAngle = arcToSample / (double)numSteps;
+                double direction = (totalDeltaAngle >= 0.0) ? 1.0 : -1.0;
+
+                for (int k = 1; k <= numSteps; ++k) {
+                    double sampleAngle = endAngle - direction * (numSteps - k) * stepAngle;
+                    float sx = (float)(body.realOrbitRadiusAU * std::cos(sampleAngle));
+                    float sz = (float)(body.realOrbitRadiusAU * std::sin(sampleAngle));
+                    glm::vec3 samplePos(sx, 0.0f, sz);
+
+                    if (body.trailHistory.empty() || glm::distance(body.trailHistory.back(), samplePos) > 0.000001f) {
+                        body.trailHistory.push_back(samplePos);
+                        while (body.trailHistory.size() > body.maxTrailPoints) {
+                            body.trailHistory.pop_front();
+                        }
+                    }
+                }
+            }
         } else {
             body.position = glm::vec3(0.0f, 0.0f, 0.0f);
         }
 
-        // Calculate axial rotation
-        body.rotationAngle += (float)(body.rotationSpeedRadPerSec * effectiveDelta);
-        if (body.rotationAngle > 2.0 * PI_DBL) {
-            body.rotationAngle -= (float)(2.0 * PI_DBL);
-        } else if (body.rotationAngle < -2.0 * PI_DBL) {
+        // Calculate axial rotation with fmod
+        body.rotationAngle = (float)std::fmod((double)body.rotationAngle + (double)body.rotationSpeedRadPerSec * effectiveDelta, 2.0 * PI_DBL);
+        if (body.rotationAngle < 0.0f) {
             body.rotationAngle += (float)(2.0 * PI_DBL);
         }
     }

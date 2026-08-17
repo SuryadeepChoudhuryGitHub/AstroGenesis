@@ -18,11 +18,21 @@ public:
 
     void setTargetPosition(const glm::vec3& target, bool immediate = false);
     void setTargetBodyRadius(float radius3D);
+    void focusOnBody(const glm::vec3& targetPos, float targetRadius3D, float durationSeconds = 0.85f);
     void setDistance(float dist) { m_distance = dist; }
+
+    bool isTransitioning() const { return m_isTransitioning; }
 
     // Matrix getters
     glm::mat4 getViewMatrix() const;
     glm::mat4 getProjectionMatrix(float aspectRatio) const;
+
+    // Screen projection
+    bool projectToScreen(const glm::vec3& worldPos, const glm::vec3& cameraTarget,
+                         float vpX, float vpY, float vpW, float vpH,
+                         glm::vec2& outScreenPos, float& outScreenRadius, float bodyRadius3D = 1.0f) const;
+
+    float getFOV() const { return m_fov; }
 
     // Attribute getters
     glm::vec3 getEyePosition() const;
@@ -32,6 +42,14 @@ public:
 private:
     glm::vec3 m_desiredTarget{0.0f};
     glm::vec3 m_currentTarget{0.0f};
+
+    // Smooth logarithmic travel transition
+    glm::vec3 m_startPos{0.0f};
+    float m_startDistance = 3.5f;
+    float m_targetDistance = 3.5f;
+    float m_transitionTimer = 0.0f;
+    float m_transitionDuration = 0.85f;
+    bool m_isTransitioning = false;
 
     float m_yaw = 0.0f;       // In radians
     float m_pitch = 0.3f;     // In radians

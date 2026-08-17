@@ -119,6 +119,7 @@ void UIManager::renderUI(PhysicsEngine& physics, Camera& camera, float windowWid
     drawLeftPanel(physics, camera, topBarH, statusBarH, windowHeight);
     drawInfoOverlay(currentBody, m_viewportX, m_viewportY);
     drawRightPanel(currentBody, topBarH, windowWidth, windowHeight, statusBarH);
+    drawViewportHUD(physics, camera, m_viewportX, m_viewportY, m_viewportW, m_viewportH);
 
     float bottomY = windowHeight - statusBarH - bottomH;
     float bpW = m_viewportW / 4.0f;
@@ -657,6 +658,113 @@ void UIManager::drawStatusBar(const PhysicsEngine& physics, const Camera& camera
     ImGui::End();
     ImGui::PopStyleColor();
     ImGui::PopStyleVar(2);
+}
+
+void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vpX, float vpY, float vpW, float vpH) {
+    if (vpW <= 0.0f || vpH <= 0.0f) return;
+
+    ImVec2 mousePos = ImGui::GetMousePos();
+    const auto& bodies = physics.getBodies();
+    int selectedIdx = physics.getSelectedBodyIndex();
+
+    struct ProjectedBody {
+        int index;
+        glm::vec2 screenPos;
+        float screenRadius;
+        float distToMouse;
+        bool visible;
+    };
+
+    std::vector<ProjectedBody> projectedBodies;
+    int bestHoverIdx = -1;
+    float bestDist = 1e9f;
+
+    // Minimum adaptive hitbox radius in pixels relative to viewport size
+    float baseHitbox = std::max(22.0f, vpH * 0.035f);
+
+    for (int i = 0; i < (int)bodies.size(); ++i) {
+        glm::vec2 sPos(0.0f);
+        float sRadius = 0.0f;
+        bool inFrustum = camera.projectToScreen(bodies[i].position, camera.getTargetPosition(),
+                                                vpX, vpY, vpW, vpH, sPos, sRadius, bodies[i].radius3D);
+
+        bool inViewport = (inFrustum && sPos.x >= vpX && sPos.x <= vpX + vpW && sPos.y >= vpY && sPos.y <= vpY + vpH);
+
+        float hitboxRadius = std::max(baseHitbox, sRadius + 12.0f);
+        float distToMouse = 1e9f;
+
+        if (m_viewportHovered && inViewport) {
+            float dx = mousePos.x - sPos.x;
+            float dy = mousePos.y - sPos.y;
+            distToMouse = std::sqrt(dx * dx + dy * dy);
+
+            if (distToMouse <= hitboxRadius && distToMouse < bestDist) {
+                bestDist = distToMouse;
+                bestHoverIdx = i;
+            }
+        }
+
+        projectedBodies.push_back({ i, sPos, sRadius, distToMouse, inViewport });
+    }
+
+    m_hoveredBodyIndex = bestHoverIdx;
+
+    // Handle left click inside the 3D viewport on a hovered body
+    if (m_viewportHovered && m_hoveredBodyIndex >= 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        physics.selectBody(m_hoveredBodyIndex);
+        camera.focusOnBody(bodies[m_hoveredBodyIndex].position, bodies[m_hoveredBodyIndex].radius3D, 0.85f);
+    }
+
+    // Draw HUD hover targeting reticle clipped to the 3D viewport area
+    ImDrawList* fg = ImGui::GetForegroundDrawList();
+    fg->PushClipRect(ImVec2(vpX, vpY), ImVec2(vpX + vpW, vpY + vpH), true);
+
+    // Draw compact Hover Reticle & Info Tag for hovered body (only when hovering and not currently selected)
+    if (m_hoveredBodyIndex >= 0 && m_hoveredBodyIndex != selectedIdx) {
+        for (const auto& pb : projectedBodies) {
+            if (pb.index != m_hoveredBodyIndex || !pb.visible) continue;
+
+            const auto& body = bodies[pb.index];
+            float ringR = std::max(13.0f, pb.screenRadius + 4.0f);
+            ImVec2 center(pb.screenPos.x, pb.screenPos.y);
+
+            ImU32 bodyCol = ImGui::ColorConvertFloat4ToU32(ImVec4(body.color.r, body.color.g, body.color.b, 1.0f));
+            ImU32 glowCol = ImGui::ColorConvertFloat4ToU32(ImVec4(body.color.r, body.color.g, body.color.b, 0.25f));
+
+            // Compact hover circle ring + subtle glow
+            fg->AddCircle(center, ringR, bodyCol, 32, 1.5f);
+            fg->AddCircle(center, ringR + 2.5f, glowCol, 32, 1.0f);
+
+            // 4 Corner / cardinal HUD tick brackets
+            float tickLen = 4.0f;
+            fg->AddLine(ImVec2(center.x - ringR - 2.0f, center.y), ImVec2(center.x - ringR - 2.0f - tickLen, center.y), bodyCol, 1.2f);
+            fg->AddLine(ImVec2(center.x + ringR + 2.0f, center.y), ImVec2(center.x + ringR + 2.0f + tickLen, center.y), bodyCol, 1.2f);
+            fg->AddLine(ImVec2(center.x, center.y - ringR - 2.0f), ImVec2(center.x, center.y - ringR - 2.0f - tickLen), bodyCol, 1.2f);
+            fg->AddLine(ImVec2(center.x, center.y + ringR + 2.0f), ImVec2(center.x, center.y + ringR + 2.0f + tickLen), bodyCol, 1.2f);
+
+            // Hover Info Pill Badge (Name + Distance)
+            std::string label = body.name + "  •  " + (body.id == "sol" ? "0.00 AU" : body.distanceStr);
+            ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
+
+            float pillW = textSize.x + 14.0f;
+            float pillH = textSize.y + 6.0f;
+            float pillX = center.x + ringR + 8.0f;
+            float pillY = center.y - pillH * 0.5f;
+
+            // Keep pill inside viewport bounds
+            if (pillX + pillW > vpX + vpW - 10.0f) {
+                pillX = center.x - ringR - 8.0f - pillW;
+            }
+
+            fg->AddRectFilled(ImVec2(pillX, pillY), ImVec2(pillX + pillW, pillY + pillH),
+                              ImGui::ColorConvertFloat4ToU32(ImVec4(0.04f, 0.06f, 0.12f, 0.92f)), 4.0f);
+            fg->AddRect(ImVec2(pillX, pillY), ImVec2(pillX + pillW, pillY + pillH),
+                        bodyCol, 4.0f, 0, 1.0f);
+            fg->AddText(ImVec2(pillX + 7.0f, pillY + 3.0f), bodyCol, label.c_str());
+        }
+    }
+
+    fg->PopClipRect();
 }
 
 } // namespace AstroGenesis

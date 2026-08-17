@@ -297,6 +297,9 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/charconv.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/basic_string.tcc \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/CelestialBody.hpp \
+ C:/msys64/ucrt64/include/c++/14.2.0/deque \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_deque.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/deque.tcc \
  C:/msys64/ucrt64/include/c++/14.2.0/algorithm \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_algo.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/algorithmfwd.h \

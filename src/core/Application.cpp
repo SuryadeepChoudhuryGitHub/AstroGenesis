@@ -155,10 +155,13 @@ void Application::run() {
             }
         }
 
-        // Camera target is the world-space position of the focused body.
-        // Use actual body position directly (not interpolated) so the camera
-        // stays perfectly locked to the planet even at high time multipliers.
-        glm::vec3 camTarget = m_physics.getSelectedBody().position;
+        // Camera target is the current interpolated center of view
+        // (smoothly glides across space during logarithmic travel transitions)
+        glm::vec3 camTarget = m_camera.getTargetPosition();
+
+        // Render dynamic 3D celestial motion trails & orbit guide lines
+        m_renderer.renderTrails(m_camera, aspect, m_physics.getBodies(), camTarget, m_physics.getSelectedBodyIndex());
+
         for (const auto& body : m_physics.getBodies()) {
             m_renderer.renderSphere(m_camera, aspect, body, solPos, camTarget);
         }

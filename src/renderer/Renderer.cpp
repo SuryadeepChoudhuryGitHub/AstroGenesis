@@ -102,6 +102,37 @@ void main() {
 }
 )GLSL";
 
+// ---------- 3D Celestial Motion Trail Shader ----------
+static const char* trailVertSrc = R"GLSL(
+#version 330 core
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec4 aColor;
+
+out vec4 vColor;
+
+uniform mat4 uVP;
+
+void main() {
+    vColor = aColor;
+    gl_Position = uVP * vec4(aPos, 1.0);
+}
+)GLSL";
+
+static const char* trailFragSrc = R"GLSL(
+#version 330 core
+in vec4 vColor;
+out vec4 FragColor;
+
+void main() {
+    FragColor = vColor;
+}
+)GLSL";
+
+struct TrailVertex {
+    glm::vec3 pos;
+    glm::vec4 col;
+};
+
 static GLuint compileShader(GLenum type, const char* src) {
     GLuint s = glCreateShader(type);
     glShaderSource(s, 1, &src, nullptr);
@@ -165,6 +196,32 @@ bool Renderer::initialize() {
         fprintf(stderr, "WARNING: Skybox texture failed to load initially (will retry on demand).\n");
     }
 
+    // ---------- Trail shader & dynamic buffers ----------
+    GLuint trailV = compileShader(GL_VERTEX_SHADER, trailVertSrc);
+    GLuint trailF = compileShader(GL_FRAGMENT_SHADER, trailFragSrc);
+    m_trailProgram = glCreateProgram();
+    glAttachShader(m_trailProgram, trailV);
+    glAttachShader(m_trailProgram, trailF);
+    glLinkProgram(m_trailProgram);
+    glDeleteShader(trailV);
+    glDeleteShader(trailF);
+
+    m_uTrailVPLoc = glGetUniformLocation(m_trailProgram, "uVP");
+
+    glGenVertexArrays(1, &m_trailVAO);
+    glGenBuffers(1, &m_trailVBO);
+    glBindVertexArray(m_trailVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, m_trailVBO);
+    glBufferData(GL_ARRAY_BUFFER, 120000 * sizeof(TrailVertex), nullptr, GL_DYNAMIC_DRAW);
+
+    GLsizei stride = sizeof(TrailVertex);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
+
     return true;
 }
 
@@ -189,6 +246,16 @@ void Renderer::shutdown() {
     if (m_skyboxProgram) {
         glDeleteProgram(m_skyboxProgram);
         m_skyboxProgram = 0;
+    }
+    if (m_trailVAO) {
+        glDeleteVertexArrays(1, &m_trailVAO);
+        glDeleteBuffers(1, &m_trailVBO);
+        m_trailVAO = 0;
+        m_trailVBO = 0;
+    }
+    if (m_trailProgram) {
+        glDeleteProgram(m_trailProgram);
+        m_trailProgram = 0;
     }
 }
 
@@ -439,6 +506,96 @@ void Renderer::renderSkybox(const Camera& camera, float aspect) {
     // Restore state for subsequent celestial body rendering
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
+}
+
+void Renderer::renderTrails(const Camera& camera, float aspect, const std::vector<CelestialBody>& bodies, const glm::vec3& cameraTarget, int selectedIndex) {
+    if (bodies.empty() || m_trailProgram == 0 || m_trailVAO == 0) return;
+
+    glm::mat4 proj = camera.getProjectionMatrix(aspect);
+    glm::mat4 view = camera.getViewMatrix();
+    glm::mat4 vp = proj * view;
+
+    glUseProgram(m_trailProgram);
+    glUniformMatrix4fv(m_uTrailVPLoc, 1, GL_FALSE, glm::value_ptr(vp));
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive luminous celestial blend
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE); // Trails don't write to depth buffer so they don't occlude planets
+
+    // 1. Render subtle full orbital guide rings
+    std::vector<TrailVertex> guideVerts;
+    const int circleSegments = 128;
+    for (int i = 0; i < (int)bodies.size(); ++i) {
+        const auto& body = bodies[i];
+        if (body.id == "sol" || body.realOrbitRadiusAU <= 0.0) continue;
+
+        bool isSelected = (i == selectedIndex);
+        float guideAlpha = isSelected ? 0.28f : 0.12f;
+        glm::vec3 ringColor = body.color * (isSelected ? 1.0f : 0.7f);
+
+        for (int s = 0; s < circleSegments; ++s) {
+            float theta1 = 2.0f * PI * (float)s / (float)circleSegments;
+            float theta2 = 2.0f * PI * (float)(s + 1) / (float)circleSegments;
+
+            glm::vec3 p1 = glm::vec3((float)(body.realOrbitRadiusAU * std::cos(theta1)), 0.0f, (float)(body.realOrbitRadiusAU * std::sin(theta1))) - cameraTarget;
+            glm::vec3 p2 = glm::vec3((float)(body.realOrbitRadiusAU * std::cos(theta2)), 0.0f, (float)(body.realOrbitRadiusAU * std::sin(theta2))) - cameraTarget;
+
+            guideVerts.push_back({ p1, glm::vec4(ringColor, guideAlpha) });
+            guideVerts.push_back({ p2, glm::vec4(ringColor, guideAlpha) });
+        }
+    }
+
+    if (!guideVerts.empty()) {
+        glBindVertexArray(m_trailVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, m_trailVBO);
+        glBufferData(GL_ARRAY_BUFFER, guideVerts.size() * sizeof(TrailVertex), guideVerts.data(), GL_DYNAMIC_DRAW);
+        glDrawArrays(GL_LINES, 0, (GLsizei)guideVerts.size());
+    }
+
+    // 2. Render dynamic fading motion trails tracking actual real-time positions
+    for (int i = 0; i < (int)bodies.size(); ++i) {
+        const auto& body = bodies[i];
+        if (body.id == "sol" || body.trailHistory.size() < 2) continue;
+
+        bool isSelected = (i == selectedIndex);
+        std::vector<TrailVertex> trailVerts;
+        trailVerts.reserve(body.trailHistory.size() + 1);
+
+        size_t n = body.trailHistory.size();
+        for (size_t pt = 0; pt < n; ++pt) {
+            float t = (float)pt / (float)(n - 1); // 0.0 at oldest tail point, 1.0 at head point
+            float alpha = std::pow(t, 1.5f) * (isSelected ? 0.98f : 0.82f);
+            glm::vec3 col = body.color * (0.5f + 0.7f * t);
+            if (isSelected) col *= 1.25f;
+
+            glm::vec3 relPos = body.trailHistory[pt] - cameraTarget;
+            trailVerts.push_back({ relPos, glm::vec4(col, alpha) });
+        }
+
+        // Connect directly to current planet position
+        glm::vec3 currRelPos = body.position - cameraTarget;
+        glm::vec3 headCol = body.color * (isSelected ? 1.5f : 1.2f);
+        trailVerts.push_back({ currRelPos, glm::vec4(headCol, isSelected ? 1.0f : 0.95f) });
+
+        if (!trailVerts.empty()) {
+            glBindVertexArray(m_trailVAO);
+            glBindBuffer(GL_ARRAY_BUFFER, m_trailVBO);
+            glBufferData(GL_ARRAY_BUFFER, trailVerts.size() * sizeof(TrailVertex), trailVerts.data(), GL_DYNAMIC_DRAW);
+            glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)trailVerts.size());
+
+            // Secondary pass for selected body to give rich glowing halo
+            if (isSelected) {
+                glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)trailVerts.size());
+            }
+        }
+    }
+
+    glBindVertexArray(0);
+
+    // Restore state
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
 }
 
 } // namespace AstroGenesis

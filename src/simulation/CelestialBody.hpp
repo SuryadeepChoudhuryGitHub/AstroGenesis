@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <deque>
 #include <glm/glm.hpp>
 
 namespace AstroGenesis {
@@ -54,6 +55,8 @@ struct CelestialBody {
     float axialTiltDeg = 23.44f;
     glm::vec3 color{0.0f, 0.83f, 1.0f}; // Default teal accent
     std::string texturePath;
+    std::deque<glm::vec3> trailHistory;
+    size_t maxTrailPoints = 600;
 
     // True Astronomical Scale Data (SI & AU units)
     double realRadiusAU = 0.0;

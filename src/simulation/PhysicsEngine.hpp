@@ -40,6 +40,7 @@ public:
     void selectBody(int index);
 
     const CelestialBody& getSelectedBody() const;
+    void clearTrails();
 
     // Stats
     int getObjectCount() const { return (int)m_bodies.size(); }

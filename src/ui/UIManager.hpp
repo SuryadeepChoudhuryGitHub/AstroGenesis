@@ -14,6 +14,7 @@ public:
     void renderUI(PhysicsEngine& physics, Camera& camera, float windowWidth, float windowHeight, float fps);
 
     bool isViewportHovered() const { return m_viewportHovered; }
+    int getHoveredBodyIndex() const { return m_hoveredBodyIndex; }
     void getViewportBounds(float& outX, float& outY, float& outW, float& outH) const;
 
 private:
@@ -21,6 +22,7 @@ private:
     void drawLeftPanel(PhysicsEngine& physics, Camera& camera, float topBarH, float statusBarH, float winH);
     void drawInfoOverlay(const CelestialBody& body, float x, float y);
     void drawRightPanel(const CelestialBody& body, float topBarH, float winW, float winH, float statusBarH);
+    void drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vpX, float vpY, float vpW, float vpH);
     void drawTimeControls(PhysicsEngine& physics, float x, float y, float w, float h);
     void drawSimMetrics(const PhysicsEngine& physics, float fps, float x, float y, float w, float h);
     void drawOrbitVis(PhysicsEngine& physics, Camera& camera, float x, float y, float w, float h);
@@ -28,6 +30,7 @@ private:
     void drawStatusBar(const PhysicsEngine& physics, const Camera& camera, float winW, float winH, float barH);
 
     bool m_viewportHovered = false;
+    int m_hoveredBodyIndex = -1;
     float m_viewportX = 210.0f;
     float m_viewportY = 48.0f;
     float m_viewportW = 1080.0f;
