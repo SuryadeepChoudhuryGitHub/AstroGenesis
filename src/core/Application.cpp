@@ -54,6 +54,51 @@ bool Application::initialize(int width, int height, const char* title) {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.IniFilename = nullptr;
 
+    // Load smooth, soothing anti-aliased modern typography (Segoe UI / Arial / Calibri)
+    const char* fontCandidates[] = {
+        "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/calibri.ttf",
+        "C:/Windows/Fonts/tahoma.ttf",
+        "assets/fonts/arial.ttf",
+        "assets/fonts/segoeui.ttf"
+    };
+
+    static const ImWchar glyphRanges[] = {
+        0x0020, 0x00FF, // Basic Latin + Latin Supplement
+        0x0100, 0x017F, // Latin Extended-A
+        0x0370, 0x03FF, // Greek (alpha, beta, etc.)
+        0x2000, 0x206F, // General Punctuation
+        0x2070, 0x209F, // Superscripts and Subscripts (², ³, ⁴, ⁻, etc.)
+        0x2100, 0x214F, // Letterlike Symbols (℃, etc.)
+        0x2190, 0x21FF, // Arrows (←, ↑, →, ↓)
+        0x2200, 0x22FF, // Mathematical Operators (∑, ∆, ∇, √, ∞, etc.)
+        0x25A0, 0x25FF, // Geometric Shapes (■, ▲, ▼, ◆, ⬡, ⌖, etc.)
+        0x2600, 0x26FF, // Miscellaneous Symbols (★, ☉, ☄, ⚡, ⚙, etc.)
+        0
+    };
+
+    ImFontConfig fontConfig;
+    fontConfig.OversampleH = 3;
+    fontConfig.OversampleV = 3;
+    fontConfig.PixelSnapH = false;
+
+    bool fontLoaded = false;
+    for (const char* path : fontCandidates) {
+        FILE* f = fopen(path, "rb");
+        if (f) {
+            fclose(f);
+            ImFont* font = io.Fonts->AddFontFromFileTTF(path, 15.0f, &fontConfig, glyphRanges);
+            if (font) {
+                fontLoaded = true;
+                break;
+            }
+        }
+    }
+    if (!fontLoaded) {
+        io.Fonts->AddFontDefault();
+    }
+
     m_uiManager.initialize();
 
     ImGui_ImplGlfw_InitForOpenGL(m_window, true);
