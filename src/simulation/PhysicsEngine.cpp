@@ -183,6 +183,18 @@ void PhysicsEngine::initializeDefaultSolarSystem() {
               { {"Hydrogen", 80.0f, {0.1f, 0.3f, 0.9f, 1.0f}}, {"Helium", 19.0f, {0.3f, 0.5f, 0.9f, 1.0f}}, {"Methane", 1.5f, {0.0f, 0.2f, 0.7f, 1.0f}} },
               glm::vec3(0.2f, 0.4f, 0.9f), "assets/textures/neptune_surface.jpg");
 
+    // Configure Saturn's planetary ring physical system
+    for (auto& b : m_bodies) {
+        if (b.id == "saturn") {
+            b.ring.hasRing = true;
+            b.ring.innerRadiusM = 74500000.0;  // 74,500 km
+            b.ring.outerRadiusM = 140220000.0; // 140,220 km
+            b.ring.innerRadiusAU = b.ring.innerRadiusM / AU_METERS;
+            b.ring.outerRadiusAU = b.ring.outerRadiusM / AU_METERS;
+            b.ring.baseColor = glm::vec3(0.88f, 0.82f, 0.70f);
+        }
+    }
+
     // 10. Transform into Solar System Barycentric Frame (Center of Mass & Zero Total Momentum)
     // Scientifically standard (NASA JPL Barycentric Frame): Net momentum P_total = 0
     // and Center of Mass R_COM = 0 guarantees the Solar System never drifts through space.
@@ -226,6 +238,9 @@ void PhysicsEngine::initializeDefaultSolarSystem() {
             }
         }
     }
+
+    // Initialize Particle System (Main Asteroid Belt + Extensible Particle Fields)
+    m_particleSystem.initializeDefaultSystem();
 }
 
 void PhysicsEngine::computeAccelerations(const std::vector<glm::dvec3>& positions,
@@ -619,6 +634,10 @@ void PhysicsEngine::updateBodyScales() {
     for (auto& body : m_bodies) {
         if (m_isTrueScaleMode) {
             body.radius3D = (float)(body.realRadiusAU * (double)m_sizeMultiplier);
+            if (body.ring.hasRing) {
+                body.ring.innerRadius3D = (float)(body.ring.innerRadiusAU * (double)m_sizeMultiplier);
+                body.ring.outerRadius3D = (float)(body.ring.outerRadiusAU * (double)m_sizeMultiplier);
+            }
         } else {
             // Simplified visual scale fallback
             if (body.id == "sol") body.radius3D = 2.5f;
@@ -630,6 +649,11 @@ void PhysicsEngine::updateBodyScales() {
             else if (body.id == "venus") body.radius3D = 0.95f;
             else if (body.id == "mars") body.radius3D = 0.75f;
             else if (body.id == "mercury") body.radius3D = 0.6f;
+
+            if (body.ring.hasRing) {
+                body.ring.innerRadius3D = body.radius3D * 1.28f;
+                body.ring.outerRadius3D = body.radius3D * 2.35f;
+            }
         }
     }
 }
@@ -646,6 +670,12 @@ void PhysicsEngine::update(float deltaTime) {
 
     // Update real-time reacting astrophysical properties & Keplerian orbital elements
     updatePhysicalQuantities();
+
+    // Update planetary ring hydrodynamics: differential Keplerian shear & viscous self-healing
+    updateRingHydrodynamics(effectiveDelta);
+
+    // Update Particle System: N-body gravitational integration, resonance dynamics & GPU visual instances
+    m_particleSystem.update(effectiveDelta, m_bodies, m_enableGeneralRelativity, m_simulatedTimeSeconds);
 
     // Compute global energy and angular momentum conservation
     computeSystemConservationStats();
@@ -726,6 +756,134 @@ std::string PhysicsEngine::getSimVsRealTimeStr() const {
         snprintf(buf, sizeof(buf), "Sim: %.1f days | Real: %02d:%02d (%.0fx)", simDays, realMins, realSecs, m_timeScale);
     }
     return std::string(buf);
+}
+
+void PhysicsEngine::triggerRingImpact(const std::string& planetId, float normRadius, float azimuthRad, float impactRadiusM) {
+    for (auto& body : m_bodies) {
+        if (body.id == planetId && body.ring.hasRing) {
+            normRadius = glm::clamp(normRadius, 0.05f, 0.95f);
+            double ringWidth = body.ring.outerRadiusM - body.ring.innerRadiusM;
+            double rM = body.ring.innerRadiusM + (double)normRadius * ringWidth;
+
+            // Keplerian orbital angular velocity at this exact radial distance (rad/s)
+            double omega = std::sqrt((G_CONST * body.massKg) / std::pow(rM, 3.0));
+
+            RingDisturbance dist;
+            dist.normRadius = normRadius;
+            dist.azimuthRad = azimuthRad;
+            dist.radialWidth = (float)glm::clamp((double)impactRadiusM / ringWidth, 0.03, 0.20);
+            dist.angularWidth = (float)glm::clamp((double)impactRadiusM / rM * 2.5, 0.08, 0.35);
+            dist.intensity = 1.0f;
+            dist.ageSeconds = 0.0f;
+            dist.decayRate = 0.015f; // Viscous healing rate
+            dist.keplerianOmega = (float)omega;
+
+            if (body.ring.disturbances.size() >= (size_t)PlanetaryRing::MAX_DISTURBANCES) {
+                body.ring.disturbances.erase(body.ring.disturbances.begin());
+            }
+            body.ring.disturbances.push_back(dist);
+            break;
+        }
+    }
+}
+
+void PhysicsEngine::triggerSaturnRingImpact() {
+    static float testAngle = 0.5f;
+    testAngle += 1.1f;
+    triggerRingImpact("saturn", 0.55f, testAngle, 6000000.0f);
+}
+
+void PhysicsEngine::updateRingHydrodynamics(double deltaSeconds) {
+    if (deltaSeconds <= 0.0) return;
+
+    for (size_t i = 0; i < m_bodies.size(); ++i) {
+        auto& host = m_bodies[i];
+        if (!host.ring.hasRing) continue;
+
+        double rIn = host.ring.innerRadiusM;
+        double rOut = host.ring.outerRadiusM;
+        double ringWidth = rOut - rIn;
+
+        // Saturn equatorial tilt basis vectors (tilt around (0,0,1))
+        double tiltRad = glm::radians((double)host.axialTiltDeg);
+        glm::dvec3 normal(-std::sin(tiltRad), std::cos(tiltRad), 0.0);
+        glm::dvec3 basisX(std::cos(tiltRad), std::sin(tiltRad), 0.0);
+        glm::dvec3 basisZ(0.0, 0.0, 1.0);
+
+        // 1. Physical Collision & Gravitational Wake Detection from Passing Celestial Objects
+        for (size_t j = 0; j < m_bodies.size(); ++j) {
+            if (i == j) continue;
+            const auto& intruder = m_bodies[j];
+
+            glm::dvec3 dPos = intruder.positionM - host.positionM;
+            double zDist = glm::dot(dPos, normal);
+            double xPlane = glm::dot(dPos, basisX);
+            double zPlane = glm::dot(dPos, basisZ);
+            double rM = std::sqrt(xPlane * xPlane + zPlane * zPlane);
+
+            // Check if intruder penetrates the ring's physical disk
+            double interactionRadius = intruder.radiusM * 3.0 + 1.0e6;
+            if (std::abs(zDist) <= interactionRadius && rM >= rIn * 0.90 && rM <= rOut * 1.10) {
+                float normR = (float)((rM - rIn) / ringWidth);
+                normR = glm::clamp(normR, 0.02f, 0.98f);
+                float azimuth = (float)std::atan2(zPlane, xPlane);
+
+                // Check if a disturbance already exists close to this position to avoid duplicates
+                bool alreadyTracking = false;
+                for (const auto& d : host.ring.disturbances) {
+                    if (std::abs(d.normRadius - normR) < 0.05f && std::abs(d.azimuthRad - azimuth) < 0.2f && d.ageSeconds < 3600.0f) {
+                        alreadyTracking = true;
+                        break;
+                    }
+                }
+
+                if (!alreadyTracking) {
+                    double omega = std::sqrt((G_CONST * host.massKg) / std::pow(rM, 3.0));
+                    RingDisturbance dist;
+                    dist.normRadius = normR;
+                    dist.azimuthRad = azimuth;
+                    dist.radialWidth = (float)glm::clamp(interactionRadius / ringWidth, 0.04, 0.25);
+                    dist.angularWidth = (float)glm::clamp((interactionRadius * 2.0) / rM, 0.08, 0.40);
+                    dist.intensity = 1.0f;
+                    dist.ageSeconds = 0.0f;
+                    dist.decayRate = 0.012f;
+                    dist.keplerianOmega = (float)omega;
+
+                    if (host.ring.disturbances.size() >= (size_t)PlanetaryRing::MAX_DISTURBANCES) {
+                        host.ring.disturbances.erase(host.ring.disturbances.begin());
+                    }
+                    host.ring.disturbances.push_back(dist);
+                }
+            }
+        }
+
+        // 2. Differential Keplerian Shear Advection & Viscous Self-Healing (Fluid Relaxation)
+        for (auto it = host.ring.disturbances.begin(); it != host.ring.disturbances.end(); ) {
+            it->ageSeconds += (float)deltaSeconds;
+
+            // Keplerian orbital advection: each radial band orbits at its physical Omega(r)
+            it->azimuthRad += it->keplerianOmega * (float)deltaSeconds;
+
+            // Normalize angle to [-PI, PI]
+            while (it->azimuthRad > PI_DBL) it->azimuthRad -= (float)(2.0 * PI_DBL);
+            while (it->azimuthRad < -PI_DBL) it->azimuthRad += (float)(2.0 * PI_DBL);
+
+            // Keplerian shear stretches disturbance into an elongated spiral wake
+            it->angularWidth = glm::clamp(it->angularWidth * (1.0f + (float)deltaSeconds * 0.00005f), 0.05f, 1.2f);
+
+            // Viscous diffusion: inelastic collisions dissipate the perturbation
+            // Disturbance heals smoothly across simulation time
+            float decayFactor = std::exp(-it->decayRate * (float)(deltaSeconds / 86400.0 * 2.0));
+            it->intensity *= decayFactor;
+
+            // Once disturbance is healed (< 2% void intensity), remove from active list
+            if (it->intensity < 0.02f || it->ageSeconds > 86400.0f * 365.0f) {
+                it = host.ring.disturbances.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
 }
 
 } // namespace AstroGenesis

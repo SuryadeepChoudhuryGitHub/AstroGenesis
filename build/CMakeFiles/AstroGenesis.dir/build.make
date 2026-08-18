@@ -71,26 +71,11 @@ include CMakeFiles/AstroGenesis.dir/flags.make
 CMakeFiles/AstroGenesis.dir/codegen:
 .PHONY : CMakeFiles/AstroGenesis.dir/codegen
 
-CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: CMakeFiles/AstroGenesis.dir/flags.make
-CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: CMakeFiles/AstroGenesis.dir/includes_CXX.rsp
-CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/core/Application.cpp
-CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: CMakeFiles/AstroGenesis.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj -MF CMakeFiles\AstroGenesis.dir\src\core\Application.cpp.obj.d -o CMakeFiles\AstroGenesis.dir\src\core\Application.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\core\Application.cpp"
-
-CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.i"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\core\Application.cpp" > CMakeFiles\AstroGenesis.dir\src\core\Application.cpp.i
-
-CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.s"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\core\Application.cpp" -o CMakeFiles\AstroGenesis.dir\src\core\Application.cpp.s
-
 CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: CMakeFiles/AstroGenesis.dir/flags.make
 CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: CMakeFiles/AstroGenesis.dir/includes_CXX.rsp
 CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/main.cpp
 CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: CMakeFiles/AstroGenesis.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/AstroGenesis.dir/src/main.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/AstroGenesis.dir/src/main.cpp.obj"
 	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AstroGenesis.dir/src/main.cpp.obj -MF CMakeFiles\AstroGenesis.dir\src\main.cpp.obj.d -o CMakeFiles\AstroGenesis.dir\src\main.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\main.cpp"
 
 CMakeFiles/AstroGenesis.dir/src/main.cpp.i: cmake_force
@@ -101,11 +86,56 @@ CMakeFiles/AstroGenesis.dir/src/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AstroGenesis.dir/src/main.cpp.s"
 	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\main.cpp" -o CMakeFiles\AstroGenesis.dir\src\main.cpp.s
 
+CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: CMakeFiles/AstroGenesis.dir/flags.make
+CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: CMakeFiles/AstroGenesis.dir/includes_CXX.rsp
+CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/core/Application.cpp
+CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: CMakeFiles/AstroGenesis.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj -MF CMakeFiles\AstroGenesis.dir\src\core\Application.cpp.obj.d -o CMakeFiles\AstroGenesis.dir\src\core\Application.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\core\Application.cpp"
+
+CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.i"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\core\Application.cpp" > CMakeFiles\AstroGenesis.dir\src\core\Application.cpp.i
+
+CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.s"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\core\Application.cpp" -o CMakeFiles\AstroGenesis.dir\src\core\Application.cpp.s
+
+CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: CMakeFiles/AstroGenesis.dir/flags.make
+CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: CMakeFiles/AstroGenesis.dir/includes_CXX.rsp
+CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/PhysicsEngine.cpp
+CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: CMakeFiles/AstroGenesis.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj -MF CMakeFiles\AstroGenesis.dir\src\simulation\PhysicsEngine.cpp.obj.d -o CMakeFiles\AstroGenesis.dir\src\simulation\PhysicsEngine.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\simulation\PhysicsEngine.cpp"
+
+CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.i"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\simulation\PhysicsEngine.cpp" > CMakeFiles\AstroGenesis.dir\src\simulation\PhysicsEngine.cpp.i
+
+CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.s"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\simulation\PhysicsEngine.cpp" -o CMakeFiles\AstroGenesis.dir\src\simulation\PhysicsEngine.cpp.s
+
+CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.obj: CMakeFiles/AstroGenesis.dir/flags.make
+CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.obj: CMakeFiles/AstroGenesis.dir/includes_CXX.rsp
+CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/ParticleSystem.cpp
+CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.obj: CMakeFiles/AstroGenesis.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.obj"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.obj -MF CMakeFiles\AstroGenesis.dir\src\simulation\ParticleSystem.cpp.obj.d -o CMakeFiles\AstroGenesis.dir\src\simulation\ParticleSystem.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\simulation\ParticleSystem.cpp"
+
+CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.i"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\simulation\ParticleSystem.cpp" > CMakeFiles\AstroGenesis.dir\src\simulation\ParticleSystem.cpp.i
+
+CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.s"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\simulation\ParticleSystem.cpp" -o CMakeFiles\AstroGenesis.dir\src\simulation\ParticleSystem.cpp.s
+
 CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.obj: CMakeFiles/AstroGenesis.dir/flags.make
 CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.obj: CMakeFiles/AstroGenesis.dir/includes_CXX.rsp
 CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Camera.cpp
 CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.obj: CMakeFiles/AstroGenesis.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.obj"
 	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.obj -MF CMakeFiles\AstroGenesis.dir\src\renderer\Camera.cpp.obj.d -o CMakeFiles\AstroGenesis.dir\src\renderer\Camera.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\renderer\Camera.cpp"
 
 CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.i: cmake_force
@@ -120,7 +150,7 @@ CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj: CMakeFiles/AstroGenes
 CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj: CMakeFiles/AstroGenesis.dir/includes_CXX.rsp
 CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Renderer.cpp
 CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj: CMakeFiles/AstroGenesis.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj"
 	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj -MF CMakeFiles\AstroGenesis.dir\src\renderer\Renderer.cpp.obj.d -o CMakeFiles\AstroGenesis.dir\src\renderer\Renderer.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\renderer\Renderer.cpp"
 
 CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.i: cmake_force
@@ -131,26 +161,26 @@ CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.s"
 	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\renderer\Renderer.cpp" -o CMakeFiles\AstroGenesis.dir\src\renderer\Renderer.cpp.s
 
-CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: CMakeFiles/AstroGenesis.dir/flags.make
-CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: CMakeFiles/AstroGenesis.dir/includes_CXX.rsp
-CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/PhysicsEngine.cpp
-CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: CMakeFiles/AstroGenesis.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj -MF CMakeFiles\AstroGenesis.dir\src\simulation\PhysicsEngine.cpp.obj.d -o CMakeFiles\AstroGenesis.dir\src\simulation\PhysicsEngine.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\simulation\PhysicsEngine.cpp"
+CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.obj: CMakeFiles/AstroGenesis.dir/flags.make
+CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.obj: CMakeFiles/AstroGenesis.dir/includes_CXX.rsp
+CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/ParticleRenderer.cpp
+CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.obj: CMakeFiles/AstroGenesis.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.obj"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.obj -MF CMakeFiles\AstroGenesis.dir\src\renderer\ParticleRenderer.cpp.obj.d -o CMakeFiles\AstroGenesis.dir\src\renderer\ParticleRenderer.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\renderer\ParticleRenderer.cpp"
 
-CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.i"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\simulation\PhysicsEngine.cpp" > CMakeFiles\AstroGenesis.dir\src\simulation\PhysicsEngine.cpp.i
+CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.i"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\renderer\ParticleRenderer.cpp" > CMakeFiles\AstroGenesis.dir\src\renderer\ParticleRenderer.cpp.i
 
-CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.s"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\simulation\PhysicsEngine.cpp" -o CMakeFiles\AstroGenesis.dir\src\simulation\PhysicsEngine.cpp.s
+CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.s"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\renderer\ParticleRenderer.cpp" -o CMakeFiles\AstroGenesis.dir\src\renderer\ParticleRenderer.cpp.s
 
 CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: CMakeFiles/AstroGenesis.dir/flags.make
 CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: CMakeFiles/AstroGenesis.dir/includes_CXX.rsp
 CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/UIManager.cpp
 CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: CMakeFiles/AstroGenesis.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj"
 	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj -MF CMakeFiles\AstroGenesis.dir\src\ui\UIManager.cpp.obj.d -o CMakeFiles\AstroGenesis.dir\src\ui\UIManager.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\ui\UIManager.cpp"
 
 CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.i: cmake_force
@@ -163,21 +193,25 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.s: cmake_force
 
 # Object files for target AstroGenesis
 AstroGenesis_OBJECTS = \
-"CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj" \
 "CMakeFiles/AstroGenesis.dir/src/main.cpp.obj" \
+"CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj" \
+"CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj" \
+"CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.obj" \
 "CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.obj" \
 "CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj" \
-"CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj" \
+"CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.obj" \
 "CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj"
 
 # External object files for target AstroGenesis
 AstroGenesis_EXTERNAL_OBJECTS =
 
-AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj
 AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/src/main.cpp.obj
+AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj
+AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj
+AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.obj
 AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.obj
 AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj
-AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj
+AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.obj
 AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj
 AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/build.make
 AstroGenesis.exe: libimgui.a
@@ -187,7 +221,7 @@ AstroGenesis.exe: external/glm/glm/libglm.a
 AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/linkLibs.rsp
 AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/objects1.rsp
 AstroGenesis.exe: CMakeFiles/AstroGenesis.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable AstroGenesis.exe"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_9) "Linking CXX executable AstroGenesis.exe"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles\AstroGenesis.dir\link.txt --verbose=$(VERBOSE)
 	"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/assets" "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/assets"
 

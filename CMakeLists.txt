@@ -36,7 +36,16 @@ target_include_directories(imgui PUBLIC
 target_link_libraries(imgui PUBLIC glfw glad)
 
 # ── Main Executable ────────────────────────────────────────────────────────────
-file(GLOB_RECURSE ASTROGENESIS_SOURCES "src/*.cpp")
+set(ASTROGENESIS_SOURCES
+    src/main.cpp
+    src/core/Application.cpp
+    src/simulation/PhysicsEngine.cpp
+    src/simulation/ParticleSystem.cpp
+    src/renderer/Camera.cpp
+    src/renderer/Renderer.cpp
+    src/renderer/ParticleRenderer.cpp
+    src/ui/UIManager.cpp
+)
 
 add_executable(AstroGenesis ${ASTROGENESIS_SOURCES})
 

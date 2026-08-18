@@ -118,7 +118,7 @@ void UIManager::renderUI(PhysicsEngine& physics, Camera& camera, float windowWid
     drawTopBar(windowWidth);
     drawLeftPanel(physics, camera, topBarH, statusBarH, windowHeight);
     drawInfoOverlay(currentBody, m_viewportX, m_viewportY);
-    drawRightPanel(currentBody, topBarH, windowWidth, windowHeight, statusBarH);
+    drawRightPanel(physics, currentBody, topBarH, windowWidth, windowHeight, statusBarH);
     drawViewportHUD(physics, camera, m_viewportX, m_viewportY, m_viewportW, m_viewportH);
 
     float bottomY = windowHeight - statusBarH - bottomH;
@@ -126,9 +126,11 @@ void UIManager::renderUI(PhysicsEngine& physics, Camera& camera, float windowWid
     drawTimeControls(physics, leftPanelW,           bottomY, bpW, bottomH);
     drawSimMetrics  (physics, fps, leftPanelW + bpW, bottomY, bpW, bottomH);
     drawOrbitVis    (physics, camera, leftPanelW + bpW * 2, bottomY, bpW, bottomH);
-    drawAIAssistant (leftPanelW + bpW * 3,          bottomY, bpW, bottomH);
-
     drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
+
+    if (m_showAsteroidBeltDiagnostics) {
+        drawAsteroidBeltDiagnostics(physics, windowWidth, windowHeight);
+    }
 }
 
 void UIManager::drawTopBar(float width) {
@@ -164,6 +166,20 @@ void UIManager::drawTopBar(float width) {
         if (ImGui::Button(tabs[i], ImVec2(0, 28))) activeTab = i;
         ImGui::PopStyleColor(2);
     }
+
+    // Asteroid Belt Diagnostics & Resonance Analysis Window Toggle
+    ImGui::SameLine(width - 240.0f);
+    if (m_showAsteroidBeltDiagnostics) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.45f, 0.75f, 0.95f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.10f, 0.16f, 0.26f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
+    }
+    if (ImGui::Button("☄ ASTEROID BELT (N(a))", ImVec2(220, 28))) {
+        m_showAsteroidBeltDiagnostics = !m_showAsteroidBeltDiagnostics;
+    }
+    ImGui::PopStyleColor(2);
 
     ImGui::End();
     ImGui::PopStyleColor();
@@ -272,7 +288,7 @@ void UIManager::drawInfoOverlay(const CelestialBody& body, float x, float y) {
     ImGui::End();
 }
 
-void UIManager::drawRightPanel(const CelestialBody& body, float topBarH, float winW, float winH, float statusBarH) {
+void UIManager::drawRightPanel(PhysicsEngine& physics, const CelestialBody& body, float topBarH, float winW, float winH, float statusBarH) {
     float panelW = 310;
     float panelH = winH - topBarH - statusBarH;
     ImGui::SetNextWindowPos(ImVec2(winW - panelW, topBarH));
@@ -337,6 +353,53 @@ void UIManager::drawRightPanel(const CelestialBody& body, float topBarH, float w
         ImGui::EndGroup();
     }
 
+    if (body.ring.hasRing) {
+        ImGui::Separator();
+        if (SectionHeader("PLANETARY RING ASTROPHYSICS & SHEAR")) {
+            float hw = (panelW - 40) / 2.0f;
+            
+            // Keplerian Differential Velocity (Inner moves faster than outer)
+            ImGui::BeginGroup();
+            StatItem("\xE2\x9C\xA8", "Inner Speed (74.5k km)", "23.1 km/s (5.6h)");
+            ImGui::SameLine(hw);
+            StatItem("\xE2\x9C\xA8", "Outer Speed (140.2k km)", "16.8 km/s (14.9h)");
+            ImGui::EndGroup();
+
+            // Local Gravity & Escape Velocity Gradient
+            ImGui::BeginGroup();
+            StatItem("\xE2\x86\x93", "Local Gravity (g)", "6.84 → 1.93 m/s²");
+            ImGui::SameLine(hw);
+            StatItem("\xE2\x86\x97", "Escape Velocity", "32.7 → 23.8 km/s");
+            ImGui::EndGroup();
+
+            // Thermodynamics & Relativistic Dilation
+            ImGui::BeginGroup();
+            StatItem("\xE2\x97\x8B", "Ring Temp. (Ice)", "85 K (-188 °C)");
+            ImGui::SameLine(hw);
+            StatItem("\xE2\x8F\xB1", "Relativistic Drift", "-1.35 × 10⁻⁸");
+            ImGui::EndGroup();
+
+            // Total Mass & Fluid Perturbation State
+            ImGui::BeginGroup();
+            StatItem("\xE2\x9A\x96", "Total Ring Mass", "1.50 × 10¹⁹ kg");
+            ImGui::SameLine(hw);
+            char actBuf[32];
+            snprintf(actBuf, sizeof(actBuf), "%zu Active", body.ring.disturbances.size());
+            StatItem("\xE2\x8F\xB3", "Fluid State", body.ring.disturbances.empty() ? "Equilibrium" : actBuf);
+            ImGui::EndGroup();
+
+            ImGui::Spacing();
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.45f, 0.65f, 0.9f));
+            if (ImGui::Button("☄ Trigger Asteroid Ring Impact", ImVec2(panelW - 20, 24))) {
+                physics.triggerSaturnRingImpact();
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Carve a physical void/wake in Saturn's rings and watch Keplerian shear and viscous self-healing in real time!");
+            }
+            ImGui::PopStyleColor();
+        }
+    }
+
     ImGui::Separator();
 
     if (SectionHeader("RADIATION & GENERAL RELATIVITY")) {
@@ -359,8 +422,6 @@ void UIManager::drawRightPanel(const CelestialBody& body, float topBarH, float w
         StatItem("\xE2\x9C\xA8", "Aurora Activity", body.auroraActivityStr.c_str());
         ImGui::EndGroup();
     }
-
-    ImGui::Separator();
 
     if (SectionHeader("COMPOSITION")) {
         // Donut chart
@@ -424,10 +485,13 @@ void UIManager::drawTimeControls(PhysicsEngine& physics, float x, float y, float
 
     bool isPaused = physics.isPaused();
     if (ImGui::Button("|<", ImVec2(28, 24))) { physics.stepFrameBackward(); }
+    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Step Backward (Frame)"); }
     ImGui::SameLine();
     if (ImGui::Button(isPaused ? " > " : " || ", ImVec2(28, 24))) { physics.togglePause(); }
+    if (ImGui::IsItemHovered()) { ImGui::SetTooltip(isPaused ? "Play (Space)" : "Pause (Space)"); }
     ImGui::SameLine();
     if (ImGui::Button(">|", ImVec2(28, 24))) { physics.stepFrameForward(); }
+    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Step Forward (Frame)"); }
 
     ImGui::SameLine(0, 8);
     if (ImGui::Button("1s/s", ImVec2(36, 24))) { physics.setTimeScale(1.0f); }
@@ -845,6 +909,159 @@ void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vp
     }
 
     fg->PopClipRect();
+}
+
+void UIManager::drawAsteroidBeltDiagnostics(PhysicsEngine& physics, float winW, float winH) {
+    auto& belt = physics.getAsteroidBelt();
+    const auto& diag = belt.getDiagnostics();
+    const auto& hist = belt.getHistogram();
+
+    float w = 680.0f;
+    float h = 540.0f;
+    ImGui::SetNextWindowPos(ImVec2((winW - w) * 0.5f, (winH - h) * 0.5f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(w, h));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.04f, 0.06f, 0.11f, 0.96f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.2f, 0.4f, 0.7f, 0.6f));
+
+    if (ImGui::Begin("ASTEROID BELT DYNAMICS & KIRKWOOD RESONANCES##Diag", &m_showAsteroidBeltDiagnostics, ImGuiWindowFlags_NoCollapse)) {
+        ImGui::TextColored(Col::Accent, "HYBRID ASTRODYNAMICS & RESONANCE DEPLETION ENGINE");
+        ImGui::Separator();
+
+        // 1. Population & Conservation Grid (4 Columns)
+        float colW = (w - 50.0f) / 4.0f;
+        ImGui::BeginGroup();
+        ImGui::TextColored(Col::TextSecondary, "Physical Asteroids");
+        ImGui::TextColored(Col::Green, "%d Active", diag.activePhysical);
+        ImGui::TextColored(Col::TextSecondary, "Escaped: %d | Sun: %d", diag.escapedPhysical, diag.sunCollidedPhysical);
+        ImGui::EndGroup();
+
+        ImGui::SameLine(colW);
+        ImGui::BeginGroup();
+        ImGui::TextColored(Col::TextSecondary, "Visual Population");
+        ImGui::TextColored(Col::Accent, "%d GPU", diag.totalVisual);
+        ImGui::TextColored(Col::TextSecondary, "Instanced (1 Draw)");
+        ImGui::EndGroup();
+
+        ImGui::SameLine(colW * 2);
+        ImGui::BeginGroup();
+        ImGui::TextColored(Col::TextSecondary, "Mean Semi-Major Axis");
+        ImGui::TextColored(Col::TextPrimary, "%.3f AU", diag.meanSemiMajorAxisAU);
+        ImGui::TextColored(Col::TextSecondary, "Mean Inc: %.1f\xC2\xB0", diag.meanInclinationDeg);
+        ImGui::EndGroup();
+
+        ImGui::SameLine(colW * 3);
+        ImGui::BeginGroup();
+        ImGui::TextColored(Col::TextSecondary, "Eccentricity (Mean/Max)");
+        ImGui::TextColored(Col::TextPrimary, "%.3f / %.3f", diag.meanEccentricity, diag.maxEccentricity);
+        ImGui::TextColored(Col::TextSecondary, "Excited (e>0.25): %d", diag.highlyExcitedCount);
+        ImGui::EndGroup();
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        // 2. N(a) Histogram with Jupiter Mean-Motion Resonance Lines
+        ImGui::TextColored(Col::Accent, "N(a) ASTEROID DISTRIBUTION & KIRKWOOD GAPS (2.0 - 3.6 AU)");
+        ImGui::TextColored(Col::TextSecondary, "Vertical lines mark theoretical Jupiter orbital resonance locations:");
+
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 plotPos = ImGui::GetCursorScreenPos();
+        float plotW = w - 30.0f;
+        float plotH = 150.0f;
+
+        // Background box for histogram
+        dl->AddRectFilled(plotPos, ImVec2(plotPos.x + plotW, plotPos.y + plotH),
+                          ImGui::ColorConvertFloat4ToU32(ImVec4(0.025f, 0.035f, 0.07f, 0.95f)), 4.0f);
+        dl->AddRect(plotPos, ImVec2(plotPos.x + plotW, plotPos.y + plotH),
+                    ImGui::ColorConvertFloat4ToU32(ImVec4(0.15f, 0.25f, 0.45f, 0.5f)), 4.0f);
+
+        // Draw histogram bars
+        int numBins = (int)hist.counts.size();
+        float barWidth = plotW / (float)numBins;
+        int maxCount = std::max(1, hist.maxBinCount);
+
+        for (int b = 0; b < numBins; ++b) {
+            float count = (float)hist.counts[b];
+            float barHeight = (count / (float)maxCount) * (plotH - 24.0f);
+            float bx0 = plotPos.x + (float)b * barWidth;
+            float bx1 = bx0 + barWidth - 1.0f;
+            float by1 = plotPos.y + plotH - 18.0f;
+            float by0 = by1 - barHeight;
+
+            ImU32 barCol = ImGui::ColorConvertFloat4ToU32(ImVec4(0.35f, 0.65f, 0.95f, 0.85f));
+            dl->AddRectFilled(ImVec2(bx0, by0), ImVec2(bx1, by1), barCol);
+        }
+
+        // Helper to draw vertical resonance line
+        auto drawResonance = [&](float aRes, const char* label, ImVec4 col) {
+            if (aRes >= hist.minAU && aRes <= hist.maxAU) {
+                float normX = (aRes - hist.minAU) / (hist.maxAU - hist.minAU);
+                float rx = plotPos.x + normX * plotW;
+                ImU32 lineCol = ImGui::ColorConvertFloat4ToU32(col);
+                dl->AddLine(ImVec2(rx, plotPos.y + 4.0f), ImVec2(rx, plotPos.y + plotH - 18.0f), lineCol, 1.5f);
+                dl->AddText(ImVec2(rx - 8.0f, plotPos.y + 4.0f), lineCol, label);
+            }
+        };
+
+        drawResonance(ParticleHistogram::RES_4_1, "4:1", ImVec4(0.8f, 0.8f, 0.4f, 0.8f));
+        drawResonance(ParticleHistogram::RES_3_1, "3:1", ImVec4(1.0f, 0.35f, 0.35f, 0.9f));
+        drawResonance(ParticleHistogram::RES_5_2, "5:2", ImVec4(1.0f, 0.55f, 0.25f, 0.9f));
+        drawResonance(ParticleHistogram::RES_7_3, "7:3", ImVec4(1.0f, 0.75f, 0.25f, 0.9f));
+        drawResonance(ParticleHistogram::RES_2_1, "2:1", ImVec4(1.0f, 0.35f, 0.35f, 0.9f));
+
+        // Axis labels
+        dl->AddText(ImVec2(plotPos.x + 6.0f, plotPos.y + plotH - 16.0f),
+                    ImGui::ColorConvertFloat4ToU32(Col::TextSecondary), "2.0 AU");
+        dl->AddText(ImVec2(plotPos.x + plotW * 0.5f - 16.0f, plotPos.y + plotH - 16.0f),
+                    ImGui::ColorConvertFloat4ToU32(Col::TextSecondary), "2.8 AU");
+        dl->AddText(ImVec2(plotPos.x + plotW - 46.0f, plotPos.y + plotH - 16.0f),
+                    ImGui::ColorConvertFloat4ToU32(Col::TextSecondary), "3.6 AU");
+
+        ImGui::Dummy(ImVec2(plotW, plotH + 4.0f));
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        // 3. Performance & Population Configuration Controls
+        ImGui::TextColored(Col::Accent, "POPULATION & PERFORMANCE CONTROLS");
+
+        static int configPhysCount = belt.getPhysicalCount();
+        static int configVisCount = belt.getVisualCount();
+        float sizeMult = belt.getVisualSizeMultiplier();
+
+        ImGui::PushItemWidth(240.0f);
+        ImGui::SliderInt("Physical Asteroids (N-body)", &configPhysCount, 200, 5000, "%d Bodies");
+        ImGui::SameLine(360.0f);
+        ImGui::SliderInt("Visual Asteroids (GPU)", &configVisCount, 10000, 500000, "%d GPU");
+
+        if (ImGui::SliderFloat("Visual Size Scale", &sizeMult, 0.2f, 5.0f, "%.1fx")) {
+            belt.setVisualSizeMultiplier(sizeMult);
+        }
+        ImGui::PopItemWidth();
+
+        ImGui::Spacing();
+
+        if (ImGui::Button("\xE2\x9F\xB3 Re-seed & Reinitialize Belt", ImVec2(220, 26))) {
+            physics.reseedAsteroidBelt(configPhysCount, configVisCount);
+        }
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.25f, 0.15f, 0.9f));
+        if (ImGui::Button("\xE2\x9A\xA1 Jupiter Flyby Perturbation Impulse Test", ImVec2(280, 26))) {
+            belt.triggerResonanceImpulseTest();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Simulates strong gravitational kicks at Jupiter resonances (3:1 and 2:1) to demonstrate orbital excitation and gap depletion!");
+        }
+        ImGui::PopStyleColor();
+
+        ImGui::SameLine(w - 120.0f);
+        if (ImGui::Button("Close", ImVec2(90, 26))) {
+            m_showAsteroidBeltDiagnostics = false;
+        }
+    }
+    ImGui::End();
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar();
 }
 
 } // namespace AstroGenesis

@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include "simulation/CelestialBody.hpp"
+#include "simulation/ParticleSystem.hpp"
 
 namespace AstroGenesis {
 
@@ -48,6 +49,15 @@ public:
 
     const CelestialBody& getSelectedBody() const;
     void clearTrails();
+    void triggerRingImpact(const std::string& planetId, float normRadius, float azimuthRad, float impactRadiusM = 4000000.0f);
+    void triggerSaturnRingImpact();
+
+    // Particle System & Field getters
+    ParticleSystem& getParticleSystem() { return m_particleSystem; }
+    const ParticleSystem& getParticleSystem() const { return m_particleSystem; }
+    ParticleField& getAsteroidBelt() { return m_particleSystem.getAsteroidBelt(); }
+    const ParticleField& getAsteroidBelt() const { return m_particleSystem.getAsteroidBelt(); }
+    void reseedAsteroidBelt(int physicalCount, int visualCount) { m_particleSystem.getAsteroidBelt().reseed(physicalCount, visualCount); }
 
     // Global Physics & Conservation Stats
     int getObjectCount() const { return (int)m_bodies.size(); }
@@ -65,6 +75,7 @@ private:
                               std::vector<glm::dvec3>& outAccelerations);
     void integrateNBody(double deltaSeconds);
     void updatePhysicalQuantities();
+    void updateRingHydrodynamics(double deltaSeconds);
     void computeSystemConservationStats();
 
     std::vector<CelestialBody> m_bodies;
@@ -86,6 +97,8 @@ private:
     double m_totalSystemPotentialJ = 0.0;
     double m_totalSystemAngularMomentum = 0.0;
     double m_energyConservationDriftPct = 0.0;
+
+    ParticleSystem m_particleSystem;
 };
 
 } // namespace AstroGenesis

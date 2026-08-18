@@ -13,10 +13,40 @@ struct CompositionItem {
     glm::vec4 color;
 };
 
+struct RingDisturbance {
+    float normRadius = 0.5f;     // Normalized radius [0, 1] across ring (0 = inner, 1 = outer)
+    float azimuthRad = 0.0f;     // Azimuthal angle theta on ring plane in radians
+    float radialWidth = 0.08f;   // Gaussian radial width in normalized radius
+    float angularWidth = 0.15f;  // Gaussian angular width in radians
+    float intensity = 1.0f;      // 1.0 = fully carved hole/wake, 0.0 = fully healed
+    float ageSeconds = 0.0f;     // Time since collision
+    float decayRate = 0.02f;     // Viscous healing rate (1 / seconds)
+    float keplerianOmega = 0.0f; // Orbital angular velocity at this radius (rad/s)
+};
+
+struct PlanetaryRing {
+    bool hasRing = false;
+    double innerRadiusM = 74500000.0;  // 74,500 km (D/C ring inner boundary)
+    double outerRadiusM = 140220000.0; // 140,220 km (A/F ring outer boundary)
+    double innerRadiusAU = 0.0;
+    double outerRadiusAU = 0.0;
+    float innerRadius3D = 0.0f;
+    float outerRadius3D = 0.0f;
+    double massKg = 1.5e19;             // Total ring mass in kg
+    double thicknessM = 20.0;           // Average physical thickness (20 meters)
+    glm::vec3 baseColor{0.88f, 0.82f, 0.70f}; // Saturn ring warm golden-tan ice color
+    std::string texturePath = "assets/textures/saturn_ring_alpha.png";
+
+    // Dynamic Hydrodynamic Perturbations & Self-Healing Field
+    static constexpr int MAX_DISTURBANCES = 16;
+    std::vector<RingDisturbance> disturbances;
+};
+
 struct CelestialBody {
     std::string id;
     std::string name;
     std::string type;         // e.g. "Terrestrial Planet", "G2V Star", "Gas Giant"
+    PlanetaryRing ring;
     
     // Live Formatted Strings (dynamically updated in real-time)
     std::string distanceStr;       // e.g. "1.00 AU"

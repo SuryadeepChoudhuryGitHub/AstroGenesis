@@ -44,6 +44,8 @@ CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: D:/\#\ My\ Folder/My\ 
   C:/msys64/ucrt64/include/c++/14.2.0/bits/postypes.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/predefined_ops.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/ptr_traits.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/random.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/random.tcc \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/range_access.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/refwrap.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/requires_hosted.h \
@@ -60,6 +62,7 @@ CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: D:/\#\ My\ Folder/My\ 
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator_base_funcs.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator_base_types.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_numeric.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_pair.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_tempbuf.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_uninitialized.h \
@@ -100,9 +103,12 @@ CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: D:/\#\ My\ Folder/My\ 
   C:/msys64/ucrt64/include/c++/14.2.0/iosfwd \
   C:/msys64/ucrt64/include/c++/14.2.0/limits \
   C:/msys64/ucrt64/include/c++/14.2.0/new \
+  C:/msys64/ucrt64/include/c++/14.2.0/numeric \
   C:/msys64/ucrt64/include/c++/14.2.0/pstl/execution_defs.h \
   C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_algorithm_defs.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_numeric_defs.h \
   C:/msys64/ucrt64/include/c++/14.2.0/pstl/pstl_config.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/random \
   C:/msys64/ucrt64/include/c++/14.2.0/stdlib.h \
   C:/msys64/ucrt64/include/c++/14.2.0/string \
   C:/msys64/ucrt64/include/c++/14.2.0/string_view \
@@ -127,6 +133,7 @@ CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: D:/\#\ My\ Folder/My\ 
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++config.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++locale.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/cpu_defines.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/opt_random.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/os_defines.h \
   C:/msys64/ucrt64/include/corecrt.h \
   C:/msys64/ucrt64/include/corecrt_stdio_config.h \
@@ -153,13 +160,18 @@ CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: D:/\#\ My\ Folder/My\ 
   C:/msys64/ucrt64/include/swprintf.inl \
   C:/msys64/ucrt64/include/vadefs.h \
   C:/msys64/ucrt64/include/wchar.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/emmintrin.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/float.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/limits.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mm_malloc.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mmintrin.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mwaitintrin.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/pmmintrin.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdarg.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stddef.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/syslimits.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/xmmintrin.h \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glad/include/KHR/khrplatform.h \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glad/include/glad/gl.h \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glfw/include/GLFW/glfw3.h \
@@ -314,8 +326,10 @@ CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: D:/\#\ My\ Folder/My\ 
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imconfig.h \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imgui.h \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/core/Application.hpp \
+  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/AsteroidRenderer.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Camera.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Renderer.hpp \
+  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/AsteroidBelt.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/CelestialBody.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/PhysicsEngine.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/UIManager.hpp
@@ -361,6 +375,8 @@ CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\
   C:/msys64/ucrt64/include/c++/14.2.0/bits/postypes.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/predefined_ops.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/ptr_traits.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/random.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/random.tcc \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/range_access.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/refwrap.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/requires_hosted.h \
@@ -375,11 +391,13 @@ CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator_base_funcs.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator_base_types.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_numeric.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_pair.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_uninitialized.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_vector.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/string_view.tcc \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stringfwd.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/uniform_int_dist.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/unordered_map.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/uses_allocator.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/uses_allocator_args.h \
@@ -413,7 +431,11 @@ CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\
   C:/msys64/ucrt64/include/c++/14.2.0/iosfwd \
   C:/msys64/ucrt64/include/c++/14.2.0/limits \
   C:/msys64/ucrt64/include/c++/14.2.0/new \
+  C:/msys64/ucrt64/include/c++/14.2.0/numeric \
+  C:/msys64/ucrt64/include/c++/14.2.0/pstl/execution_defs.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_numeric_defs.h \
   C:/msys64/ucrt64/include/c++/14.2.0/pstl/pstl_config.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/random \
   C:/msys64/ucrt64/include/c++/14.2.0/stdlib.h \
   C:/msys64/ucrt64/include/c++/14.2.0/string \
   C:/msys64/ucrt64/include/c++/14.2.0/string_view \
@@ -438,6 +460,7 @@ CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++config.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++locale.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/cpu_defines.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/opt_random.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/os_defines.h \
   C:/msys64/ucrt64/include/corecrt.h \
   C:/msys64/ucrt64/include/corecrt_stdio_config.h \
@@ -464,13 +487,18 @@ CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\
   C:/msys64/ucrt64/include/swprintf.inl \
   C:/msys64/ucrt64/include/vadefs.h \
   C:/msys64/ucrt64/include/wchar.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/emmintrin.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/float.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/limits.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mm_malloc.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mmintrin.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mwaitintrin.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/pmmintrin.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdarg.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stddef.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/syslimits.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/xmmintrin.h \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glad/include/KHR/khrplatform.h \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glad/include/glad/gl.h \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glfw/include/GLFW/glfw3.h \
@@ -622,8 +650,10 @@ CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/vector_relational.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imconfig.h \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imgui.h \
+  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/AsteroidRenderer.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Camera.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Renderer.hpp \
+  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/AsteroidBelt.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/CelestialBody.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/PhysicsEngine.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/UIManager.hpp \
@@ -939,6 +969,8 @@ CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj: D:/\#\ My\ Folder/My\
   C:/msys64/ucrt64/include/c++/14.2.0/bits/postypes.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/predefined_ops.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/ptr_traits.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/random.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/random.tcc \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/range_access.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/refwrap.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/requires_hosted.h \
@@ -953,11 +985,13 @@ CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj: D:/\#\ My\ Folder/My\
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator_base_funcs.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator_base_types.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_numeric.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_pair.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_uninitialized.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_vector.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/string_view.tcc \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stringfwd.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/uniform_int_dist.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/unordered_map.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/uses_allocator.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/uses_allocator_args.h \
@@ -993,7 +1027,11 @@ CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj: D:/\#\ My\ Folder/My\
   C:/msys64/ucrt64/include/c++/14.2.0/limits \
   C:/msys64/ucrt64/include/c++/14.2.0/math.h \
   C:/msys64/ucrt64/include/c++/14.2.0/new \
+  C:/msys64/ucrt64/include/c++/14.2.0/numeric \
+  C:/msys64/ucrt64/include/c++/14.2.0/pstl/execution_defs.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_numeric_defs.h \
   C:/msys64/ucrt64/include/c++/14.2.0/pstl/pstl_config.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/random \
   C:/msys64/ucrt64/include/c++/14.2.0/stdlib.h \
   C:/msys64/ucrt64/include/c++/14.2.0/string \
   C:/msys64/ucrt64/include/c++/14.2.0/string_view \
@@ -1018,6 +1056,7 @@ CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj: D:/\#\ My\ Folder/My\
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++config.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++locale.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/cpu_defines.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/opt_random.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/os_defines.h \
   C:/msys64/ucrt64/include/corecrt.h \
   C:/msys64/ucrt64/include/corecrt_stdio_config.h \
@@ -1049,6 +1088,8 @@ CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj: D:/\#\ My\ Folder/My\
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/limits.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mm_malloc.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mmintrin.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mwaitintrin.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/pmmintrin.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdarg.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stddef.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h \
@@ -1239,8 +1280,10 @@ CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj: D:/\#\ My\ Folder/My\
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/vec4.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/vector_relational.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/stb_image.h \
+  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/AsteroidRenderer.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Camera.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Renderer.hpp \
+  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/AsteroidBelt.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/CelestialBody.hpp
 
 CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/PhysicsEngine.cpp \
@@ -1286,6 +1329,8 @@ CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: D:/\#\ My\ Fol
   C:/msys64/ucrt64/include/c++/14.2.0/bits/postypes.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/predefined_ops.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/ptr_traits.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/random.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/random.tcc \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/range_access.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/refwrap.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/requires_hosted.h \
@@ -1302,6 +1347,7 @@ CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: D:/\#\ My\ Fol
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator_base_funcs.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator_base_types.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_numeric.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_pair.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_tempbuf.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_uninitialized.h \
@@ -1343,9 +1389,12 @@ CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: D:/\#\ My\ Fol
   C:/msys64/ucrt64/include/c++/14.2.0/iosfwd \
   C:/msys64/ucrt64/include/c++/14.2.0/limits \
   C:/msys64/ucrt64/include/c++/14.2.0/new \
+  C:/msys64/ucrt64/include/c++/14.2.0/numeric \
   C:/msys64/ucrt64/include/c++/14.2.0/pstl/execution_defs.h \
   C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_algorithm_defs.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_numeric_defs.h \
   C:/msys64/ucrt64/include/c++/14.2.0/pstl/pstl_config.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/random \
   C:/msys64/ucrt64/include/c++/14.2.0/stdlib.h \
   C:/msys64/ucrt64/include/c++/14.2.0/string \
   C:/msys64/ucrt64/include/c++/14.2.0/string_view \
@@ -1370,6 +1419,7 @@ CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: D:/\#\ My\ Fol
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++config.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++locale.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/cpu_defines.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/opt_random.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/os_defines.h \
   C:/msys64/ucrt64/include/corecrt.h \
   C:/msys64/ucrt64/include/corecrt_stdio_config.h \
@@ -1397,12 +1447,17 @@ CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: D:/\#\ My\ Fol
   C:/msys64/ucrt64/include/time.h \
   C:/msys64/ucrt64/include/vadefs.h \
   C:/msys64/ucrt64/include/wchar.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/emmintrin.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/float.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/limits.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mm_malloc.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mmintrin.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mwaitintrin.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/pmmintrin.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stddef.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/syslimits.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/xmmintrin.h \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/common.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/_fixes.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/_vectorize.hpp \
@@ -1537,6 +1592,7 @@ CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj: D:/\#\ My\ Fol
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/vec3.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/vec4.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/vector_relational.hpp \
+  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/AsteroidBelt.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/CelestialBody.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/PhysicsEngine.hpp
 
@@ -1583,6 +1639,8 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: D:/\#\ My\ Folder/My\ Work
   C:/msys64/ucrt64/include/c++/14.2.0/bits/postypes.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/predefined_ops.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/ptr_traits.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/random.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/random.tcc \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/range_access.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/refwrap.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/requires_hosted.h \
@@ -1599,6 +1657,7 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: D:/\#\ My\ Folder/My\ Work
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator_base_funcs.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator_base_types.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_numeric.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_pair.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_tempbuf.h \
   C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_uninitialized.h \
@@ -1639,9 +1698,12 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: D:/\#\ My\ Folder/My\ Work
   C:/msys64/ucrt64/include/c++/14.2.0/iosfwd \
   C:/msys64/ucrt64/include/c++/14.2.0/limits \
   C:/msys64/ucrt64/include/c++/14.2.0/new \
+  C:/msys64/ucrt64/include/c++/14.2.0/numeric \
   C:/msys64/ucrt64/include/c++/14.2.0/pstl/execution_defs.h \
   C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_algorithm_defs.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_numeric_defs.h \
   C:/msys64/ucrt64/include/c++/14.2.0/pstl/pstl_config.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/random \
   C:/msys64/ucrt64/include/c++/14.2.0/stdlib.h \
   C:/msys64/ucrt64/include/c++/14.2.0/string \
   C:/msys64/ucrt64/include/c++/14.2.0/string_view \
@@ -1666,6 +1728,7 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: D:/\#\ My\ Folder/My\ Work
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++config.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++locale.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/cpu_defines.h \
+  C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/opt_random.h \
   C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/os_defines.h \
   C:/msys64/ucrt64/include/corecrt.h \
   C:/msys64/ucrt64/include/corecrt_stdio_config.h \
@@ -1692,13 +1755,18 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: D:/\#\ My\ Folder/My\ Work
   C:/msys64/ucrt64/include/swprintf.inl \
   C:/msys64/ucrt64/include/vadefs.h \
   C:/msys64/ucrt64/include/wchar.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/emmintrin.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/float.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/limits.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mm_malloc.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mmintrin.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mwaitintrin.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/pmmintrin.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdarg.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stddef.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h \
   C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/syslimits.h \
+  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/xmmintrin.h \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/common.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/_fixes.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/_vectorize.hpp \
@@ -1848,6 +1916,7 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: D:/\#\ My\ Folder/My\ Work
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imconfig.h \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imgui.h \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Camera.hpp \
+  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/AsteroidBelt.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/CelestialBody.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/PhysicsEngine.hpp \
   D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/UIManager.hpp
@@ -1864,6 +1933,8 @@ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/main.cpp:
 C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_algobase.h:
 
 C:/msys64/ucrt64/include/stdio.h:
+
+C:/msys64/ucrt64/include/c++/14.2.0/numeric:
 
 C:/msys64/ucrt64/include/c++/14.2.0/bits/range_access.h:
 
@@ -1961,8 +2032,6 @@ C:/msys64/ucrt64/include/c++/14.2.0/ext/alloc_traits.h:
 
 C:/msys64/ucrt64/include/c++/14.2.0/bits/basic_string.h:
 
-C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_vector.h:
-
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/type_vec1.hpp:
 
 C:/msys64/ucrt64/include/c++/14.2.0/bits/concept_check.h:
@@ -2031,25 +2100,35 @@ C:/msys64/ucrt64/include/math.h:
 
 C:/msys64/ucrt64/include/c++/14.2.0/limits:
 
-C:/msys64/ucrt64/include/c++/14.2.0/bits/postypes.h:
-
 C:/msys64/ucrt64/include/c++/14.2.0/bits/string_view.tcc:
+
+C:/msys64/ucrt64/include/c++/14.2.0/bits/postypes.h:
 
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/type_half.hpp:
 
 C:/msys64/ucrt64/include/c++/14.2.0/bits/predefined_ops.h:
 
+C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_numeric.h:
+
+C:/msys64/ucrt64/include/c++/14.2.0/bits/random.h:
+
+D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_float4.hpp:
+
+C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_construct.h:
+
+D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_geometric.hpp:
+
+C:/msys64/ucrt64/include/c++/14.2.0/bits/random.tcc:
+
 C:/msys64/ucrt64/include/c++/14.2.0/bits/refwrap.h:
+
+D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/AsteroidRenderer.hpp:
 
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_bool4_precision.hpp:
 
 C:/msys64/ucrt64/include/c++/14.2.0/bits/requires_hosted.h:
 
 C:/msys64/ucrt64/include/c++/14.2.0/bits/specfun.h:
-
-D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_float4.hpp:
-
-C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_construct.h:
 
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/quaternion.hpp:
 
@@ -2070,6 +2149,8 @@ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/type_mat4x3.hpp:
 
 C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_uninitialized.h:
+
+C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_vector.h:
 
 C:/msys64/ucrt64/include/c++/14.2.0/bits/stringfwd.h:
 
@@ -2161,6 +2242,10 @@ C:/msys64/ucrt64/include/c++/14.2.0/pstl/execution_defs.h:
 
 C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_algorithm_defs.h:
 
+C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_numeric_defs.h:
+
+C:/msys64/ucrt64/include/c++/14.2.0/random:
+
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/matrix_double3x3_precision.hpp:
 
 C:/msys64/ucrt64/include/c++/14.2.0/stdlib.h:
@@ -2198,6 +2283,10 @@ C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++config.h:
 C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++locale.h:
 
 C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/cpu_defines.h:
+
+C:/msys64/ucrt64/include/sec_api/wchar_s.h:
+
+C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/opt_random.h:
 
 C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/os_defines.h:
 
@@ -2245,8 +2334,6 @@ C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h:
 
 C:/msys64/ucrt64/include/sec_api/string_s.h:
 
-C:/msys64/ucrt64/include/sec_api/wchar_s.h:
-
 C:/msys64/ucrt64/include/stdarg.h:
 
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/matrix_projection.inl:
@@ -2265,6 +2352,8 @@ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/
 
 C:/msys64/ucrt64/include/vadefs.h:
 
+C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/emmintrin.h:
+
 C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/float.h:
 
 C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/limits.h:
@@ -2272,6 +2361,12 @@ C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/limits.h:
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_double_precision.hpp:
 
 C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mm_malloc.h:
+
+C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mwaitintrin.h:
+
+C:/msys64/ucrt64/include/c++/14.2.0/math.h:
+
+C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/pmmintrin.h:
 
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/matrix_double3x4_precision.hpp:
 
@@ -2284,6 +2379,8 @@ C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stddef.h:
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/compute_common.hpp:
 
 C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/syslimits.h:
+
+C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/xmmintrin.h:
 
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/func_trigonometric.inl:
 
@@ -2304,6 +2401,8 @@ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/fwd.hpp:
 
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/func_common.inl:
+
+D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/AsteroidBelt.hpp:
 
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/func_exponential.inl:
 
@@ -2541,12 +2640,6 @@ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/
 
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Renderer.cpp:
 
-C:/msys64/ucrt64/include/c++/14.2.0/math.h:
-
-C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/emmintrin.h:
-
-C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/xmmintrin.h:
-
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/type_float.hpp:
 
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_relational.hpp:
@@ -2566,8 +2659,6 @@ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_float.hpp:
 
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_float_precision.hpp:
-
-D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_geometric.hpp:
 
 D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_bool1_precision.hpp:
 

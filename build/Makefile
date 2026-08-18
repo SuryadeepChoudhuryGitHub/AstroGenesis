@@ -457,6 +457,30 @@ src/renderer/Camera.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.s
 .PHONY : src/renderer/Camera.cpp.s
 
+src/renderer/ParticleRenderer.obj: src/renderer/ParticleRenderer.cpp.obj
+.PHONY : src/renderer/ParticleRenderer.obj
+
+# target to build an object file
+src/renderer/ParticleRenderer.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.obj
+.PHONY : src/renderer/ParticleRenderer.cpp.obj
+
+src/renderer/ParticleRenderer.i: src/renderer/ParticleRenderer.cpp.i
+.PHONY : src/renderer/ParticleRenderer.i
+
+# target to preprocess a source file
+src/renderer/ParticleRenderer.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.i
+.PHONY : src/renderer/ParticleRenderer.cpp.i
+
+src/renderer/ParticleRenderer.s: src/renderer/ParticleRenderer.cpp.s
+.PHONY : src/renderer/ParticleRenderer.s
+
+# target to generate assembly for a file
+src/renderer/ParticleRenderer.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.s
+.PHONY : src/renderer/ParticleRenderer.cpp.s
+
 src/renderer/Renderer.obj: src/renderer/Renderer.cpp.obj
 .PHONY : src/renderer/Renderer.obj
 
@@ -480,6 +504,30 @@ src/renderer/Renderer.s: src/renderer/Renderer.cpp.s
 src/renderer/Renderer.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.s
 .PHONY : src/renderer/Renderer.cpp.s
+
+src/simulation/ParticleSystem.obj: src/simulation/ParticleSystem.cpp.obj
+.PHONY : src/simulation/ParticleSystem.obj
+
+# target to build an object file
+src/simulation/ParticleSystem.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.obj
+.PHONY : src/simulation/ParticleSystem.cpp.obj
+
+src/simulation/ParticleSystem.i: src/simulation/ParticleSystem.cpp.i
+.PHONY : src/simulation/ParticleSystem.i
+
+# target to preprocess a source file
+src/simulation/ParticleSystem.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.i
+.PHONY : src/simulation/ParticleSystem.cpp.i
+
+src/simulation/ParticleSystem.s: src/simulation/ParticleSystem.cpp.s
+.PHONY : src/simulation/ParticleSystem.s
+
+# target to generate assembly for a file
+src/simulation/ParticleSystem.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.s
+.PHONY : src/simulation/ParticleSystem.cpp.s
 
 src/simulation/PhysicsEngine.obj: src/simulation/PhysicsEngine.cpp.obj
 .PHONY : src/simulation/PhysicsEngine.obj
@@ -576,9 +624,15 @@ help:
 	@echo ... src/renderer/Camera.obj
 	@echo ... src/renderer/Camera.i
 	@echo ... src/renderer/Camera.s
+	@echo ... src/renderer/ParticleRenderer.obj
+	@echo ... src/renderer/ParticleRenderer.i
+	@echo ... src/renderer/ParticleRenderer.s
 	@echo ... src/renderer/Renderer.obj
 	@echo ... src/renderer/Renderer.i
 	@echo ... src/renderer/Renderer.s
+	@echo ... src/simulation/ParticleSystem.obj
+	@echo ... src/simulation/ParticleSystem.i
+	@echo ... src/simulation/ParticleSystem.s
 	@echo ... src/simulation/PhysicsEngine.obj
 	@echo ... src/simulation/PhysicsEngine.i
 	@echo ... src/simulation/PhysicsEngine.s

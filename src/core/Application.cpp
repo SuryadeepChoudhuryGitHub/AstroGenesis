@@ -99,6 +99,11 @@ void Application::processInput(float deltaTime) {
             m_camera.processMouseZoom(-1.0f * deltaTime * 5.0f);
         }
     }
+
+    // Space bar hotkey for Play / Pause toggle
+    if (!io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
+        m_physics.togglePause();
+    }
 }
 
 void Application::run() {
@@ -162,9 +167,16 @@ void Application::run() {
         // Render dynamic 3D celestial motion trails & orbit guide lines
         m_renderer.renderTrails(m_camera, aspect, m_physics.getBodies(), camTarget, m_physics.getSelectedBodyIndex());
 
+        // Render realistic particle fields (hybrid physics + GPU instancing)
+        m_renderer.renderParticleField(m_camera, aspect, m_physics.getAsteroidBelt(), solPos, camTarget, m_physics.getSimulatedTimeSeconds());
+
+        // Render celestial bodies
         for (const auto& body : m_physics.getBodies()) {
             m_renderer.renderSphere(m_camera, aspect, body, solPos, camTarget);
         }
+
+        // Render planetary rings (Saturn granular fluid ring system with shadows)
+        m_renderer.renderRings(m_camera, aspect, m_physics.getBodies(), solPos, camTarget);
 
         m_renderer.endViewport(fbW, fbH);
 

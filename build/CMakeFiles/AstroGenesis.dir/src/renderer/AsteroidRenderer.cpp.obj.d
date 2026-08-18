@@ -1,6 +1,6 @@
-CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\src\main.cpp \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\src\core/Application.hpp \
+CMakeFiles/AstroGenesis.dir/src/renderer/AsteroidRenderer.cpp.obj: \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\src\renderer\AsteroidRenderer.cpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/AsteroidRenderer.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glad/include/glad/gl.h \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glad/include/KHR/khrplatform.h \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h \
@@ -12,8 +12,6 @@ CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: \
  C:/msys64/ucrt64/include/sdks/_mingw_ddk.h \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stddef.h \
  C:/msys64/ucrt64/include/stddef.h \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glfw/include/GLFW/glfw3.h \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Camera.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/glm.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/_fixes.hpp \
  C:/msys64/ucrt64/include/c++/14.2.0/cmath \
@@ -251,6 +249,7 @@ CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/type_half.inl \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/integer.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/func_integer.inl \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Camera.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/matrix_transform.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/matrix_projection.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/constants.hpp \
@@ -263,7 +262,7 @@ CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/matrix_transform.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/matrix_transform.inl \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/matrix_transform.inl \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Renderer.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/AsteroidBelt.hpp \
  C:/msys64/ucrt64/include/c++/14.2.0/string \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stringfwd.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/char_traits.h \
@@ -293,8 +292,6 @@ CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: \
  C:/msys64/ucrt64/include/c++/14.2.0/cerrno \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/charconv.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/basic_string.tcc \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/ParticleRenderer.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/ParticleSystem.hpp \
  C:/msys64/ucrt64/include/c++/14.2.0/random \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/random.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/uniform_int_dist.h \
@@ -309,49 +306,53 @@ CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_numeric.h \
  C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_numeric_defs.h \
  C:/msys64/ucrt64/include/c++/14.2.0/pstl/execution_defs.h \
- C:/msys64/ucrt64/include/c++/14.2.0/memory \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_tempbuf.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_raw_storage_iter.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/align.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/unique_ptr.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/shared_ptr.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/shared_ptr_base.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/allocated_ptr.h \
- C:/msys64/ucrt64/include/c++/14.2.0/ext/atomicity.h \
- C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/gthr.h \
- C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/gthr-default.h \
- C:/msys64/ucrt64/include/pthread.h C:/msys64/ucrt64/include/sys/types.h \
- C:/msys64/ucrt64/include/process.h \
- C:/msys64/ucrt64/include/corecrt_startup.h \
- C:/msys64/ucrt64/include/signal.h \
- C:/msys64/ucrt64/include/pthread_signal.h \
- C:/msys64/ucrt64/include/time.h C:/msys64/ucrt64/include/sys/timeb.h \
- C:/msys64/ucrt64/include/sec_api/sys/timeb_s.h \
- C:/msys64/ucrt64/include/_timeval.h \
- C:/msys64/ucrt64/include/pthread_time.h \
- C:/msys64/ucrt64/include/pthread_compat.h \
- C:/msys64/ucrt64/include/pthread_unistd.h \
- C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/atomic_word.h \
- C:/msys64/ucrt64/include/c++/14.2.0/ext/concurrence.h \
- C:/msys64/ucrt64/include/c++/14.2.0/exception \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/exception_ptr.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/cxxabi_init_exception.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/nested_exception.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/shared_ptr_atomic.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/atomic_base.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/atomic_lockfree_defines.h \
- C:/msys64/ucrt64/include/c++/14.2.0/backward/auto_ptr.h \
- C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_memory_defs.h \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/CelestialBody.hpp \
  C:/msys64/ucrt64/include/c++/14.2.0/deque \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_deque.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/deque.tcc \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/PhysicsEngine.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/UIManager.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imgui.h \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imconfig.h \
- C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdarg.h \
- C:/msys64/ucrt64/include/stdarg.h \
- C:/msys64/ucrt64/include/_mingw_stdarg.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/type_ptr.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/quaternion.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_relational.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_relational.inl \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/type_float.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_common.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_geometric.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_geometric.inl \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_common.inl \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_float.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/type_quat.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_relational.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_relational.inl \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/type_quat.inl \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_float_precision.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_double.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_double_precision.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_trigonometric.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_trigonometric.inl \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_transform.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/quaternion_transform.inl \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/quaternion.inl \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/epsilon.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/setup.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/epsilon.inl \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/vec1.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_bool1.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_bool1_precision.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_float1.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_float1_precision.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_double1.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_double1_precision.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_int1.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_int1_sized.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_uint1.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_uint1_sized.hpp \
+ C:/msys64/ucrt64/include/c++/14.2.0/cstring \
  C:/msys64/ucrt64/include/string.h \
- C:/msys64/ucrt64/include/sec_api/string_s.h
+ C:/msys64/ucrt64/include/sec_api/string_s.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/type_ptr.inl \
+ C:/msys64/ucrt64/include/c++/14.2.0/algorithm \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_algo.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/algorithmfwd.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_heap.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_tempbuf.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_algorithm_defs.h
