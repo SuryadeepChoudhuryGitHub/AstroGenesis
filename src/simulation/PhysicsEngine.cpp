@@ -241,6 +241,9 @@ void PhysicsEngine::initializeDefaultSolarSystem() {
 
     // Initialize Particle System (Main Asteroid Belt + Extensible Particle Fields)
     m_particleSystem.initializeDefaultSystem();
+
+    // Initialize Deformable Matter Simulation System
+    m_matterSystem.initialize();
 }
 
 void PhysicsEngine::computeAccelerations(const std::vector<glm::dvec3>& positions,
@@ -676,6 +679,9 @@ void PhysicsEngine::update(float deltaTime) {
 
     // Update Particle System: N-body gravitational integration, resonance dynamics & GPU visual instances
     m_particleSystem.update(effectiveDelta, m_bodies, m_enableGeneralRelativity, m_simulatedTimeSeconds);
+
+    // Update Deformable Matter System: XPBD continuum mechanics, tidal deformation, plasticity, damage & fracture
+    m_matterSystem.update(effectiveDelta, m_bodies, m_enableGeneralRelativity);
 
     // Compute global energy and angular momentum conservation
     computeSystemConservationStats();

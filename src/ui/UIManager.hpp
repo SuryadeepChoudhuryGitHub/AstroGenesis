@@ -29,10 +29,12 @@ private:
     void drawAIAssistant(float x, float y, float w, float h);
     void drawStatusBar(const PhysicsEngine& physics, const Camera& camera, float winW, float winH, float barH);
     void drawAsteroidBeltDiagnostics(PhysicsEngine& physics, float winW, float winH);
+    void drawMatterLab(PhysicsEngine& physics, float winW, float winH);
 
     bool m_viewportHovered = false;
     int m_hoveredBodyIndex = -1;
     bool m_showAsteroidBeltDiagnostics = false;
+    bool m_showMatterLab = false;
     float m_viewportX = 210.0f;
     float m_viewportY = 48.0f;
     float m_viewportW = 1080.0f;

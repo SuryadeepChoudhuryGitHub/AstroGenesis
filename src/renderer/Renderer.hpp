@@ -6,8 +6,10 @@
 #include <unordered_map>
 #include "renderer/Camera.hpp"
 #include "renderer/ParticleRenderer.hpp"
+#include "renderer/DeformableRenderer.hpp"
 #include "simulation/CelestialBody.hpp"
 #include "simulation/ParticleSystem.hpp"
+#include "simulation/MatterSystem.hpp"
 
 namespace AstroGenesis {
 
@@ -31,6 +33,7 @@ public:
     void renderTrails(const Camera& camera, float aspect, const std::vector<CelestialBody>& bodies, const glm::vec3& cameraTarget, int selectedIndex);
     void renderRings(const Camera& camera, float aspect, const std::vector<CelestialBody>& bodies, const glm::vec3& sunPos, const glm::vec3& cameraTarget);
     void renderParticleField(const Camera& camera, float aspect, ParticleField& field, const glm::vec3& sunPos, const glm::vec3& cameraTarget, double simTime);
+    void renderDeformableBodies(const Camera& camera, float aspect, const MatterSystem& matter, const glm::vec3& sunPos, const glm::vec3& cameraTarget);
     void renderSkybox(const Camera& camera, float aspect);
     void endViewport(int windowWidth, int windowHeight);
 
@@ -83,6 +86,7 @@ private:
     MeshData m_sphereMesh;
     std::unordered_map<std::string, GLuint> m_textures;
     ParticleRenderer m_particleRenderer;
+    DeformableRenderer m_deformableRenderer;
 };
 
 } // namespace AstroGenesis

@@ -1,54 +1,21 @@
-CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: \
- D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\src\ui\UIManager.cpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/UIManager.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imgui.h \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imconfig.h \
- C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/float.h \
- C:/msys64/ucrt64/include/float.h C:/msys64/ucrt64/include/crtdefs.h \
- C:/msys64/ucrt64/include/corecrt.h C:/msys64/ucrt64/include/_mingw.h \
- C:/msys64/ucrt64/include/_mingw_mac.h \
- C:/msys64/ucrt64/include/_mingw_secapi.h \
- C:/msys64/ucrt64/include/vadefs.h \
- C:/msys64/ucrt64/include/sdks/_mingw_ddk.h \
- C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdarg.h \
- C:/msys64/ucrt64/include/stdarg.h \
- C:/msys64/ucrt64/include/_mingw_stdarg.h \
- C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stddef.h \
- C:/msys64/ucrt64/include/stddef.h C:/msys64/ucrt64/include/string.h \
- C:/msys64/ucrt64/include/sec_api/string_s.h \
- C:/msys64/ucrt64/include/assert.h \
- C:/msys64/ucrt64/include/c++/14.2.0/stdlib.h \
- C:/msys64/ucrt64/include/c++/14.2.0/cstdlib \
+CMakeFiles/AstroGenesis.dir/src/simulation/MatterSystem.cpp.obj: \
+ D:\\#\ My\ Folder\My\ Work\Visual\ Studio\ script\C++\AstroGenesis\src\simulation\MatterSystem.cpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/MatterSystem.hpp \
+ C:/msys64/ucrt64/include/c++/14.2.0/vector \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/requires_hosted.h \
  C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++config.h \
  C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/os_defines.h \
  C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/cpu_defines.h \
  C:/msys64/ucrt64/include/c++/14.2.0/pstl/pstl_config.h \
- C:/msys64/ucrt64/include/stdlib.h \
- C:/msys64/ucrt64/include/corecrt_wstdlib.h \
- C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/limits.h \
- C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/syslimits.h \
- C:/msys64/ucrt64/include/limits.h \
- C:/msys64/ucrt64/include/sec_api/stdlib_s.h \
- C:/msys64/ucrt64/include/malloc.h \
- C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mm_malloc.h \
- C:/msys64/ucrt64/include/errno.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/std_abs.h \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/Camera.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/glm.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/_fixes.hpp \
- C:/msys64/ucrt64/include/c++/14.2.0/cmath \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/requires_hosted.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/cpp_type_traits.h \
- C:/msys64/ucrt64/include/c++/14.2.0/ext/type_traits.h \
- C:/msys64/ucrt64/include/math.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/version.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/specfun.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_algobase.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/functexcept.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/exception_defines.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/cpp_type_traits.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/ext/type_traits.h \
  C:/msys64/ucrt64/include/c++/14.2.0/ext/numeric_traits.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_pair.h \
  C:/msys64/ucrt64/include/c++/14.2.0/type_traits \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/version.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/move.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/utility.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_iterator_base_types.h \
@@ -61,6 +28,121 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/predefined_ops.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bit \
  C:/msys64/ucrt64/include/c++/14.2.0/concepts \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/allocator.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++allocator.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/new_allocator.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/new \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/exception.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/memoryfwd.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_construct.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_uninitialized.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/ext/alloc_traits.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/alloc_traits.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_vector.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/initializer_list \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_bvector.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/functional_hash.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/hash_bytes.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/refwrap.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/invoke.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_function.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/backward/binders.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/range_access.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/vector.tcc \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/memory_resource.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/cstddef \
+ C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stddef.h \
+ C:/msys64/ucrt64/include/stddef.h C:/msys64/ucrt64/include/crtdefs.h \
+ C:/msys64/ucrt64/include/corecrt.h C:/msys64/ucrt64/include/_mingw.h \
+ C:/msys64/ucrt64/include/_mingw_mac.h \
+ C:/msys64/ucrt64/include/_mingw_secapi.h \
+ C:/msys64/ucrt64/include/vadefs.h \
+ C:/msys64/ucrt64/include/sdks/_mingw_ddk.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/uses_allocator.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/uses_allocator_args.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/tuple \
+ C:/msys64/ucrt64/include/c++/14.2.0/memory \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_tempbuf.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_raw_storage_iter.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/align.h \
+ C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h \
+ C:/msys64/ucrt64/include/stdint.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/unique_ptr.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/shared_ptr.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/iosfwd \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stringfwd.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/postypes.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/cwchar \
+ C:/msys64/ucrt64/include/wchar.h \
+ C:/msys64/ucrt64/include/corecrt_stdio_config.h \
+ C:/msys64/ucrt64/include/corecrt_wstdlib.h \
+ C:/msys64/ucrt64/include/_mingw_off_t.h \
+ C:/msys64/ucrt64/include/_mingw_stat64.h \
+ C:/msys64/ucrt64/include/swprintf.inl \
+ C:/msys64/ucrt64/include/sec_api/wchar_s.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/shared_ptr_base.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/typeinfo \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/allocated_ptr.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/ext/aligned_buffer.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/ext/atomicity.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/gthr.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/gthr-default.h \
+ C:/msys64/ucrt64/include/pthread.h C:/msys64/ucrt64/include/errno.h \
+ C:/msys64/ucrt64/include/sys/types.h C:/msys64/ucrt64/include/process.h \
+ C:/msys64/ucrt64/include/corecrt_startup.h \
+ C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/limits.h \
+ C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/syslimits.h \
+ C:/msys64/ucrt64/include/limits.h C:/msys64/ucrt64/include/signal.h \
+ C:/msys64/ucrt64/include/pthread_signal.h \
+ C:/msys64/ucrt64/include/time.h C:/msys64/ucrt64/include/sys/timeb.h \
+ C:/msys64/ucrt64/include/sec_api/sys/timeb_s.h \
+ C:/msys64/ucrt64/include/_timeval.h \
+ C:/msys64/ucrt64/include/pthread_time.h \
+ C:/msys64/ucrt64/include/pthread_compat.h \
+ C:/msys64/ucrt64/include/pthread_unistd.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/atomic_word.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/ext/concurrence.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/exception \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/exception_ptr.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/cxxabi_init_exception.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/nested_exception.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/shared_ptr_atomic.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/atomic_base.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/atomic_lockfree_defines.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/backward/auto_ptr.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_memory_defs.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/pstl/execution_defs.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/string \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/char_traits.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/localefwd.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++locale.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/clocale \
+ C:/msys64/ucrt64/include/locale.h C:/msys64/ucrt64/include/stdio.h \
+ C:/msys64/ucrt64/include/sec_api/stdio_s.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/cctype \
+ C:/msys64/ucrt64/include/ctype.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/ostream_insert.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/cxxabi_forced.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/basic_string.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/string_view \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/string_view.tcc \
+ C:/msys64/ucrt64/include/c++/14.2.0/ext/string_conversions.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/cstdlib \
+ C:/msys64/ucrt64/include/stdlib.h \
+ C:/msys64/ucrt64/include/sec_api/stdlib_s.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/stdlib.h \
+ C:/msys64/ucrt64/include/malloc.h \
+ C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mm_malloc.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/std_abs.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/cstdio \
+ C:/msys64/ucrt64/include/c++/14.2.0/cerrno \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/charconv.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/basic_string.tcc \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/glm.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/_fixes.hpp \
+ C:/msys64/ucrt64/include/c++/14.2.0/cmath \
+ C:/msys64/ucrt64/include/math.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/specfun.h \
  C:/msys64/ucrt64/include/c++/14.2.0/limits \
  C:/msys64/ucrt64/include/c++/14.2.0/tr1/gamma.tcc \
  C:/msys64/ucrt64/include/c++/14.2.0/tr1/special_function_util.h \
@@ -76,13 +158,13 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: \
  C:/msys64/ucrt64/include/c++/14.2.0/tr1/riemann_zeta.tcc \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/setup.hpp \
  C:/msys64/ucrt64/include/c++/14.2.0/cassert \
- C:/msys64/ucrt64/include/c++/14.2.0/cstddef \
+ C:/msys64/ucrt64/include/assert.h \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/simd/platform.h \
  C:/msys64/ucrt64/include/c++/14.2.0/cstdint \
- C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h \
- C:/msys64/ucrt64/include/stdint.h \
  C:/msys64/ucrt64/include/c++/14.2.0/climits \
  C:/msys64/ucrt64/include/c++/14.2.0/cfloat \
+ C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/float.h \
+ C:/msys64/ucrt64/include/float.h \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/fwd.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/qualifier.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/setup.hpp \
@@ -109,42 +191,14 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/type_vec3.inl \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/compute_vector_decl.hpp \
  C:/msys64/ucrt64/include/c++/14.2.0/functional \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_function.h \
- C:/msys64/ucrt64/include/c++/14.2.0/backward/binders.h \
- C:/msys64/ucrt64/include/c++/14.2.0/tuple \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/uses_allocator.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/invoke.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/functional_hash.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/hash_bytes.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/refwrap.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/std_function.h \
- C:/msys64/ucrt64/include/c++/14.2.0/new \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/exception.h \
- C:/msys64/ucrt64/include/c++/14.2.0/typeinfo \
  C:/msys64/ucrt64/include/c++/14.2.0/unordered_map \
- C:/msys64/ucrt64/include/c++/14.2.0/initializer_list \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/unordered_map.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/hashtable.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/hashtable_policy.h \
- C:/msys64/ucrt64/include/c++/14.2.0/ext/aligned_buffer.h \
- C:/msys64/ucrt64/include/c++/14.2.0/ext/alloc_traits.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/alloc_traits.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_construct.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/memoryfwd.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/allocator.h \
- C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++allocator.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/new_allocator.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/enable_special_members.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/node_handle.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/range_access.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/erase_if.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/memory_resource.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/uses_allocator_args.h \
- C:/msys64/ucrt64/include/c++/14.2.0/vector \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_uninitialized.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_vector.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_bvector.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/vector.tcc \
  C:/msys64/ucrt64/include/c++/14.2.0/array \
  C:/msys64/ucrt64/include/c++/14.2.0/compare \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/_vectorize.hpp \
@@ -254,105 +308,15 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/type_half.inl \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/integer.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/func_integer.inl \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/matrix_transform.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/matrix_projection.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/constants.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/scalar_constants.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/scalar_constants.inl \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/constants.inl \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/matrix_projection.inl \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/matrix_clip_space.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/matrix_clip_space.inl \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/matrix_transform.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/matrix_transform.inl \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/matrix_transform.inl \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/PhysicsEngine.hpp \
- C:/msys64/ucrt64/include/c++/14.2.0/string \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/stringfwd.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/char_traits.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/postypes.h \
- C:/msys64/ucrt64/include/c++/14.2.0/cwchar \
- C:/msys64/ucrt64/include/wchar.h \
- C:/msys64/ucrt64/include/corecrt_stdio_config.h \
- C:/msys64/ucrt64/include/_mingw_off_t.h \
- C:/msys64/ucrt64/include/_mingw_stat64.h \
- C:/msys64/ucrt64/include/swprintf.inl \
- C:/msys64/ucrt64/include/sec_api/wchar_s.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/localefwd.h \
- C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++locale.h \
- C:/msys64/ucrt64/include/c++/14.2.0/clocale \
- C:/msys64/ucrt64/include/locale.h C:/msys64/ucrt64/include/stdio.h \
- C:/msys64/ucrt64/include/sec_api/stdio_s.h \
- C:/msys64/ucrt64/include/c++/14.2.0/iosfwd \
- C:/msys64/ucrt64/include/c++/14.2.0/cctype \
- C:/msys64/ucrt64/include/ctype.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/ostream_insert.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/cxxabi_forced.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/basic_string.h \
- C:/msys64/ucrt64/include/c++/14.2.0/string_view \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/string_view.tcc \
- C:/msys64/ucrt64/include/c++/14.2.0/ext/string_conversions.h \
- C:/msys64/ucrt64/include/c++/14.2.0/cstdio \
- C:/msys64/ucrt64/include/c++/14.2.0/cerrno \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/charconv.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/basic_string.tcc \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/CelestialBody.hpp \
- C:/msys64/ucrt64/include/c++/14.2.0/deque \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_deque.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/deque.tcc \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/ParticleSystem.hpp \
- C:/msys64/ucrt64/include/c++/14.2.0/random \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/random.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/uniform_int_dist.h \
- C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/opt_random.h \
- C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/pmmintrin.h \
- C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/emmintrin.h \
- C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/xmmintrin.h \
- C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mmintrin.h \
- C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/mwaitintrin.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/random.tcc \
- C:/msys64/ucrt64/include/c++/14.2.0/numeric \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_numeric.h \
- C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_numeric_defs.h \
- C:/msys64/ucrt64/include/c++/14.2.0/pstl/execution_defs.h \
- C:/msys64/ucrt64/include/c++/14.2.0/memory \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_tempbuf.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_raw_storage_iter.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/align.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/unique_ptr.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/shared_ptr.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/shared_ptr_base.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/allocated_ptr.h \
- C:/msys64/ucrt64/include/c++/14.2.0/ext/atomicity.h \
- C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/gthr.h \
- C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/gthr-default.h \
- C:/msys64/ucrt64/include/pthread.h C:/msys64/ucrt64/include/sys/types.h \
- C:/msys64/ucrt64/include/process.h \
- C:/msys64/ucrt64/include/corecrt_startup.h \
- C:/msys64/ucrt64/include/signal.h \
- C:/msys64/ucrt64/include/pthread_signal.h \
- C:/msys64/ucrt64/include/time.h C:/msys64/ucrt64/include/sys/timeb.h \
- C:/msys64/ucrt64/include/sec_api/sys/timeb_s.h \
- C:/msys64/ucrt64/include/_timeval.h \
- C:/msys64/ucrt64/include/pthread_time.h \
- C:/msys64/ucrt64/include/pthread_compat.h \
- C:/msys64/ucrt64/include/pthread_unistd.h \
- C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/atomic_word.h \
- C:/msys64/ucrt64/include/c++/14.2.0/ext/concurrence.h \
- C:/msys64/ucrt64/include/c++/14.2.0/exception \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/exception_ptr.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/cxxabi_init_exception.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/nested_exception.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/shared_ptr_atomic.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/atomic_base.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/atomic_lockfree_defines.h \
- C:/msys64/ucrt64/include/c++/14.2.0/backward/auto_ptr.h \
- C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_memory_defs.h \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/MatterSystem.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/DeformableBody.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/MaterialModel.hpp \
  C:/msys64/ucrt64/include/c++/14.2.0/algorithm \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_algo.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/algorithmfwd.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_heap.h \
- C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_algorithm_defs.h
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/uniform_int_dist.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_algorithm_defs.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/CelestialBody.hpp \
+ C:/msys64/ucrt64/include/c++/14.2.0/deque \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_deque.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/deque.tcc

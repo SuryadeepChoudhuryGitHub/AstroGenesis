@@ -41,9 +41,13 @@ set(ASTROGENESIS_SOURCES
     src/core/Application.cpp
     src/simulation/PhysicsEngine.cpp
     src/simulation/ParticleSystem.cpp
+    src/simulation/MaterialModel.cpp
+    src/simulation/DeformableBody.cpp
+    src/simulation/MatterSystem.cpp
     src/renderer/Camera.cpp
     src/renderer/Renderer.cpp
     src/renderer/ParticleRenderer.cpp
+    src/renderer/DeformableRenderer.cpp
     src/ui/UIManager.cpp
 )
 

@@ -420,6 +420,7 @@ bool Renderer::initialize() {
     m_ringMesh = createRingMesh(128);
 
     m_particleRenderer.initialize();
+    m_deformableRenderer.initialize();
 
     return true;
 }
@@ -467,6 +468,7 @@ void Renderer::shutdown() {
         m_trailProgram = 0;
     }
     m_particleRenderer.shutdown();
+    m_deformableRenderer.shutdown();
 }
 
 GLuint Renderer::loadTexture(const std::string& filepath) {
@@ -969,6 +971,11 @@ void Renderer::renderParticleField(const Camera& camera, float aspect, ParticleF
                                   const glm::vec3& sunPos, const glm::vec3& cameraTarget, double simTime) {
     field.updateVisualInstanceBuffer(simTime, cameraTarget, field.getVisualSizeMultiplier());
     m_particleRenderer.render(camera, aspect, field.getInstanceData(), sunPos, cameraTarget);
+}
+
+void Renderer::renderDeformableBodies(const Camera& camera, float aspect, const MatterSystem& matter,
+                                     const glm::vec3& sunPos, const glm::vec3& cameraTarget) {
+    m_deformableRenderer.render(camera, aspect, matter.getBodies(), matter.getVisualizationMode(), sunPos, cameraTarget, true);
 }
 
 } // namespace AstroGenesis

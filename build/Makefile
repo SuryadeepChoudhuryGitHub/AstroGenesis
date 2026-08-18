@@ -457,6 +457,30 @@ src/renderer/Camera.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/Camera.cpp.s
 .PHONY : src/renderer/Camera.cpp.s
 
+src/renderer/DeformableRenderer.obj: src/renderer/DeformableRenderer.cpp.obj
+.PHONY : src/renderer/DeformableRenderer.obj
+
+# target to build an object file
+src/renderer/DeformableRenderer.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/DeformableRenderer.cpp.obj
+.PHONY : src/renderer/DeformableRenderer.cpp.obj
+
+src/renderer/DeformableRenderer.i: src/renderer/DeformableRenderer.cpp.i
+.PHONY : src/renderer/DeformableRenderer.i
+
+# target to preprocess a source file
+src/renderer/DeformableRenderer.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/DeformableRenderer.cpp.i
+.PHONY : src/renderer/DeformableRenderer.cpp.i
+
+src/renderer/DeformableRenderer.s: src/renderer/DeformableRenderer.cpp.s
+.PHONY : src/renderer/DeformableRenderer.s
+
+# target to generate assembly for a file
+src/renderer/DeformableRenderer.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/DeformableRenderer.cpp.s
+.PHONY : src/renderer/DeformableRenderer.cpp.s
+
 src/renderer/ParticleRenderer.obj: src/renderer/ParticleRenderer.cpp.obj
 .PHONY : src/renderer/ParticleRenderer.obj
 
@@ -504,6 +528,78 @@ src/renderer/Renderer.s: src/renderer/Renderer.cpp.s
 src/renderer/Renderer.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.s
 .PHONY : src/renderer/Renderer.cpp.s
+
+src/simulation/DeformableBody.obj: src/simulation/DeformableBody.cpp.obj
+.PHONY : src/simulation/DeformableBody.obj
+
+# target to build an object file
+src/simulation/DeformableBody.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/DeformableBody.cpp.obj
+.PHONY : src/simulation/DeformableBody.cpp.obj
+
+src/simulation/DeformableBody.i: src/simulation/DeformableBody.cpp.i
+.PHONY : src/simulation/DeformableBody.i
+
+# target to preprocess a source file
+src/simulation/DeformableBody.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/DeformableBody.cpp.i
+.PHONY : src/simulation/DeformableBody.cpp.i
+
+src/simulation/DeformableBody.s: src/simulation/DeformableBody.cpp.s
+.PHONY : src/simulation/DeformableBody.s
+
+# target to generate assembly for a file
+src/simulation/DeformableBody.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/DeformableBody.cpp.s
+.PHONY : src/simulation/DeformableBody.cpp.s
+
+src/simulation/MaterialModel.obj: src/simulation/MaterialModel.cpp.obj
+.PHONY : src/simulation/MaterialModel.obj
+
+# target to build an object file
+src/simulation/MaterialModel.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/MaterialModel.cpp.obj
+.PHONY : src/simulation/MaterialModel.cpp.obj
+
+src/simulation/MaterialModel.i: src/simulation/MaterialModel.cpp.i
+.PHONY : src/simulation/MaterialModel.i
+
+# target to preprocess a source file
+src/simulation/MaterialModel.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/MaterialModel.cpp.i
+.PHONY : src/simulation/MaterialModel.cpp.i
+
+src/simulation/MaterialModel.s: src/simulation/MaterialModel.cpp.s
+.PHONY : src/simulation/MaterialModel.s
+
+# target to generate assembly for a file
+src/simulation/MaterialModel.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/MaterialModel.cpp.s
+.PHONY : src/simulation/MaterialModel.cpp.s
+
+src/simulation/MatterSystem.obj: src/simulation/MatterSystem.cpp.obj
+.PHONY : src/simulation/MatterSystem.obj
+
+# target to build an object file
+src/simulation/MatterSystem.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/MatterSystem.cpp.obj
+.PHONY : src/simulation/MatterSystem.cpp.obj
+
+src/simulation/MatterSystem.i: src/simulation/MatterSystem.cpp.i
+.PHONY : src/simulation/MatterSystem.i
+
+# target to preprocess a source file
+src/simulation/MatterSystem.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/MatterSystem.cpp.i
+.PHONY : src/simulation/MatterSystem.cpp.i
+
+src/simulation/MatterSystem.s: src/simulation/MatterSystem.cpp.s
+.PHONY : src/simulation/MatterSystem.s
+
+# target to generate assembly for a file
+src/simulation/MatterSystem.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/simulation/MatterSystem.cpp.s
+.PHONY : src/simulation/MatterSystem.cpp.s
 
 src/simulation/ParticleSystem.obj: src/simulation/ParticleSystem.cpp.obj
 .PHONY : src/simulation/ParticleSystem.obj
@@ -624,12 +720,24 @@ help:
 	@echo ... src/renderer/Camera.obj
 	@echo ... src/renderer/Camera.i
 	@echo ... src/renderer/Camera.s
+	@echo ... src/renderer/DeformableRenderer.obj
+	@echo ... src/renderer/DeformableRenderer.i
+	@echo ... src/renderer/DeformableRenderer.s
 	@echo ... src/renderer/ParticleRenderer.obj
 	@echo ... src/renderer/ParticleRenderer.i
 	@echo ... src/renderer/ParticleRenderer.s
 	@echo ... src/renderer/Renderer.obj
 	@echo ... src/renderer/Renderer.i
 	@echo ... src/renderer/Renderer.s
+	@echo ... src/simulation/DeformableBody.obj
+	@echo ... src/simulation/DeformableBody.i
+	@echo ... src/simulation/DeformableBody.s
+	@echo ... src/simulation/MaterialModel.obj
+	@echo ... src/simulation/MaterialModel.i
+	@echo ... src/simulation/MaterialModel.s
+	@echo ... src/simulation/MatterSystem.obj
+	@echo ... src/simulation/MatterSystem.i
+	@echo ... src/simulation/MatterSystem.s
 	@echo ... src/simulation/ParticleSystem.obj
 	@echo ... src/simulation/ParticleSystem.i
 	@echo ... src/simulation/ParticleSystem.s

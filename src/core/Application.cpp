@@ -78,20 +78,31 @@ void Application::processInput(float deltaTime) {
     m_lastMouseY = mouseY;
 
     bool isViewportHovered = m_uiManager.isViewportHovered();
+    bool canInteract3D = isViewportHovered && !io.WantCaptureMouse;
 
-    // Mouse drag for Orbit around the center of the celestial object
-    if (isViewportHovered && (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS ||
-                              glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)) {
+    bool leftDown  = (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT)  == GLFW_PRESS);
+    bool rightDown = (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
+
+    // Mouse drag for Orbit: Only initiate drag if the click STARTED on the 3D viewport (not over ImGui popups/panels)
+    if (leftDown || rightDown) {
+        if (!m_isDraggingViewport && canInteract3D) {
+            m_isDraggingViewport = true;
+        }
+    } else {
+        m_isDraggingViewport = false;
+    }
+
+    if (m_isDraggingViewport) {
         m_camera.processMouseOrbit(deltaX, deltaY);
     }
 
-    // Scroll wheel for Zoom in and out around the celestial object center
-    if (isViewportHovered && io.MouseWheel != 0.0f) {
+    // Scroll wheel for Zoom in and out: Only when hovering 3D viewport and not captured by ImGui
+    if (canInteract3D && io.MouseWheel != 0.0f) {
         m_camera.processMouseZoom(io.MouseWheel);
     }
 
     // Keyboard zoom shortcuts (+ / -)
-    if (isViewportHovered) {
+    if (isViewportHovered && !io.WantTextInput && !io.WantCaptureKeyboard) {
         if (glfwGetKey(m_window, GLFW_KEY_EQUAL) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_KP_ADD) == GLFW_PRESS) {
             m_camera.processMouseZoom(1.0f * deltaTime * 5.0f);
         }
@@ -101,7 +112,7 @@ void Application::processInput(float deltaTime) {
     }
 
     // Space bar hotkey for Play / Pause toggle
-    if (!io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
+    if (!io.WantTextInput && !io.WantCaptureKeyboard && ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
         m_physics.togglePause();
     }
 }
@@ -177,6 +188,9 @@ void Application::run() {
 
         // Render planetary rings (Saturn granular fluid ring system with shadows)
         m_renderer.renderRings(m_camera, aspect, m_physics.getBodies(), solPos, camTarget);
+
+        // Render physically coupled deformable matter & materials
+        m_renderer.renderDeformableBodies(m_camera, aspect, m_physics.getMatterSystem(), solPos, camTarget);
 
         m_renderer.endViewport(fbW, fbH);
 

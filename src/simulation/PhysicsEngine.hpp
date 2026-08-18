@@ -4,6 +4,7 @@
 #include <string>
 #include "simulation/CelestialBody.hpp"
 #include "simulation/ParticleSystem.hpp"
+#include "simulation/MatterSystem.hpp"
 
 namespace AstroGenesis {
 
@@ -59,6 +60,10 @@ public:
     const ParticleField& getAsteroidBelt() const { return m_particleSystem.getAsteroidBelt(); }
     void reseedAsteroidBelt(int physicalCount, int visualCount) { m_particleSystem.getAsteroidBelt().reseed(physicalCount, visualCount); }
 
+    // Deformable Matter System getters
+    MatterSystem& getMatterSystem() { return m_matterSystem; }
+    const MatterSystem& getMatterSystem() const { return m_matterSystem; }
+
     // Global Physics & Conservation Stats
     int getObjectCount() const { return (int)m_bodies.size(); }
     float getPhysicsStepTimeMs() const { return m_physicsStepMs; }
@@ -99,6 +104,7 @@ private:
     double m_energyConservationDriftPct = 0.0;
 
     ParticleSystem m_particleSystem;
+    MatterSystem m_matterSystem;
 };
 
 } // namespace AstroGenesis

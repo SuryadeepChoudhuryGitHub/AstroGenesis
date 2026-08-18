@@ -19,6 +19,8 @@ namespace Col {
     static ImVec4 TabActive    {0.000f, 0.831f, 1.000f, 0.25f};
     static ImVec4 Green        {0.200f, 0.850f, 0.400f, 1.00f};
     static ImVec4 Yellow       {0.950f, 0.750f, 0.100f, 1.00f};
+    static ImVec4 Orange       {0.950f, 0.550f, 0.150f, 1.00f};
+    static ImVec4 Red          {0.950f, 0.250f, 0.200f, 1.00f};
 }
 
 static bool SectionHeader(const char* label, bool defaultOpen = true) {
@@ -108,10 +110,11 @@ void UIManager::renderUI(PhysicsEngine& physics, Camera& camera, float windowWid
     m_viewportW = windowWidth - leftPanelW - rightPanelW;
     m_viewportH = windowHeight - topBarH - statusBarH - bottomH;
 
-    // Determine mouse hovering viewport
+    // Determine mouse hovering viewport (must be within 3D rect AND not captured by any ImGui window/widget)
     ImVec2 mousePos = ImGui::GetMousePos();
+    ImGuiIO& io = ImGui::GetIO();
     m_viewportHovered = (mousePos.x >= m_viewportX && mousePos.x <= m_viewportX + m_viewportW &&
-                         mousePos.y >= m_viewportY && mousePos.y <= m_viewportY + m_viewportH);
+                         mousePos.y >= m_viewportY && mousePos.y <= m_viewportY + m_viewportH) && !io.WantCaptureMouse;
 
     const CelestialBody& currentBody = physics.getSelectedBody();
 
@@ -130,6 +133,9 @@ void UIManager::renderUI(PhysicsEngine& physics, Camera& camera, float windowWid
 
     if (m_showAsteroidBeltDiagnostics) {
         drawAsteroidBeltDiagnostics(physics, windowWidth, windowHeight);
+    }
+    if (m_showMatterLab) {
+        drawMatterLab(physics, windowWidth, windowHeight);
     }
 }
 
@@ -167,8 +173,8 @@ void UIManager::drawTopBar(float width) {
         ImGui::PopStyleColor(2);
     }
 
-    // Asteroid Belt Diagnostics & Resonance Analysis Window Toggle
-    ImGui::SameLine(width - 240.0f);
+    // Top Bar Action Buttons: Particle Asteroid Belt & Deformable Matter Lab
+    ImGui::SameLine(width - 480.0f);
     if (m_showAsteroidBeltDiagnostics) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.45f, 0.75f, 0.95f));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
@@ -176,8 +182,21 @@ void UIManager::drawTopBar(float width) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.10f, 0.16f, 0.26f, 0.85f));
         ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
     }
-    if (ImGui::Button("☄ ASTEROID BELT (N(a))", ImVec2(220, 28))) {
+    if (ImGui::Button("☄ ASTEROID BELT (N(a))", ImVec2(210, 28))) {
         m_showAsteroidBeltDiagnostics = !m_showAsteroidBeltDiagnostics;
+    }
+    ImGui::PopStyleColor(2);
+
+    ImGui::SameLine(width - 255.0f);
+    if (m_showMatterLab) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65f, 0.35f, 0.15f, 0.95f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.16f, 0.12f, 0.22f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.7f, 0.4f, 1.0f));
+    }
+    if (ImGui::Button("⬡ DEFORMABLE MATTER LAB", ImVec2(235, 28))) {
+        m_showMatterLab = !m_showMatterLab;
     }
     ImGui::PopStyleColor(2);
 
@@ -1057,6 +1076,166 @@ void UIManager::drawAsteroidBeltDiagnostics(PhysicsEngine& physics, float winW, 
         ImGui::SameLine(w - 120.0f);
         if (ImGui::Button("Close", ImVec2(90, 26))) {
             m_showAsteroidBeltDiagnostics = false;
+        }
+    }
+    ImGui::End();
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar();
+}
+
+void UIManager::drawMatterLab(PhysicsEngine& physics, float winW, float winH) {
+    auto& matter = physics.getMatterSystem();
+    const auto& diag = matter.getDiagnostics();
+    auto& lib = MaterialLibrary::instance();
+
+    float w = 780.0f;
+    float h = 640.0f;
+    ImGui::SetNextWindowPos(ImVec2((winW - w) * 0.5f, (winH - h) * 0.5f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(w, h));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.04f, 0.05f, 0.09f, 0.97f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.65f, 0.35f, 0.15f, 0.7f));
+
+    if (ImGui::Begin("DEFORMABLE MATTER & MATERIALS PHYSICS LABORATORY##MatterLab", &m_showMatterLab, ImGuiWindowFlags_NoCollapse)) {
+        ImGui::TextColored(ImVec4(0.95f, 0.7f, 0.35f, 1.0f), "COUPLED CONTINUUM MECHANICS, XPBD, PLASTICITY & FRACTURE ENGINE");
+        ImGui::Separator();
+
+        // 1. Scientific Field Visualization Mode Selector
+        ImGui::TextColored(Col::Accent, "SCIENTIFIC VISUALIZATION FIELD SELECTOR");
+        int currentMode = (int)matter.getVisualizationMode();
+        const char* modeNames[] = {
+            "Realistic Material Surface",
+            "Von Mises Stress Field (Turbo Colormap)",
+            "Mechanical Strain & Deformation",
+            "Temperature Heatmap & Incandescence",
+            "Continuous Damage & Micro-cracks",
+            "Plastic Deformation Field",
+            "Differential Tidal Gravity Vectors"
+        };
+
+        ImGui::PushItemWidth(340.0f);
+        if (ImGui::Combo("##VisMode", &currentMode, modeNames, 7)) {
+            matter.setVisualizationMode((MatterVisualizationMode)currentMode);
+        }
+        ImGui::PopItemWidth();
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        // 2. Material Property Inspector & Derived Physics
+        ImGui::TextColored(Col::Accent, "MATERIAL PROPERTY & DERIVED ELASTIC CONSTANTS INSPECTOR");
+        static int selectedMatIdx = 1; // Basalt default
+        std::vector<std::string> matNames = lib.getMaterialNames();
+
+        std::vector<const char*> matNameCstrs;
+        for (const auto& name : matNames) matNameCstrs.push_back(name.c_str());
+
+        ImGui::PushItemWidth(260.0f);
+        if (selectedMatIdx >= (int)matNames.size()) selectedMatIdx = 0;
+        ImGui::Combo("Material Preset", &selectedMatIdx, matNameCstrs.data(), (int)matNameCstrs.size());
+        ImGui::PopItemWidth();
+
+        const auto& selMat = lib.getMaterial(matNames[selectedMatIdx]);
+        auto derived = MaterialModel::computeDerivedProperties(selMat);
+
+        float halfW = (w - 40.0f) * 0.5f;
+
+        ImGui::BeginGroup();
+        ImGui::TextColored(Col::TextSecondary, "Fundamental Parameters:");
+        ImGui::Text("Density (rho0): %.0f kg/m3", selMat.referenceDensityKgM3);
+        ImGui::Text("Young's Modulus (E): %.2f GPa", selMat.youngsModulusPa / 1.0e9);
+        ImGui::Text("Poisson's Ratio (nu): %.2f", selMat.poissonsRatio);
+        ImGui::Text("Yield Strength (sig_y): %.1f MPa", selMat.yieldStrengthPa / 1.0e6);
+        ImGui::Text("UTS (Tensile limit): %.1f MPa", selMat.ultimateTensileStrengthPa / 1.0e6);
+        ImGui::EndGroup();
+
+        ImGui::SameLine(halfW);
+        ImGui::BeginGroup();
+        ImGui::TextColored(Col::TextSecondary, "Derived Source-of-Truth Properties:");
+        ImGui::Text("Shear Modulus (G): %.2f GPa", derived.shearModulusPa / 1.0e9);
+        ImGui::Text("Bulk Modulus (K): %.2f GPa", derived.bulkModulusPa / 1.0e9);
+        ImGui::Text("Acoustic Sound Speed: %.0f m/s", derived.soundSpeedMps);
+        ImGui::Text("Thermal Conductivity: %.1f W/m*K", selMat.thermalConductivityWPerMK);
+        ImGui::Text("Melting Point: %.1f K (%.0f °C)", selMat.meltingPointK, selMat.meltingPointK - 273.15);
+        ImGui::EndGroup();
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        // 3. Continuum Mechanics & Conservation Monitor
+        ImGui::TextColored(Col::Accent, "PHYSICS STATE & CONSERVATION MONITOR");
+        float quadW = (w - 50.0f) / 4.0f;
+
+        ImGui::BeginGroup();
+        ImGui::TextColored(Col::TextSecondary, "Active Bodies/Fragments");
+        ImGui::TextColored(Col::Green, "%d Bodies", diag.totalDeformableBodies);
+        ImGui::TextColored(Col::TextSecondary, "Nodes: %d", diag.totalNodes);
+        ImGui::EndGroup();
+
+        ImGui::SameLine(quadW);
+        ImGui::BeginGroup();
+        ImGui::TextColored(Col::TextSecondary, "Constraints / Fractures");
+        ImGui::TextColored(Col::Accent, "%d Active", diag.totalConstraints - diag.totalBrokenConstraints);
+        ImGui::TextColored(Col::Red, "Broken: %d", diag.totalBrokenConstraints);
+        ImGui::EndGroup();
+
+        ImGui::SameLine(quadW * 2);
+        ImGui::BeginGroup();
+        ImGui::TextColored(Col::TextSecondary, "Max Stress & Temp");
+        ImGui::TextColored(Col::TextPrimary, "%.1f MPa", diag.maxVonMisesStressPa / 1.0e6);
+        ImGui::TextColored(Col::TextSecondary, "Temp: %.1f K", diag.maxTemperatureK);
+        ImGui::EndGroup();
+
+        ImGui::SameLine(quadW * 3);
+        ImGui::BeginGroup();
+        ImGui::TextColored(Col::TextSecondary, "Energy Conservation");
+        ImGui::TextColored(Col::TextPrimary, "Drift: %.4f %%", diag.energyConservationDriftPct);
+        ImGui::TextColored(Col::TextSecondary, "Max Damage: %.2f", diag.maxDamage);
+        ImGui::EndGroup();
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        // 4. Sandbox Scenario Presets
+        ImGui::TextColored(Col::Accent, "DEFORMABLE ASTROPHYSICAL SCENARIOS & EXPERIMENTS");
+
+        if (ImGui::Button("\xF0\x9F\x8C\x8C Black Hole Tidal Disruption Laboratory", ImVec2(340, 28))) {
+            matter.spawnBlackHoleTidalDisruptionLab();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Spawns a 150 km asteroid on an extreme periapsis trajectory near a massive gravitational attractor. Watch differential gravity stretch, yield, and fragment the object into a tidal debris stream!");
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("\xE2\x98\x84 Hypervelocity Impact & Crater Fracture", ImVec2(340, 28))) {
+            matter.spawnHypervelocityCollision();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Collides a high-speed Iron impactor with a Basalt rock target, producing realistic contact stress, plastic deformation, impact heating, and fragmentation!");
+        }
+
+        if (ImGui::Button("\xE2\x9A\xA1 Tensile Stress & Necking / Ductile Failure", ImVec2(340, 28))) {
+            matter.spawnTensileTest();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Anchors a specimen on one end while applying tensile velocity to the other. Demonstrates linear elasticity, von Mises yielding, necking, and ductile fracture!");
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("\xF0\x9F\x94\xA5 Thermal Heating & Melting Phase Change", ImVec2(340, 28))) {
+            matter.spawnThermalMeltingLab();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Applies intense heat flux to an ice/metal block, demonstrating thermal conduction, thermal softening, melting, and fluid drop relaxation!");
+        }
+
+        ImGui::Spacing();
+        if (ImGui::Button("✖ Clear All Deformable Bodies", ImVec2(220, 26))) {
+            matter.clearAllBodies();
+        }
+        ImGui::SameLine(w - 120.0f);
+        if (ImGui::Button("Close", ImVec2(90, 26))) {
+            m_showMatterLab = false;
         }
     }
     ImGui::End();
