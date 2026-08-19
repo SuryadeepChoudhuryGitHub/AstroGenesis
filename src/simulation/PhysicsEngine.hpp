@@ -5,14 +5,26 @@
 #include "simulation/CelestialBody.hpp"
 #include "simulation/ParticleSystem.hpp"
 #include "simulation/MatterSystem.hpp"
+#include "data/repositories/ObjectRepository.hpp"
 
 namespace AstroGenesis {
+
+enum class AsteroidPopulationMode {
+    RealOnly,      // Only real asteroids from SQLite DB (e.g. Ceres, Vesta, Pallas, etc.)
+    SyntheticOnly, // Procedural statistical particles
+    Hybrid         // Real major asteroids + procedural background particles
+};
 
 class PhysicsEngine {
 public:
     PhysicsEngine();
 
-    void initializeDefaultSolarSystem();
+    // Data-Driven System Loading from Database
+    bool loadFromDatabase(ObjectRepository& repo, const std::string& systemCategory = "Solar System");
+    void reloadCurrentSystem(ObjectRepository& repo);
+    void addBody(const CelestialBody& body);
+    void clearBodies();
+
     void update(float deltaTime);
 
     // Time controls
@@ -40,6 +52,7 @@ public:
     std::string getSimVsRealTimeStr() const;
     std::string getTotalEnergyStr() const;
     std::string getTotalAngularMomentumStr() const;
+    std::string getCurrentCategory() const { return m_currentCategory; }
 
     // Body getters/selection
     const std::vector<CelestialBody>& getBodies() const { return m_bodies; }
@@ -47,17 +60,21 @@ public:
 
     int getSelectedBodyIndex() const { return m_selectedBodyIndex; }
     void selectBody(int index);
+    void selectBodyById(const std::string& id);
 
     const CelestialBody& getSelectedBody() const;
     void clearTrails();
     void triggerRingImpact(const std::string& planetId, float normRadius, float azimuthRad, float impactRadiusM = 4000000.0f);
     void triggerSaturnRingImpact();
 
-    // Particle System & Field getters
+    // Particle System & Asteroid Belt Population Control
     ParticleSystem& getParticleSystem() { return m_particleSystem; }
     const ParticleSystem& getParticleSystem() const { return m_particleSystem; }
     ParticleField& getAsteroidBelt() { return m_particleSystem.getAsteroidBelt(); }
     const ParticleField& getAsteroidBelt() const { return m_particleSystem.getAsteroidBelt(); }
+    
+    AsteroidPopulationMode getAsteroidPopulationMode() const { return m_asteroidPopulationMode; }
+    void setAsteroidPopulationMode(AsteroidPopulationMode mode, ObjectRepository* repo = nullptr);
     void reseedAsteroidBelt(int physicalCount, int visualCount) { m_particleSystem.getAsteroidBelt().reseed(physicalCount, visualCount); }
 
     // Deformable Matter System getters
@@ -82,9 +99,12 @@ private:
     void updatePhysicalQuantities();
     void updateRingHydrodynamics(double deltaSeconds);
     void computeSystemConservationStats();
+    void computeBarycenterTransform();
+    void generateOrbitalTrails();
 
     std::vector<CelestialBody> m_bodies;
-    int m_selectedBodyIndex = 3; // Earth default
+    int m_selectedBodyIndex = 0;
+    std::string m_currentCategory = "Solar System";
 
     bool m_isPaused = false;
     bool m_enableGeneralRelativity = true; // Einstein 1PN Post-Newtonian Gravity
@@ -103,6 +123,7 @@ private:
     double m_totalSystemAngularMomentum = 0.0;
     double m_energyConservationDriftPct = 0.0;
 
+    AsteroidPopulationMode m_asteroidPopulationMode = AsteroidPopulationMode::Hybrid;
     ParticleSystem m_particleSystem;
     MatterSystem m_matterSystem;
 };

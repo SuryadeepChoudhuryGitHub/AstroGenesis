@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <deque>
+#include <optional>
 #include <glm/glm.hpp>
 
 namespace AstroGenesis {
@@ -43,10 +44,24 @@ struct PlanetaryRing {
 };
 
 struct CelestialBody {
-    std::string id;
-    std::string name;
-    std::string type;         // e.g. "Terrestrial Planet", "G2V Star", "Gas Giant"
+    // Database and Provenance Identifiers
+    int64_t dbId = 0;
+    std::string id;           // Slug / unique code, e.g. "earth", "sol", "ceres", "trappist_1e"
+    std::string name;         // Display name, e.g. "Earth"
+    std::string type;         // e.g. "Terrestrial Planet", "G2V Star", "Gas Giant", "Asteroid"
+    std::string category = "Solar System"; // "Solar System", "Asteroid Belt", "Exoplanet System", "Comet"
+    bool isSynthetic = false; // Distinguishes real astronomical bodies from statistical particles
+    std::optional<int64_t> parentObjectId;
     PlanetaryRing ring;
+
+    // External Data Source Provenance & Verification Metadata
+    std::string sourceName = "Bundled Seed Dataset"; // "JPL Horizons", "JPL SBDB", "NASA Exoplanet Archive", etc.
+    std::string sourceObjectId;                       // e.g. "399", "2000001", "TRAPPIST-1 e"
+    std::string importTimestamp;                      // e.g. "2026-08-19 22:00:00"
+    std::string referenceFrame = "ICRF/Barycentric";  // "ICRF/Barycentric", "Ecliptic/J2000"
+    double epochJd = 2451545.0;                       // Julian Date of state vector / elements
+    std::string epochUtcStr = "2000-01-01 12:00:00 UTC";
+    bool dataVerified = true;                         // Verified from external authority
     
     // Live Formatted Strings (dynamically updated in real-time)
     std::string distanceStr;       // e.g. "1.00 AU"
@@ -123,6 +138,13 @@ struct CelestialBody {
     double specificOrbitalEnergy = 0.0;    // J/kg
     double grPrecessionArcsecCentury = 0.0;// arcseconds per Earth century
     double trueAnomalyDeg = 0.0;           // current orbital anomaly in degrees
+
+    // Dynamic 3D Osculating Orbital Basis Vectors & Ellipse Points
+    glm::dvec3 eccentricityVec{0.0};       // Runge-Lenz / Eccentricity vector pointing to periapsis
+    glm::dvec3 angularMomentumVec{0.0};    // Specific angular momentum vector h = r x v (orbit normal)
+    glm::dvec3 perifocalP{1.0, 0.0, 0.0};  // Unit vector pointing to periapsis in 3D space
+    glm::dvec3 perifocalQ{0.0, 0.0, 1.0};  // In-plane transverse unit vector (W x P)
+    std::vector<glm::vec3> dynamicOrbitCurve; // Live dynamic 3D Keplerian curve in AU space relative to star
 
     // Rendering / 3D Visualization properties (in AU space)
     glm::vec3 position{0.0f};        // Position in AU coordinates

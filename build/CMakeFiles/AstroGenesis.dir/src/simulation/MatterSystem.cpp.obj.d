@@ -319,4 +319,5 @@ CMakeFiles/AstroGenesis.dir/src/simulation/MatterSystem.cpp.obj: \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/CelestialBody.hpp \
  C:/msys64/ucrt64/include/c++/14.2.0/deque \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_deque.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/deque.tcc
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/deque.tcc \
+ C:/msys64/ucrt64/include/c++/14.2.0/optional

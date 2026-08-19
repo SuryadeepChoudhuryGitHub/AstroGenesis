@@ -798,6 +798,7 @@ void Renderer::renderSkybox(const Camera& camera, float aspect) {
 
 void Renderer::renderTrails(const Camera& camera, float aspect, const std::vector<CelestialBody>& bodies, const glm::vec3& cameraTarget, int selectedIndex) {
     if (bodies.empty() || m_trailProgram == 0 || m_trailVAO == 0) return;
+    if (selectedIndex < 0 || selectedIndex >= (int)bodies.size()) selectedIndex = 0;
 
     glm::mat4 proj = camera.getProjectionMatrix(aspect);
     glm::mat4 view = camera.getViewMatrix();
@@ -811,26 +812,50 @@ void Renderer::renderTrails(const Camera& camera, float aspect, const std::vecto
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE); // Trails don't write to depth buffer so they don't occlude planets
 
-    // 1. Render subtle full orbital guide rings
+    // Find primary star position
+    glm::vec3 starPos{0.0f};
+    for (const auto& b : bodies) {
+        if (b.id == "sol" || b.type.find("Star") != std::string::npos) {
+            starPos = b.position;
+            break;
+        }
+    }
+
+    // 1. Render dynamic 3D Keplerian osculating orbit curve (computed live from physical state)
     std::vector<TrailVertex> guideVerts;
-    const int circleSegments = 128;
     for (int i = 0; i < (int)bodies.size(); ++i) {
         const auto& body = bodies[i];
-        if (body.id == "sol" || body.realOrbitRadiusAU <= 0.0) continue;
+        if (body.id == "sol" || body.type.find("Star") != std::string::npos) continue;
 
         bool isSelected = (i == selectedIndex);
-        float guideAlpha = isSelected ? 0.28f : 0.12f;
-        glm::vec3 ringColor = body.color * (isSelected ? 1.0f : 0.7f);
+        float guideAlpha = isSelected ? 0.45f : 0.22f;
+        glm::vec3 ringColor = body.color * (isSelected ? 1.25f : 0.85f);
+        glm::vec3 relStarPos = starPos - cameraTarget;
 
-        for (int s = 0; s < circleSegments; ++s) {
-            float theta1 = 2.0f * PI * (float)s / (float)circleSegments;
-            float theta2 = 2.0f * PI * (float)(s + 1) / (float)circleSegments;
+        if (body.dynamicOrbitCurve.size() >= 2) {
+            for (size_t s = 0; s < body.dynamicOrbitCurve.size() - 1; ++s) {
+                glm::vec3 p1 = relStarPos + body.dynamicOrbitCurve[s];
+                glm::vec3 p2 = relStarPos + body.dynamicOrbitCurve[s + 1];
 
-            glm::vec3 p1 = glm::vec3((float)(body.realOrbitRadiusAU * std::cos(theta1)), 0.0f, (float)(body.realOrbitRadiusAU * std::sin(theta1))) - cameraTarget;
-            glm::vec3 p2 = glm::vec3((float)(body.realOrbitRadiusAU * std::cos(theta2)), 0.0f, (float)(body.realOrbitRadiusAU * std::sin(theta2))) - cameraTarget;
+                guideVerts.push_back({ p1, glm::vec4(ringColor, guideAlpha) });
+                guideVerts.push_back({ p2, glm::vec4(ringColor, guideAlpha) });
+            }
+        } else {
+            // Fallback circular ring if curve not yet initialized
+            double orbitRadiusAU = (body.realOrbitRadiusAU > 0.0) ? body.realOrbitRadiusAU : (body.semiMajorAxisAU > 0.0 ? body.semiMajorAxisAU : (double)glm::length(body.position - starPos));
+            if (orbitRadiusAU > 0.0001) {
+                const int circleSegments = 128;
+                for (int s = 0; s < circleSegments; ++s) {
+                    float theta1 = 2.0f * PI * (float)s / (float)circleSegments;
+                    float theta2 = 2.0f * PI * (float)(s + 1) / (float)circleSegments;
 
-            guideVerts.push_back({ p1, glm::vec4(ringColor, guideAlpha) });
-            guideVerts.push_back({ p2, glm::vec4(ringColor, guideAlpha) });
+                    glm::vec3 p1 = starPos + glm::vec3((float)(orbitRadiusAU * std::cos(theta1)), 0.0f, (float)(orbitRadiusAU * std::sin(theta1))) - cameraTarget;
+                    glm::vec3 p2 = starPos + glm::vec3((float)(orbitRadiusAU * std::cos(theta2)), 0.0f, (float)(orbitRadiusAU * std::sin(theta2))) - cameraTarget;
+
+                    guideVerts.push_back({ p1, glm::vec4(ringColor, guideAlpha) });
+                    guideVerts.push_back({ p2, glm::vec4(ringColor, guideAlpha) });
+                }
+            }
         }
     }
 
@@ -844,7 +869,7 @@ void Renderer::renderTrails(const Camera& camera, float aspect, const std::vecto
     // 2. Render dynamic fading motion trails tracking actual real-time positions
     for (int i = 0; i < (int)bodies.size(); ++i) {
         const auto& body = bodies[i];
-        if (body.id == "sol" || body.trailHistory.size() < 2) continue;
+        if (body.id == "sol" || body.type.find("Star") != std::string::npos || body.trailHistory.size() < 2) continue;
 
         bool isSelected = (i == selectedIndex);
         std::vector<TrailVertex> trailVerts;

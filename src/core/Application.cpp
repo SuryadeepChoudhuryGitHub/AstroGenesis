@@ -1,13 +1,21 @@
 #include "core/Application.hpp"
+#include "data/SeedData.hpp"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
 #include <cstdio>
 #include <algorithm>
+#include <iostream>
 
 namespace AstroGenesis {
 
-Application::Application() {}
+Application::Application() 
+    : m_db(DatabaseManager::getInstance()),
+      m_objRepo(m_db),
+      m_ephemRepo(m_db),
+      m_valRepo(m_db),
+      m_dataManager(m_db, m_objRepo, m_ephemRepo, m_valRepo),
+      m_valEngine(m_objRepo, m_ephemRepo, m_valRepo) {}
 
 Application::~Application() {
     shutdown();
@@ -48,13 +56,30 @@ bool Application::initialize(int width, int height, const char* title) {
         return false;
     }
 
+    // 1. Initialize SQLite Database & Run Migrations
+    if (!m_db.initialize("data/astrogenesis.db")) {
+        std::cerr << "[Application] Warning: Database initialization error: " << m_db.getLastError() << std::endl;
+    }
+
+    // 2. Check Seed Data (Auto-seed high precision baseline if empty)
+    if (!SeedData::isDatabaseSeeded(m_objRepo)) {
+        SeedData::seedDefaultDatabase(m_objRepo);
+    }
+
+    // 3. Initialize External Data Providers
+    m_dataManager.initialize();
+
+    // 4. Load Solar System from SQLite Database into Physics Engine
+    if (!m_physics.loadFromDatabase(m_objRepo, "Solar System")) {
+        std::cerr << "[Application] Failed to load Solar System from database." << std::endl;
+    }
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.IniFilename = nullptr;
 
-    // Load smooth, soothing anti-aliased modern typography (Segoe UI / Arial / Calibri)
     const char* fontCandidates[] = {
         "C:/Windows/Fonts/segoeui.ttf",
         "C:/Windows/Fonts/arial.ttf",
@@ -128,7 +153,6 @@ void Application::processInput(float deltaTime) {
     bool leftDown  = (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT)  == GLFW_PRESS);
     bool rightDown = (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
 
-    // Mouse drag for Orbit: Only initiate drag if the click STARTED on the 3D viewport (not over ImGui popups/panels)
     if (leftDown || rightDown) {
         if (!m_isDraggingViewport && canInteract3D) {
             m_isDraggingViewport = true;
@@ -141,12 +165,10 @@ void Application::processInput(float deltaTime) {
         m_camera.processMouseOrbit(deltaX, deltaY);
     }
 
-    // Scroll wheel for Zoom in and out: Only when hovering 3D viewport and not captured by ImGui
     if (canInteract3D && io.MouseWheel != 0.0f) {
         m_camera.processMouseZoom(io.MouseWheel);
     }
 
-    // Keyboard zoom shortcuts (+ / -)
     if (isViewportHovered && !io.WantTextInput && !io.WantCaptureKeyboard) {
         if (glfwGetKey(m_window, GLFW_KEY_EQUAL) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_KP_ADD) == GLFW_PRESS) {
             m_camera.processMouseZoom(1.0f * deltaTime * 5.0f);
@@ -156,7 +178,6 @@ void Application::processInput(float deltaTime) {
         }
     }
 
-    // Space bar hotkey for Play / Pause toggle
     if (!io.WantTextInput && !io.WantCaptureKeyboard && ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
         m_physics.togglePause();
     }
@@ -178,68 +199,65 @@ void Application::run() {
         m_windowWidth = fbW;
         m_windowHeight = fbH;
 
-        // ImGui frame start (processes mouse wheel & input events for current frame)
+        // ImGui frame start
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // Render UI to establish viewport bounds and hover status
-        m_uiManager.renderUI(m_physics, m_camera, (float)m_windowWidth, (float)m_windowHeight, fps);
+        // Render UI with dynamic database, data manager and validation engine access
+        m_uiManager.renderUI(m_physics, m_camera, m_objRepo, m_dataManager, m_valEngine, (float)m_windowWidth, (float)m_windowHeight, fps);
 
-        // Process scroll wheel zoom & orbit inputs
+        // Process mouse & keyboard interactions
         processInput(deltaTime);
 
-        // Update physics and lock camera fixed around the center of the celestial object
+        // Advance simulation dynamics
         m_physics.update(deltaTime);
         m_camera.setTargetPosition(m_physics.getSelectedBody().position);
         m_camera.update(deltaTime);
 
-        // Get viewport bounds from UI
+        // Get 3D viewport bounds
         float vpX, vpY, vpW, vpH;
         m_uiManager.getViewportBounds(vpX, vpY, vpW, vpH);
 
         glm::vec4 bgDark{0.039f, 0.055f, 0.102f, 1.00f};
         m_renderer.beginViewport(0, 0, fbW, fbH, bgDark);
 
-        // Render celestial bodies in 3D viewport region
         glViewport((int)vpX, (int)(fbH - vpY - vpH), (int)vpW, (int)vpH);
         float aspect = vpW / std::max(vpH, 1.0f);
 
-        // Render skybox (stars background) first, before planets
+        // Skybox
         m_renderer.renderSkybox(m_camera, aspect);
 
         glm::vec3 solPos{0.0f};
         for (const auto& body : m_physics.getBodies()) {
-            if (body.id == "sol") {
+            if (body.id == "sol" || body.type.find("Star") != std::string::npos) {
                 solPos = body.position;
                 break;
             }
         }
 
-        // Camera target is the current interpolated center of view
-        // (smoothly glides across space during logarithmic travel transitions)
         glm::vec3 camTarget = m_camera.getTargetPosition();
 
-        // Render dynamic 3D celestial motion trails & orbit guide lines
+        // Dynamic 3D motion trails
         m_renderer.renderTrails(m_camera, aspect, m_physics.getBodies(), camTarget, m_physics.getSelectedBodyIndex());
 
-        // Render realistic particle fields (hybrid physics + GPU instancing)
+        // Asteroid belt / particle field
         m_renderer.renderParticleField(m_camera, aspect, m_physics.getAsteroidBelt(), solPos, camTarget, m_physics.getSimulatedTimeSeconds());
 
-        // Render celestial bodies
+        // Celestial body spheres
         for (const auto& body : m_physics.getBodies()) {
             m_renderer.renderSphere(m_camera, aspect, body, solPos, camTarget);
         }
 
-        // Render planetary rings (Saturn granular fluid ring system with shadows)
+        // Planetary rings
         m_renderer.renderRings(m_camera, aspect, m_physics.getBodies(), solPos, camTarget);
 
-        // Render physically coupled deformable matter & materials
+        // Deformable matter bodies
         m_renderer.renderDeformableBodies(m_camera, aspect, m_physics.getMatterSystem(), solPos, camTarget);
 
         m_renderer.endViewport(fbW, fbH);
 
-        // Render ImGui UI over the viewport
+        // Render UI overlays
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -253,6 +271,7 @@ void Application::shutdown() {
     ImGui::DestroyContext();
 
     m_renderer.shutdown();
+    m_db.close();
 
     if (m_window) {
         glfwDestroyWindow(m_window);

@@ -346,6 +346,7 @@ CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: \
  C:/msys64/ucrt64/include/c++/14.2.0/deque \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_deque.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/deque.tcc \
+ C:/msys64/ucrt64/include/c++/14.2.0/optional \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/renderer/DeformableRenderer.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/DeformableBody.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/MaterialModel.hpp \
@@ -356,13 +357,68 @@ CMakeFiles/AstroGenesis.dir/src/core/Application.cpp.obj: \
  C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_algorithm_defs.h \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/MatterSystem.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/PhysicsEngine.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/UIManager.hpp \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imgui.h \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imconfig.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/repositories/ObjectRepository.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/AstronomicalModels.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/DatabaseManager.hpp \
+ C:/msys64/ucrt64/include/c++/14.2.0/mutex \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/chrono.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/ratio \
+ C:/msys64/ucrt64/include/c++/14.2.0/ctime \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/parse_numbers.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/std_mutex.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/unique_lock.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/error_constants.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/sqlite/sqlite3.h \
  C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdarg.h \
  C:/msys64/ucrt64/include/stdarg.h \
  C:/msys64/ucrt64/include/_mingw_stdarg.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/ValidationEngine.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/repositories/EphemerisRepository.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/repositories/ValidationRepository.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/DataManager.hpp \
+ C:/msys64/ucrt64/include/c++/14.2.0/map \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_tree.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_map.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_multimap.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/future \
+ C:/msys64/ucrt64/include/c++/14.2.0/condition_variable \
+ C:/msys64/ucrt64/include/c++/14.2.0/system_error \
+ C:/msys64/ucrt64/include/c++/14.2.0/stdexcept \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/atomic_futex.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/atomic \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/std_thread.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/providers/IAstronomicalDataProvider.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/providers/JPLHorizonsProvider.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/net/HttpClient.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/providers/JPLSBDBProvider.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/providers/NASAExoplanetProvider.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/UIManager.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imgui.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imconfig.h \
  C:/msys64/ucrt64/include/string.h \
  C:/msys64/ucrt64/include/sec_api/string_s.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/DataManagerUI.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/ValidationUI.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/SeedData.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/backends/imgui_impl_glfw.h \
- D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/backends/imgui_impl_opengl3.h
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/backends/imgui_impl_opengl3.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/iostream \
+ C:/msys64/ucrt64/include/c++/14.2.0/ostream \
+ C:/msys64/ucrt64/include/c++/14.2.0/ios \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/ios_base.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/locale_classes.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/locale_classes.tcc \
+ C:/msys64/ucrt64/include/c++/14.2.0/streambuf \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/streambuf.tcc \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/basic_ios.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/locale_facets.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/cwctype \
+ C:/msys64/ucrt64/include/wctype.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/ctype_base.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/streambuf_iterator.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/ctype_inline.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/locale_facets.tcc \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/basic_ios.tcc \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/ostream.tcc \
+ C:/msys64/ucrt64/include/c++/14.2.0/istream \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/istream.tcc

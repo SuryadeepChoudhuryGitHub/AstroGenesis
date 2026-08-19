@@ -6,6 +6,12 @@
 #include "renderer/Camera.hpp"
 #include "renderer/Renderer.hpp"
 #include "simulation/PhysicsEngine.hpp"
+#include "simulation/ValidationEngine.hpp"
+#include "data/DatabaseManager.hpp"
+#include "data/DataManager.hpp"
+#include "data/repositories/ObjectRepository.hpp"
+#include "data/repositories/EphemerisRepository.hpp"
+#include "data/repositories/ValidationRepository.hpp"
 #include "ui/UIManager.hpp"
 
 namespace AstroGenesis {
@@ -28,7 +34,17 @@ private:
 
     Camera m_camera;
     Renderer m_renderer;
+
+    // Database and Data Access Layer
+    DatabaseManager& m_db;
+    ObjectRepository m_objRepo;
+    EphemerisRepository m_ephemRepo;
+    ValidationRepository m_valRepo;
+    DataManager m_dataManager;
+
+    // Simulation and Validation Engines
     PhysicsEngine m_physics;
+    ValidationEngine m_valEngine;
     UIManager m_uiManager;
 
     double m_lastMouseX = 0.0;

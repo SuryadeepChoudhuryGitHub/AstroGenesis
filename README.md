@@ -170,7 +170,110 @@ Open `build/AstroGenesis.sln` in Visual Studio, set breakpoints in `src/main.cpp
 
 ---
 
+---
+
+## 🛰️ External Astronomical Data & Database System
+
+AstroGenesis uses a **data-driven architecture** backed by a normalized local SQLite database (`data/astrogenesis.db`). The physics simulation and UI query the database dynamically, with zero hardcoded celestial object parameters.
+
+### 🏛️ Architecture & Data Flow
+
+```
+External Sources (JPL Horizons, JPL SBDB, NASA Exoplanet)
+       ↓ HTTPS (Native WinHTTP)
+Data Providers (IAstronomicalDataProvider)
+       ↓ Parse, Schema Validation, Unit Normalization
+Data Manager (Async Worker Threads, Caching, Audit Logging)
+       ↓ ACID SQL Transactions
+SQLite Database (data/astrogenesis.db)
+       ↓ Hydrated In-Memory Entities
+Data Access Layer (Object, Ephemeris, Validation Repositories)
+       ↓
+AstroGenesis Physics Simulation Engine (1PN Einstein GR) & UI
+```
+
+---
+
+### 🗄️ Normalized SQLite Database Schema
+
+The database (`data/astrogenesis.db`) is structured into 11 normalized tables with foreign key cascading and multi-column indexes:
+
+| Table | Description | Key Fields |
+| :--- | :--- | :--- |
+| `objects` | Master entity records | `id`, `slug`, `name`, `type`, `parent_object_id`, `category`, `is_synthetic`, `color`, `texture_path` |
+| `physical_properties` | SI physical parameters | `object_id`, `mass_kg`, `radius_m`, `albedo`, `greenhouse_k`, `luminosity_w`, `axial_tilt_deg`, `rotation_period_hours`, `surface_gravity_mps2`, `escape_velocity_mps`, `rings_json`, `source_id`, `source_record_id` |
+| `orbital_elements` | Keplerian orbital elements | `object_id`, `epoch_jd`, `semi_major_axis_m`, `semi_major_axis_au`, `eccentricity`, `inclination_deg`, `long_ascending_node_deg`, `arg_periapsis_deg`, `mean_anomaly_deg`, `orbital_period_days`, `reference_frame` |
+| `state_vectors` | 3D Cartesian vectors | `object_id`, `epoch_jd`, `pos_x_m`, `pos_y_m`, `pos_z_m`, `vel_x_mps`, `vel_y_mps`, `vel_z_mps`, `reference_frame` |
+| `ephemeris_records` | Ground-truth time-series | `object_id`, `target_name`, `epoch_utc`, `epoch_jd`, `pos_x_m`, `pos_y_m`, `pos_z_m`, `vel_x_mps`, `vel_y_mps`, `vel_z_mps`, `reference_frame` |
+| `composition` | Atmospheric / elemental | `object_id`, `element_or_compound`, `percentage`, `color_r`, `color_g`, `color_b`, `color_a` |
+| `data_sources` | Registered data providers | `id`, `name`, `base_url`, `description`, `is_official` |
+| `data_imports` | Import audit logs | `id`, `source_id`, `target_object`, `status`, `records_count`, `details`, `timestamp` |
+| `simulation_runs` | Simulation run tracking | `id`, `name`, `integrator_type`, `start_epoch_jd`, `time_scale`, `gr_enabled`, `total_sim_seconds` |
+| `simulation_states` | Periodic state snapshots | `id`, `run_id`, `object_id`, `sim_time_seconds`, `pos_x_m`, `vel_x_mps`, `energy_joules`, `angular_momentum` |
+| `validation_results` | Benchmark comparisons | `id`, `run_id`, `object_id`, `epoch_jd`, `sim_pos`, `real_pos`, `pos_error_m`, `pos_relative_error`, `vel_error_mps`, `energy_drift_pct`, `gr_mode` |
+
+---
+
+### 🌐 Supported External Data Providers & API Endpoints
+
+1. **NASA JPL Horizons API**:
+   - **Endpoint**: `https://ssd.jpl.nasa.gov/api/horizons.api`
+   - **Data**: High-precision state vectors ($X, Y, Z, V_X, V_Y, V_Z$ in ICRF/Barycentric), Keplerian orbital elements, physical constants (mass, radius, density, rotation period).
+   - **Usage**: Planetary ephemerides, moons, asteroids, comets, and time-series benchmark truth vectors.
+
+2. **NASA JPL Small-Body Database (SBDB)**:
+   - **Endpoint**: `https://ssd-api.jpl.nasa.gov/sbdb.api`
+   - **Data**: >1.3 million asteroids and comets, orbital parameters ($a, e, i, \Omega, \omega, M, P$), physical parameters (diameter, geometric albedo, rotation period, $GM$, spectral taxonomy).
+   - **Usage**: Main-belt asteroids, near-Earth objects (NEAs), Trojans, Centaurs, comets.
+
+3. **NASA Exoplanet Archive (TAP)**:
+   - **Endpoint**: `https://exoplanetarchive.ipac.caltech.edu/TAP/sync`
+   - **Data**: Multi-planet exoplanetary systems, host star parameters (mass, radius, $T_{\text{eff}}$, luminosity, spectral type), planet parameters (mass $M_\oplus$, radius $R_\oplus$, orbital period, semi-major axis, eccentricity, equilibrium temperature).
+   - **Usage**: TRAPPIST-1, Proxima Centauri, Kepler-186, and confirmed exoplanets.
+
+---
+
+### 📐 Centralized Unit System
+
+All external data is validated and converted into standardized internal SI units upon import:
+
+| Quantity | External Units | Internal SI Unit | Conversion Factor |
+| :--- | :--- | :--- | :--- |
+| **Distance** | $\text{AU}$, $\text{km}$, $\text{light-years}$, $\text{parsecs}$ | Meters ($\text{m}$) | $1\text{ AU} = 149,597,870,700\text{ m}$ |
+| **Velocity** | $\text{km/s}$, $\text{AU/day}$ | Meters per second ($\text{m/s}$) | $1\text{ km/s} = 1,000\text{ m/s}$ |
+| **Mass** | $M_\oplus$ (Earth), $M_{\text{Jup}}$ (Jupiter), $M_\odot$ (Solar) | Kilograms ($\text{kg}$) | $1 M_\oplus = 5.97219 \times 10^{24}\text{ kg}$ |
+| **Radius** | $R_\oplus$ (Earth), $R_{\text{Jup}}$ (Jupiter), $R_\odot$ (Solar), $\text{km}$ | Meters ($\text{m}$) | $1 R_\oplus = 6,371,000\text{ m}$ |
+| **Angle** | Degrees ($^\circ$), Arcseconds ($''$) | Radians ($\text{rad}$) | $1^\circ = \pi / 180\text{ rad}$ |
+| **Time** | Julian Date ($\text{JD}$), Calendar UTC | Seconds ($\text{s}$) & $\text{JD}$ | $1\text{ Julian Day} = 86,400\text{ s}$ |
+
+---
+
+### 🔬 Real vs. Simulation Validation Methodology
+
+The `ValidationEngine` compares simulated trajectories $\vec{R}_{\text{sim}}(t)$ directly against NASA JPL Horizons ground truth observations $\vec{R}_{\text{real}}(t)$:
+
+1. **Absolute Position Error**:
+   $$\Delta R(t) = \|\vec{R}_{\text{sim}}(t) - \vec{R}_{\text{real}}(t)\|$$
+
+2. **Relative Error**:
+   $$\text{Relative Error}(t) = \frac{\|\vec{R}_{\text{sim}}(t) - \vec{R}_{\text{real}}(t)\|}{\|\vec{R}_{\text{real}}(t)\|}$$
+
+3. **Velocity Error**:
+   $$\Delta V(t) = \|\vec{V}_{\text{sim}}(t) - \vec{V}_{\text{real}}(t)\|$$
+
+4. **Energy Conservation Drift**:
+   $$\text{Drift}_E(t) = \frac{|E(t) - E_0|}{|E_0|} \times 100\%$$
+
+5. **General Relativity Validation (Mercury Perihelion Test)**:
+   - Evaluates the Einstein 1PN Post-Newtonian acceleration:
+     $$\vec{a}_{\text{1PN}} = \frac{G M}{c^2 r^3} \left[ \left( 4 \frac{G M}{r} - v^2 \right) \vec{r} + 4 (\vec{r} \cdot \vec{v}) \vec{v} \right]$$
+   - Computes Mercury's perihelion advance ($+42.98''/\text{century}$) and confirms match with JPL Horizons ephemerides vs. Newtonian $0.00''/\text{century}$.
+
+---
+
 ## 📜 License & Acknowledgments
 
 * Designed for physical realism and educational space simulation.
-* Built using open-source C++ libraries: [GLFW](https://www.glfw.org/), [GLM](https://github.com/g-truc/glm), [GLAD](https://glad.dav1d.de/), and [Dear ImGui](https://github.com/ocornut/imgui).
+* Built using open-source C++ libraries: [GLFW](https://www.glfw.org/), [GLM](https://github.com/g-truc/glm), [GLAD](https://glad.dav1d.de/), [Dear ImGui](https://github.com/ocornut/imgui), [SQLite](https://www.sqlite.org/), and [nlohmann/json](https://github.com/nlohmann/json).
+* Astronomical data provided courtesy of NASA Jet Propulsion Laboratory (JPL) Horizons, Small-Body Database (SBDB), and the NASA Exoplanet Archive.
+

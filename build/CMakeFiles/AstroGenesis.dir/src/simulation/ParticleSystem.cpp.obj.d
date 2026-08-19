@@ -327,6 +327,7 @@ CMakeFiles/AstroGenesis.dir/src/simulation/ParticleSystem.cpp.obj: \
  C:/msys64/ucrt64/include/c++/14.2.0/deque \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_deque.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/deque.tcc \
+ C:/msys64/ucrt64/include/c++/14.2.0/optional \
  C:/msys64/ucrt64/include/c++/14.2.0/algorithm \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_algo.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/algorithmfwd.h \

@@ -85,8 +85,10 @@ set(CMAKE_MAKEFILE_PRODUCTS
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/glad.dir/DependInfo.cmake"
+  "CMakeFiles/sqlite3.dir/DependInfo.cmake"
   "CMakeFiles/imgui.dir/DependInfo.cmake"
   "CMakeFiles/AstroGenesis.dir/DependInfo.cmake"
+  "CMakeFiles/test_data_system.dir/DependInfo.cmake"
   "external/glfw/src/CMakeFiles/glfw.dir/DependInfo.cmake"
   "external/glfw/src/CMakeFiles/update_mappings.dir/DependInfo.cmake"
   "external/glm/glm/CMakeFiles/glm.dir/DependInfo.cmake"

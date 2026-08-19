@@ -1,4 +1,6 @@
 #include "ui/UIManager.hpp"
+#include "simulation/MaterialModel.hpp"
+#include "data/UnitConverter.hpp"
 #include <cstdio>
 #include <cmath>
 #include <algorithm>
@@ -35,10 +37,13 @@ static bool SectionHeader(const char* label, bool defaultOpen = true) {
     return open;
 }
 
-static void InfoRow(const char* label, const std::string& value, float labelWidth = 135.0f) {
+static void StatItem(const char* icon, const char* label, const char* value) {
+    ImGui::BeginGroup();
+    ImGui::TextColored(Col::Accent, "%s", icon);
+    ImGui::SameLine();
     ImGui::TextColored(Col::TextSecondary, "%s", label);
-    ImGui::SameLine(labelWidth);
-    ImGui::TextColored(Col::TextPrimary, "%s", value.c_str());
+    ImGui::TextColored(Col::TextPrimary, " %s", value);
+    ImGui::EndGroup();
 }
 
 static void StatCard2Col(const char* l1, const char* v1, const char* l2, const char* v2, float halfW) {
@@ -96,19 +101,17 @@ void UIManager::initialize() {
     c[ImGuiCol_Text]                 = Col::TextPrimary;
     c[ImGuiCol_TextDisabled]         = Col::TextSecondary;
 
-    // Seed default astrophysical events in the event log
     m_eventLogs.clear();
-    m_eventLogs.push_back({ "00:15:30", "Simulation started" });
-    m_eventLogs.push_back({ "00:15:31", "Loaded Solar System" });
-    m_eventLogs.push_back({ "00:15:32", "Einstein GR (1PN) engine active" });
-    m_eventLogs.push_back({ "00:15:34", "Earth selected" });
-    m_eventLogs.push_back({ "00:15:35", "Time acceleration set to 1 day/s" });
+    m_eventLogs.push_back({ "00:00:01", "AstroGenesis engine initialized" });
+    m_eventLogs.push_back({ "00:00:02", "SQLite astronomical database connected" });
+    m_eventLogs.push_back({ "00:00:03", "Einstein 1PN Post-Newtonian GR active" });
 }
 
 void UIManager::addEventLog(const std::string& message) {
     char buf[16];
-    static int logSec = 36;
-    snprintf(buf, sizeof(buf), "00:15:%02d", logSec++);
+    static int logSec = 4;
+    snprintf(buf, sizeof(buf), "00:%02d:%02d", logSec / 60, logSec % 60);
+    logSec++;
     m_eventLogs.push_back({ buf, message });
     if (m_eventLogs.size() > 50) {
         m_eventLogs.erase(m_eventLogs.begin());
@@ -122,173 +125,198 @@ void UIManager::getViewportBounds(float& outX, float& outY, float& outW, float& 
     outH = m_viewportH;
 }
 
-void UIManager::renderUI(PhysicsEngine& physics, Camera& camera, float windowWidth, float windowHeight, float fps) {
-    float topBarH     = 48.0f;
-    float leftPanelW  = 230.0f;
-    float rightPanelW = 340.0f;
-    float bottomH     = 220.0f;
+void UIManager::renderUI(PhysicsEngine& physics, 
+                         Camera& camera, 
+                         ObjectRepository& objRepo,
+                         DataManager& dataManager,
+                         ValidationEngine& valEngine,
+                         float windowWidth, float windowHeight, float fps) {
+    float topBarH    = 48.0f;
+    float statusBarH = 28.0f;
+    float leftPanelW = 210.0f;
+    float rightPanelW = 310.0f;
+    float bottomH    = 180.0f;
 
     m_viewportX = leftPanelW;
     m_viewportY = topBarH;
     m_viewportW = windowWidth - leftPanelW - rightPanelW;
-    m_viewportH = windowHeight - topBarH - bottomH;
+    m_viewportH = windowHeight - topBarH - bottomH - statusBarH;
 
-    // Determine mouse hovering viewport (must be within 3D rect AND not captured by any ImGui window/widget)
     ImVec2 mousePos = ImGui::GetMousePos();
     ImGuiIO& io = ImGui::GetIO();
     m_viewportHovered = (mousePos.x >= m_viewportX && mousePos.x <= m_viewportX + m_viewportW &&
                          mousePos.y >= m_viewportY && mousePos.y <= m_viewportY + m_viewportH) && !io.WantCaptureMouse;
 
-    const CelestialBody& currentBody = physics.getSelectedBody();
+    // 1. Top Bar (can switch systems or open modals)
+    drawTopBar(windowWidth, physics, objRepo);
 
-    // 1. Top Bar
-    drawTopBar(windowWidth);
+    // 2. Left Hierarchy & Navigation Panel (Selection Place 1, can switch systems or select bodies)
+    drawLeftPanel(physics, camera, objRepo, topBarH, statusBarH, windowHeight);
 
-    // 2. Left Hierarchy & Navigation Panel
-    drawLeftPanel(physics, camera, topBarH, windowHeight);
-
-    // 3. Center Viewport Header & Floating Info Cards
-    drawCenterViewportHeader(currentBody, camera, m_viewportX, m_viewportY, m_viewportW);
-    drawFloatingInfoCards(currentBody, m_viewportX, m_viewportY);
-
-    // 4. Right Scientific Data Panel
-    drawRightPanel(physics, currentBody, topBarH, windowWidth, windowHeight);
-
-    // 5. 3D Viewport HUD (Interactive decluttered hover reticle)
+    // 3. 3D Viewport HUD Direct Hover & Click (Selection Place 2)
     drawViewportHUD(physics, camera, m_viewportX, m_viewportY, m_viewportW, m_viewportH);
 
-    // 6. Bottom Row (3 Beautiful Cards: Time Controls, Physics Engine, Orbit Visualizer)
-    float bottomY = windowHeight - bottomH;
-    float cardW = m_viewportW / 3.0f;
-    drawTimeControls(physics, leftPanelW,                 bottomY, cardW, bottomH);
-    drawSimMetrics  (physics, fps, leftPanelW + cardW,    bottomY, cardW, bottomH);
-    drawOrbitVis    (physics, camera, leftPanelW + cardW * 2.0f, bottomY, cardW, bottomH);
+    // 4. Bottom Row Cards (including 2D Orbit Vis Schematic: Selection Place 3)
+    float bottomY = windowHeight - statusBarH - bottomH;
+    float bpW = m_viewportW / 3.0f;
+    drawTimeControls(physics, leftPanelW,                 bottomY, bpW, bottomH);
+    drawSimMetrics  (physics, fps, leftPanelW + bpW,      bottomY, bpW, bottomH);
+    drawOrbitVis    (physics, camera, leftPanelW + bpW * 2, bottomY, bpW, bottomH);
 
-    // 7. Modals
+    // Dynamic fetch of current selected body AFTER all interactions and system loads
+    const CelestialBody& currentBody = physics.getSelectedBody();
+
+    // 5. Floating Info Overlay
+    drawInfoOverlay(currentBody, m_viewportX, m_viewportY);
+
+    // 6. Right Scientific Data Panel
+    drawRightPanel(physics, currentBody, dataManager, topBarH, windowWidth, windowHeight, statusBarH);
+
+    // 7. Status Bar
+    drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
+
+    // 8. Modals / Overlay Windows
     if (m_showAsteroidBeltDiagnostics) {
-        drawAsteroidBeltDiagnostics(physics, windowWidth, windowHeight);
+        drawAsteroidBeltDiagnostics(physics, objRepo, windowWidth, windowHeight);
     }
     if (m_showMatterLab) {
         drawMatterLab(physics, windowWidth, windowHeight);
     }
+    if (m_showDataManager) {
+        m_dataManagerUI.render(m_showDataManager, dataManager, objRepo, physics, windowWidth, windowHeight);
+    }
+    if (m_showValidationDashboard) {
+        m_validationUI.render(m_showValidationDashboard, valEngine, objRepo, physics, windowWidth, windowHeight);
+    }
 }
 
-// =========================================================================
-// 1. TOP BAR
-// =========================================================================
-
-void UIManager::drawTopBar(float width) {
+void UIManager::drawTopBar(float width, PhysicsEngine& physics, ObjectRepository& objRepo) {
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(width, 48));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 10));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.024f, 0.035f, 0.065f, 0.98f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.035f, 0.05f, 0.09f, 0.97f));
     ImGui::PushStyleColor(ImGuiCol_Border, Col::Border);
 
     ImGui::Begin("##TopBar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
 
-    // Logo & Engine Title
+    // Logo & Title
     ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
-    ImGui::Text("\xE2\x97\x86"); // Diamond logo icon
-    ImGui::SameLine(0, 6);
+    ImGui::Text("\xE2\x97\x86"); // Diamond icon
+    ImGui::SameLine();
     ImGui::Text("ASTROGENESIS");
     ImGui::PopStyleColor();
-    ImGui::SameLine(0, 8);
-    ImGui::TextColored(Col::TextSecondary, "\xE2\x9C\xA6 SPACE SIMULATION ENGINE");
+    ImGui::SameLine();
+    ImGui::TextColored(Col::TextSecondary, "SPACE SIMULATION ENGINE");
     ImGui::SameLine(0, 32);
 
-    // Pill Navigation Tabs
+    // Top Navigation Tabs
     const char* tabs[] = { "UNIVERSE", "SYSTEM", "OBJECTS", "EXPLORE", "SIMULATION", "AI ASSISTANT" };
-    static int activeTab = 0;
     for (int i = 0; i < 6; ++i) {
         if (i > 0) ImGui::SameLine(0, 4);
-        bool isActive = (i == activeTab);
+        bool isActive = (i == m_activeTopTab);
         if (isActive) {
             ImGui::PushStyleColor(ImGuiCol_Button, Col::TabActive);
             ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
-            ImGui::PushStyleColor(ImGuiCol_Border, Col::AccentDim);
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
         } else {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
             ImGui::PushStyleColor(ImGuiCol_Text, Col::TextSecondary);
-            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
         }
-        if (ImGui::Button(tabs[i], ImVec2(0, 28))) activeTab = i;
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor(3);
+        if (ImGui::Button(tabs[i], ImVec2(0, 28))) m_activeTopTab = i;
+        ImGui::PopStyleColor(2);
     }
 
-    // Top Right Action Buttons: Asteroid Belt, Deformable Matter Lab, Settings & Help
-    ImGui::SameLine(width - 540.0f);
-    if (m_showAsteroidBeltDiagnostics) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.40f, 0.70f, 0.95f));
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    // Top Bar Action Buttons: Data Manager, Validation, Asteroids, Matter Lab
+    float rightOffset = width - 670.0f;
+    ImGui::SameLine(rightOffset);
+
+    // 1. DATA MANAGER
+    if (m_showDataManager) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.00f, 0.65f, 0.85f, 0.95f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
     } else {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.14f, 0.24f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.20f, 0.32f, 0.85f));
         ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
     }
-    if (ImGui::Button("☄ ASTEROID BELT (N-BODY)", ImVec2(200, 28))) {
+    if (ImGui::Button("⛃ DATA MANAGER", ImVec2(135, 28))) {
+        m_showDataManager = !m_showDataManager;
+    }
+    ImGui::PopStyleColor(2);
+
+    // 2. VALIDATION
+    ImGui::SameLine(0, 5);
+    if (m_showValidationDashboard) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.35f, 0.12f, 0.95f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.14f, 0.10f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.75f, 0.3f, 1.0f));
+    }
+    if (ImGui::Button("⚖ VALIDATION", ImVec2(120, 28))) {
+        m_showValidationDashboard = !m_showValidationDashboard;
+    }
+    ImGui::PopStyleColor(2);
+
+    // 3. ASTEROID BELT
+    ImGui::SameLine(0, 5);
+    if (m_showAsteroidBeltDiagnostics) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.45f, 0.75f, 0.95f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.10f, 0.16f, 0.26f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
+    }
+    if (ImGui::Button("☄ ASTEROID BELT (N(a))", ImVec2(185, 28))) {
         m_showAsteroidBeltDiagnostics = !m_showAsteroidBeltDiagnostics;
     }
     ImGui::PopStyleColor(2);
 
-    ImGui::SameLine(width - 330.0f);
+    // 4. DEFORMABLE MATTER LAB
+    ImGui::SameLine(0, 5);
     if (m_showMatterLab) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.60f, 0.30f, 0.12f, 0.95f));
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65f, 0.35f, 0.15f, 0.95f));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     } else {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.14f, 0.11f, 0.20f, 0.85f));
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.70f, 0.40f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.16f, 0.12f, 0.22f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.7f, 0.4f, 1.0f));
     }
-    if (ImGui::Button("⬡ DEFORMABLE MATTER LAB", ImVec2(215, 28))) {
+    if (ImGui::Button("⬡ MATTER LAB", ImVec2(120, 28))) {
         m_showMatterLab = !m_showMatterLab;
     }
     ImGui::PopStyleColor(2);
-
-    // Settings & Help icon buttons
-    ImGui::SameLine(width - 100.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.12f, 0.20f, 0.75f));
-    ImGui::Button("⚙##Settings", ImVec2(28, 28));
-    ImGui::SameLine(0, 6);
-    ImGui::Button("?##Help", ImVec2(28, 28));
-    ImGui::PopStyleColor();
 
     ImGui::End();
     ImGui::PopStyleColor(2);
     ImGui::PopStyleVar(2);
 }
 
-// =========================================================================
-// 2. LEFT PANEL (HIERARCHY & VIEW CONTROLS)
-// =========================================================================
-
-void UIManager::drawLeftPanel(PhysicsEngine& physics, Camera& camera, float topBarH, float winH) {
-    float panelW = 230.0f;
-    float panelH = winH - topBarH;
+void UIManager::drawLeftPanel(PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo, float topBarH, float statusBarH, float winH) {
+    float panelW = 210.0f;
+    float panelH = winH - topBarH - statusBarH;
     ImGui::SetNextWindowPos(ImVec2(0, topBarH));
     ImGui::SetNextWindowSize(ImVec2(panelW, panelH));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
 
     ImGui::Begin("##LeftPanel", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
-    // Search bar with filter icon
-    ImGui::PushItemWidth(panelW - 55);
-    ImGui::InputTextWithHint("##search", "Search objects...", m_searchQuery, sizeof(m_searchQuery));
+    // Search Bar
+    ImGui::PushItemWidth(-30);
+    ImGui::InputTextWithHint("##search", "Search Anything...", m_searchQuery, sizeof(m_searchQuery));
     ImGui::PopItemWidth();
-    ImGui::SameLine(0, 4);
-    ImGui::Button("∇##Filter", ImVec2(28, 24));
-    ImGui::Spacing();
+    ImGui::SameLine();
+    ImGui::TextColored(Col::TextSecondary, "\xE2\x96\xBC");
     ImGui::Separator();
 
-    // SOLAR SYSTEM Section
-    if (SectionHeader("SOLAR SYSTEM", true)) {
+    // Active System Hierarchy (Place 1: Selection from Left List)
+    const std::string curCat = physics.getCurrentCategory();
+    std::string headerLabel = curCat.empty() ? "SOLAR SYSTEM" : curCat;
+    std::transform(headerLabel.begin(), headerLabel.end(), headerLabel.begin(), ::toupper);
+
+    if (SectionHeader(headerLabel.c_str(), true)) {
         const auto& bodies = physics.getBodies();
         int selectedIndex = physics.getSelectedBodyIndex();
 
         for (int i = 0; i < (int)bodies.size(); ++i) {
-            // Apply search filter if active
             if (m_searchQuery[0] != '\0') {
                 std::string bName = bodies[i].name;
                 std::string q = m_searchQuery;
@@ -298,318 +326,261 @@ void UIManager::drawLeftPanel(PhysicsEngine& physics, Camera& camera, float topB
             }
 
             bool isSelected = (i == selectedIndex);
-            ImDrawList* dl = ImGui::GetWindowDrawList();
-
-            ImGui::PushID(i);
-            ImVec2 pMin = ImGui::GetCursorScreenPos();
-            ImVec2 pMax = ImVec2(pMin.x + panelW - 20, pMin.y + 32);
-
-            // Background pill for selected / hover
             if (isSelected) {
-                dl->AddRectFilled(pMin, pMax, ImGui::ColorConvertFloat4ToU32(Col::SelectedBg), 6.0f);
-                dl->AddRect(pMin, pMax, ImGui::ColorConvertFloat4ToU32(Col::SelectedBorder), 6.0f, 0, 1.2f);
+                ImGui::PushStyleColor(ImGuiCol_Header, Col::SelectedBg);
+                ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
             }
 
-            if (ImGui::InvisibleButton("##item", ImVec2(panelW - 20, 32))) {
+            if (ImGui::Selectable(("##body" + std::to_string(i)).c_str(), isSelected, 0, ImVec2(0, 36))) {
                 physics.selectBody(i);
                 camera.focusOnBody(bodies[i].position, bodies[i].radius3D, 0.85f);
                 addEventLog(bodies[i].name + " selected");
             }
 
-            bool isHovered = ImGui::IsItemHovered();
-            if (isHovered && !isSelected) {
-                dl->AddRectFilled(pMin, pMax, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.05f)), 6.0f);
-            }
+            ImVec2 p = ImGui::GetItemRectMin();
+            ImGui::SetCursorScreenPos(ImVec2(p.x + 28, p.y + 2));
+            ImGui::Text("%s", bodies[i].name.c_str());
+            ImGui::SetCursorScreenPos(ImVec2(p.x + 28, p.y + 18));
+            ImGui::TextColored(Col::TextSecondary, "%s", bodies[i].distanceStr.c_str());
 
-            // Planet colored circle dot
-            ImVec2 dotCenter = ImVec2(pMin.x + 16, pMin.y + 16);
-            ImU32 dotCol = ImGui::ColorConvertFloat4ToU32(ImVec4(bodies[i].color.r, bodies[i].color.g, bodies[i].color.b, 1.0f));
-            dl->AddCircleFilled(dotCenter, isSelected ? 5.5f : 4.5f, dotCol);
-            if (isSelected) {
-                dl->AddCircle(dotCenter, 8.0f, ImGui::ColorConvertFloat4ToU32(Col::Accent), 16, 1.2f);
-            }
+            ImGui::GetWindowDrawList()->AddCircleFilled(
+                ImVec2(p.x + 14, p.y + 18), 8.0f,
+                isSelected ? ImGui::ColorConvertFloat4ToU32(Col::Accent)
+                           : ImGui::ColorConvertFloat4ToU32(ImVec4(bodies[i].color.r, bodies[i].color.g, bodies[i].color.b, 0.8f)));
 
-            // Planet Name
-            dl->AddText(ImVec2(pMin.x + 30, pMin.y + 8),
-                        isSelected ? ImGui::ColorConvertFloat4ToU32(Col::TextPrimary) : ImGui::ColorConvertFloat4ToU32(Col::TextSecondary),
-                        bodies[i].name.c_str());
-
-            // Right-aligned Distance
-            std::string distStr = (bodies[i].id == "sol") ? "0.00 AU" : bodies[i].distanceStr;
-            ImVec2 distSize = ImGui::CalcTextSize(distStr.c_str());
-            dl->AddText(ImVec2(pMax.x - distSize.x - 8, pMin.y + 8),
-                        isSelected ? ImGui::ColorConvertFloat4ToU32(Col::Accent) : ImGui::ColorConvertFloat4ToU32(Col::TextSecondary),
-                        distStr.c_str());
-
-            ImGui::PopID();
+            if (isSelected) ImGui::PopStyleColor(2);
         }
     }
 
     ImGui::Separator();
-    const char* collapsedSections[] = {
-        "EXOPLANET SYSTEMS",
-        "STAR CLUSTERS",
-        "GALAXIES",
-        "DEEP SPACE OBJECTS",
-        "FAVORITES"
-    };
-    for (auto& sec : collapsedSections) {
+
+    // Additional Database System Categories
+    auto categories = objRepo.getAvailableCategories();
+    for (const auto& cat : categories) {
+        if (cat == curCat) continue;
+        std::string upperCat = cat;
+        std::transform(upperCat.begin(), upperCat.end(), upperCat.begin(), ::toupper);
+        
+        if (SectionHeader(upperCat.c_str(), false)) {
+            auto catObjs = objRepo.getAllObjects(cat, false);
+            for (const auto& obj : catObjs) {
+                if (ImGui::Selectable(obj.name.c_str())) {
+                    physics.loadFromDatabase(objRepo, cat);
+                    physics.selectBodyById(obj.slug);
+                    addEventLog("Switched system to " + cat + " (" + obj.name + ")");
+                }
+            }
+        }
+    }
+
+    const char* staticSections[] = { "STAR CLUSTERS", "GALAXIES", "FAVORITES" };
+    for (auto& sec : staticSections) {
         SectionHeader(sec, false);
     }
 
-    // Bottom "VIEW CONTROLS" Area
-    float viewCtrlH = 175.0f;
-    float viewCtrlY = panelH - viewCtrlH - 10.0f;
-    ImGui::SetCursorPos(ImVec2(10, viewCtrlY));
+    ImGui::End();
+    ImGui::PopStyleVar();
+}
+
+void UIManager::drawInfoOverlay(const CelestialBody& body, float x, float y) {
+    ImGui::SetNextWindowPos(ImVec2(x + 12, y + 12));
+    ImGui::SetNextWindowSize(ImVec2(280, 0));
+    ImGui::SetNextWindowBgAlpha(0.78f);
+    ImGui::Begin("##CelestialInfoOverlay", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize);
+
+    ImGui::TextColored(Col::Accent, "%s", body.name.c_str());
+    ImGui::SameLine();
+    ImGui::TextColored(Col::Yellow, "\xE2\x98\x85");
+    ImGui::TextColored(Col::TextSecondary, "%s", body.type.c_str());
     ImGui::Separator();
-    ImGui::TextColored(Col::Accent, "VIEW CONTROLS");
 
-    // Mouse Navigation Graphic Schematic
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    ImVec2 mouseDiagPos = ImGui::GetCursorScreenPos();
-    ImVec2 mouseCenter = ImVec2(mouseDiagPos.x + 85, mouseDiagPos.y + 30);
+    auto InfoRow = [](const char* label, const std::string& value) {
+        ImGui::TextColored(Col::TextSecondary, "%-18s", label);
+        ImGui::SameLine(125);
+        ImGui::TextColored(Col::TextPrimary, "%s", value.c_str());
+    };
 
-    // Draw mouse silhouette & crosshairs
-    dl->AddRect(ImVec2(mouseCenter.x - 14, mouseCenter.y - 20), ImVec2(mouseCenter.x + 14, mouseCenter.y + 20),
-                ImGui::ColorConvertFloat4ToU32(Col::BorderLight), 10.0f, 0, 1.2f);
-    dl->AddLine(ImVec2(mouseCenter.x, mouseCenter.y - 20), ImVec2(mouseCenter.x, mouseCenter.y - 6),
-                ImGui::ColorConvertFloat4ToU32(Col::BorderLight), 1.2f);
-    dl->AddCircleFilled(ImVec2(mouseCenter.x, mouseCenter.y - 12), 3.0f, ImGui::ColorConvertFloat4ToU32(Col::Accent));
-
-    // Axis indicators
-    dl->AddLine(ImVec2(mouseCenter.x - 40, mouseCenter.y), ImVec2(mouseCenter.x + 40, mouseCenter.y),
-                ImGui::ColorConvertFloat4ToU32(ImVec4(Col::AccentDim.x, Col::AccentDim.y, Col::AccentDim.z, 0.35f)), 1.0f);
-    dl->AddCircle(ImVec2(mouseCenter.x - 30, mouseCenter.y), 4.0f, ImGui::ColorConvertFloat4ToU32(Col::Accent), 12, 1.0f);
-
-    ImGui::Dummy(ImVec2(0, 52));
-
-    // Quick Tool Icons Row
-    if (ImGui::Button("⤓##ZoomIn", ImVec2(29, 24))) { camera.processMouseZoom(1.0f); }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Zoom In (+)"); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button("⤒##ZoomOut", ImVec2(29, 24))) { camera.processMouseZoom(-1.0f); }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Zoom Out (-)"); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button("⛶##ResetV", ImVec2(29, 24))) { camera.resetCenter(); }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Reset Center"); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button("🏷##Labels", ImVec2(29, 24))) { /* Toggle labels */ }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Toggle Labels"); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button("🧭##North", ImVec2(29, 24))) { camera.resetCenter(); }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Align Ecliptic"); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button("📈##Stats", ImVec2(29, 24))) { m_showAsteroidBeltDiagnostics = !m_showAsteroidBeltDiagnostics; }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Asteroid Belt Analysis"); }
-
-    ImGui::Spacing();
-    if (ImGui::Button("RESET VIEW", ImVec2(panelW - 20, 26))) {
-        camera.resetCenter();
+    InfoRow("Distance (Sol)",   (body.id == "sol" || body.type.find("Star") != std::string::npos) ? "0.00 AU" : body.distanceStr);
+    if (body.id != "sol") {
+        InfoRow("Orbital Velocity", body.orbitalSpeedStr);
+        InfoRow("Semi-Major Axis",  body.semiMajorAxisStr);
+        InfoRow("Eccentricity",     body.eccentricityStr);
+        InfoRow("Perihelion",       body.periapsisStr);
+        InfoRow("Aphelion",         body.apoapsisStr);
+        InfoRow("GR Precession",    body.grPrecessionStr);
     }
+    InfoRow("Radius",           body.radiusStr);
+    InfoRow("Mass",             body.massStr);
+    InfoRow("Surface Gravity",  body.gravityStr);
+    InfoRow("Surface Temp.",    body.tempStr);
+    InfoRow("Solar Flux",       body.solarRadiationStr);
+    if (body.id != "sol") {
+        InfoRow("Time Dilation", body.timeDilationStr);
+    }
+    InfoRow("Axial Tilt",       body.axialTiltStr);
+    InfoRow("Atmosphere",       body.atmosphereStr);
+    InfoRow("Moons",            std::to_string(body.moons));
+    InfoRow("Data Source",      body.sourceName);
 
     ImGui::End();
-    ImGui::PopStyleVar(2);
 }
 
-// =========================================================================
-// 3. CENTER VIEWPORT HEADER & SUB-NAVIGATION TABS
-// =========================================================================
-
-void UIManager::drawCenterViewportHeader(const CelestialBody& body, Camera& camera, float x, float y, float w) {
-    ImGui::SetNextWindowPos(ImVec2(x + 16, y + 12));
-    ImGui::SetNextWindowSize(ImVec2(w - 32, 40));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 6));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.02f, 0.035f, 0.07f, 0.0f)); // Transparent
-    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
-
-    ImGui::Begin("##CenterHeader", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
-
-    // Large Body Title (e.g. EARTH) with cyan initial letter
-    std::string uppercaseName = body.name;
-    std::transform(uppercaseName.begin(), uppercaseName.end(), uppercaseName.begin(), ::toupper);
-
-    ImGui::SetWindowFontScale(1.15f);
-    ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
-    ImGui::Text("%c", uppercaseName[0]);
-    ImGui::PopStyleColor();
-    ImGui::SameLine(0, 0);
-    ImGui::Text("%s", uppercaseName.substr(1).c_str());
-    ImGui::SetWindowFontScale(1.0f);
-    ImGui::SameLine(0, 6);
-    ImGui::TextColored(Col::Yellow, "\xE2\x98\x86"); // Star icon
-    ImGui::SameLine(0, 4);
-    ImGui::TextColored(Col::TextSecondary, "-");
-    ImGui::SameLine(0, 20);
-
-    // Sub-navigation pill tabs: OVERVIEW, INFO, PHYSICAL, ORBIT, ATMOSPHERE, COMPOSITION, HISTORY
-    const char* subTabs[] = { "OVERVIEW", "INFO", "PHYSICAL", "ORBIT", "ATMOSPHERE", "COMPOSITION", "HISTORY" };
-    for (int i = 0; i < 7; ++i) {
-        if (i > 0) ImGui::SameLine(0, 4);
-        bool isActive = (i == m_centerSubTab);
-        if (isActive) {
-            ImGui::PushStyleColor(ImGuiCol_Button, Col::TabActive);
-            ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
-            ImGui::PushStyleColor(ImGuiCol_Border, Col::Accent);
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-        } else {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.05f, 0.08f, 0.14f, 0.65f));
-            ImGui::PushStyleColor(ImGuiCol_Text, Col::TextSecondary);
-            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
-        }
-        if (ImGui::Button(subTabs[i], ImVec2(0, 24))) {
-            m_centerSubTab = i;
-        }
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor(3);
-    }
-
-    // Viewport Top-Right Floating Tool Icons
-    ImGui::SameLine(w - 140.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.06f, 0.10f, 0.18f, 0.85f));
-    if (ImGui::Button("⚙##VPSet", ImVec2(26, 24))) {
-        m_showAsteroidBeltDiagnostics = !m_showAsteroidBeltDiagnostics;
-    }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Simulation Settings"); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button("⌖##VPTarget", ImVec2(26, 24))) {
-        camera.focusOnBody(body.position, body.radius3D, 0.85f);
-        addEventLog("Focused camera on " + body.name);
-    }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Center on %s", body.name.c_str()); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button("⛶##VPFull", ImVec2(26, 24))) {
-        camera.resetCenter();
-        addEventLog("Reset Camera View");
-    }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Reset Camera Orbit"); }
-    ImGui::PopStyleColor();
-
-    ImGui::End();
-    ImGui::PopStyleColor(2);
-    ImGui::PopStyleVar(2);
-}
-
-// =========================================================================
-// 4. CENTER FLOATING INFORMATION CARDS
-// =========================================================================
-
-void UIManager::drawFloatingInfoCards(const CelestialBody& body, float x, float y) {
-    float cardW = 270.0f;
-    float startY = y + 52.0f;
-
-    // Card 1: BASIC INFORMATION
-    ImGui::SetNextWindowPos(ImVec2(x + 16, startY));
-    ImGui::SetNextWindowSize(ImVec2(cardW, 0));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 10));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.024f, 0.038f, 0.075f, 0.85f)); // Translucent glassmorphism
-    ImGui::PushStyleColor(ImGuiCol_Border, Col::BorderLight);
-
-    if (ImGui::Begin("##BasicInfoCard", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextColored(Col::Accent, "BASIC INFORMATION");
-        ImGui::Separator();
-
-        InfoRow("Type",                 body.type);
-        InfoRow("Distance from Sol",     (body.id == "sol") ? "0.00 AU" : body.distanceStr);
-        if (body.id != "sol") {
-            InfoRow("Orbital Velocity",  body.orbitalSpeedStr);
-        }
-        InfoRow("Radius",               body.radiusStr);
-        InfoRow("Mass",                 body.massStr);
-        InfoRow("Surface Gravity",      body.gravityStr);
-        InfoRow("Escape Velocity",      body.escapeVelocityStr);
-        InfoRow("Rotation Period",      body.rotationPeriodStr);
-        InfoRow("Orbital Period (Year)",(body.id == "sol") ? "N/A" : body.orbitalPeriodStr);
-        InfoRow("Mean Temperature",     body.tempStr);
-        InfoRow("Moons",                std::to_string(body.moons));
-
-        ImGui::End();
-    }
-
-    // Card 2: LOCATION & COORDINATES
-    float card2Y = startY + 280.0f;
-    ImGui::SetNextWindowPos(ImVec2(x + 16, card2Y));
-    ImGui::SetNextWindowSize(ImVec2(cardW, 0));
-
-    if (ImGui::Begin("##LocationCard", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextColored(Col::Accent, "LOCATION & COORDINATES");
-        ImGui::Separator();
-
-        // Calculate astronomical coordinates
-        double raHours = std::fmod(std::abs(body.positionM.x * 1e-10) * 24.0, 24.0);
-        int raH = (int)raHours;
-        int raM = (int)((raHours - raH) * 60.0);
-        int raS = (int)(((raHours - raH) * 60.0 - raM) * 60.0);
-        char raBuf[32];
-        snprintf(raBuf, sizeof(raBuf), "%02dh %02dm %02ds", raH, raM, raS);
-
-        double decDeg = std::clamp((body.positionM.z * 1e-10) * 90.0, -89.9, 89.9);
-        int decD = (int)decDeg;
-        int decM = std::abs((int)((decDeg - decD) * 60.0));
-        char decBuf[32];
-        snprintf(decBuf, sizeof(decBuf), "%+03d° %02d'", decD, decM);
-
-        InfoRow("Right Ascension",  raBuf);
-        InfoRow("Declination",      decBuf);
-        InfoRow("Galactic Latitude", "-60.19°");
-        InfoRow("Galactic Longitude","96.63°");
-
-        ImGui::End();
-    }
-
-    ImGui::PopStyleColor(2);
-    ImGui::PopStyleVar(2);
-}
-
-// =========================================================================
-// 5. RIGHT PANEL (PHYSICAL OVERVIEW, ORBITAL MECHANICS, RELATIVITY & LOGS)
-// =========================================================================
-
-void UIManager::drawRightPanel(PhysicsEngine& physics, const CelestialBody& body, float topBarH, float winW, float winH) {
-    float panelW = 340.0f;
-    float panelH = winH - topBarH;
+void UIManager::drawRightPanel(PhysicsEngine& physics, const CelestialBody& body, DataManager& dataManager, float topBarH, float winW, float winH, float statusBarH) {
+    float panelW = 310.0f;
+    float panelH = winH - topBarH - statusBarH;
     ImGui::SetNextWindowPos(ImVec2(winW - panelW, topBarH));
     ImGui::SetNextWindowSize(ImVec2(panelW, panelH));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 10));
 
     ImGui::Begin("##RightPanel", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
-    float halfW = (panelW - 35) * 0.5f;
+    if (SectionHeader("PHYSICAL OVERVIEW")) {
+        float halfW = (panelW - 40) / 2.0f;
+        ImGui::BeginGroup();
+        StatItem("\xE2\x86\x93", "Gravity", body.gravityStr.c_str());
+        ImGui::SameLine(halfW);
+        StatItem("\xE2\x86\x97", "Escape Velocity", body.escapeVelocityStr.c_str());
+        ImGui::EndGroup();
 
-    // Card 1: PHYSICAL OVERVIEW
-    if (SectionHeader("PHYSICAL OVERVIEW", true)) {
-        StatCard2Col("Gravity", body.gravityStr.c_str(), "Escape Velocity", body.escapeVelocityStr.c_str(), halfW);
-        StatCard2Col("Surface Temp.", body.tempStr.c_str(), "Atmospheric Pressure", body.pressureStr.c_str(), halfW);
-        StatCard2Col("Mean Density", body.densityStr.c_str(), "Day Length", body.rotationPeriodStr.c_str(), halfW);
-        StatCard2Col("Year Length", body.yearLengthStr.c_str(), "Surface Area", body.surfaceAreaStr.c_str(), halfW);
+        ImGui::BeginGroup();
+        StatItem("\xE2\x97\x8B", "Surface Temp.", body.tempStr.c_str());
+        ImGui::SameLine(halfW);
+        StatItem("\xE2\x97\x8B", "Atmospheric Pressure", body.pressureStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("\xE2\x97\x8F", "Mean Density", body.densityStr.c_str());
+        ImGui::SameLine(halfW);
+        StatItem("\xE2\x97\x8F", "Day Length", body.rotationPeriodStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("\xE2\x97\x89", "Year Length", body.yearLengthStr.c_str());
+        ImGui::SameLine(halfW);
+        StatItem("\xE2\x97\x89", "Surface Area", body.surfaceAreaStr.c_str());
+        ImGui::EndGroup();
     }
 
     ImGui::Separator();
 
-    // Card 2: ORBITAL MECHANICS
-    if (SectionHeader("ORBITAL MECHANICS", true)) {
-        StatCard2Col("Semi-Major Axis (a)", body.semiMajorAxisStr.c_str(), "Eccentricity (e)", body.eccentricityStr.c_str(), halfW);
-        StatCard2Col("Perihelion", body.periapsisStr.c_str(), "Aphelion", body.apoapsisStr.c_str(), halfW);
-        StatCard2Col("Inclination (i)", "0.00005°", "Angular Momentum", body.angularMomentumStr.c_str(), halfW);
-        StatCard2Col("Orbital Energy", body.orbitalEnergyStr.c_str(), "GR Precession", body.grPrecessionStr.c_str(), halfW);
+    if (SectionHeader("ORBITAL MECHANICS & KEPLERIAN ELEMENTS")) {
+        float hw = (panelW - 40) / 2.0f;
+        ImGui::BeginGroup();
+        StatItem("\xE2\x97\x86", "Semi-Major Axis", body.semiMajorAxisStr.c_str());
+        ImGui::SameLine(hw);
+        StatItem("\xE2\x97\x87", "Eccentricity", body.eccentricityStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("\xE2\x86\x98", "Perihelion (Closest)", body.periapsisStr.c_str());
+        ImGui::SameLine(hw);
+        StatItem("\xE2\x86\x97", "Aphelion (Farthest)", body.apoapsisStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("\xE2\x86\xBB", "Angular Momentum", body.angularMomentumStr.c_str());
+        ImGui::SameLine(hw);
+        StatItem("\xE2\x9A\xA1", "Orbital Energy", body.orbitalEnergyStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("\xE2\x8C\x9B", "GR Precession", body.grPrecessionStr.c_str());
+        ImGui::SameLine(hw);
+        StatItem("\xE2\x88\xA0", "True Anomaly", body.trueAnomalyStr.c_str());
+        ImGui::EndGroup();
+    }
+
+    if (body.ring.hasRing) {
+        ImGui::Separator();
+        if (SectionHeader("PLANETARY RING ASTROPHYSICS & SHEAR")) {
+            float hw = (panelW - 40) / 2.0f;
+            
+            ImGui::BeginGroup();
+            StatItem("\xE2\x9C\xA8", "Inner Speed (74.5k km)", "23.1 km/s (5.6h)");
+            ImGui::SameLine(hw);
+            StatItem("\xE2\x9C\xA8", "Outer Speed (140.2k km)", "16.8 km/s (14.9h)");
+            ImGui::EndGroup();
+
+            ImGui::BeginGroup();
+            StatItem("\xE2\x86\x93", "Local Gravity (g)", "6.84 → 1.93 m/s²");
+            ImGui::SameLine(hw);
+            StatItem("\xE2\x86\x97", "Escape Velocity", "32.7 → 23.8 km/s");
+            ImGui::EndGroup();
+
+            ImGui::BeginGroup();
+            StatItem("\xE2\x97\x8B", "Ring Temp. (Ice)", "85 K (-188 °C)");
+            ImGui::SameLine(hw);
+            StatItem("\xE2\x8F\xB1", "Relativistic Drift", "-1.35 × 10⁻⁸");
+            ImGui::EndGroup();
+
+            ImGui::BeginGroup();
+            StatItem("\xE2\x9A\x96", "Total Ring Mass", "1.50 × 10¹⁹ kg");
+            ImGui::SameLine(hw);
+            char actBuf[32];
+            snprintf(actBuf, sizeof(actBuf), "%zu Active", body.ring.disturbances.size());
+            StatItem("\xE2\x8F\xB3", "Fluid State", body.ring.disturbances.empty() ? "Equilibrium" : actBuf);
+            ImGui::EndGroup();
+
+            ImGui::Spacing();
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.45f, 0.65f, 0.9f));
+            if (ImGui::Button("☄ Trigger Asteroid Ring Impact", ImVec2(panelW - 20, 24))) {
+                physics.triggerSaturnRingImpact();
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Carve a physical void/wake in Saturn's rings and watch Keplerian shear and viscous self-healing in real time!");
+            }
+            ImGui::PopStyleColor();
+        }
     }
 
     ImGui::Separator();
 
-    // Card 3: RADIATION & RELATIVITY
-    if (SectionHeader("RADIATION & RELATIVITY", true)) {
-        StatCard2Col("Solar Radiation", body.solarRadiationStr.c_str(), "Relativistic Drift", body.timeDilationStr.c_str(), halfW);
-        StatCard2Col("Magnetic Field", body.magneticFieldStr.c_str(), "Aurora Activity", body.auroraActivityStr.c_str(), halfW);
-        StatCard2Col("Radiation Level", body.radLevelStr.c_str(), "Orbital Velocity", body.orbitalSpeedStr.c_str(), halfW);
+    if (SectionHeader("RADIATION & GENERAL RELATIVITY")) {
+        float hw = (panelW - 40) / 2.0f;
+        ImGui::BeginGroup();
+        StatItem("\xE2\x98\x80", "Solar Radiation", body.solarRadiationStr.c_str());
+        ImGui::SameLine(hw);
+        StatItem("\xE2\x9A\xA0", "Radiation Level", body.radLevelStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("\xE2\x8F\xB1", "Relativistic Drift", body.timeDilationStr.c_str());
+        ImGui::SameLine(hw);
+        StatItem("\xE2\x9C\xA8", "Orbital Velocity", body.orbitalSpeedStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("\xE2\x97\x86", "Magnetic Field", body.magneticFieldStr.c_str());
+        ImGui::SameLine(hw);
+        StatItem("\xE2\x9C\xA8", "Aurora Activity", body.auroraActivityStr.c_str());
+        ImGui::EndGroup();
     }
 
     ImGui::Separator();
 
-    // Card 4: ATMOSPHERIC COMPOSITION (Donut Chart & Legend)
-    if (SectionHeader("ATMOSPHERIC COMPOSITION", true)) {
+    if (SectionHeader("DATA SOURCE & VERIFICATION")) {
+        float hw = (panelW - 40) / 2.0f;
+        ImGui::BeginGroup();
+        StatItem("🏛", "Authority", body.sourceName.c_str());
+        ImGui::SameLine(hw);
+        StatItem("🆔", "Target ID", body.sourceObjectId.empty() ? body.id.c_str() : body.sourceObjectId.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("🧭", "Ref Frame", body.referenceFrame.c_str());
+        ImGui::SameLine(hw);
+        StatItem("📅", "Epoch", body.epochUtcStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::Spacing();
+        if (ImGui::Button("⛃ Open Data Manager", ImVec2(panelW - 20, 24))) {
+            m_showDataManager = true;
+        }
+    }
+
+    ImGui::Separator();
+
+    if (SectionHeader("COMPOSITION")) {
         float totalPct = 0.0f;
         for (const auto& item : body.composition) totalPct += item.percentage;
 
@@ -639,10 +610,8 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, const CelestialBody& body
                 startAngle += sweep;
             }
 
-            // Donut hole
             dl->AddCircleFilled(chartCenter, innerRadius, ImGui::ColorConvertFloat4ToU32(Col::BgChild), 32);
 
-            // Legend on the right side
             float legendX = chartCenter.x + chartRadius + 14.0f;
             float legendY = chartCenter.y - chartRadius + 2.0f;
 
@@ -664,10 +633,9 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, const CelestialBody& body
 
     ImGui::Separator();
 
-    // Card 5: EVENT LOG (Simulation Live Feed)
     ImGui::TextColored(Col::Accent, "EVENT LOG");
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.02f, 0.035f, 0.065f, 0.90f));
-    ImGui::BeginChild("##EventLogChild", ImVec2(panelW - 24, 90), true);
+    ImGui::BeginChild("##EventLogChild", ImVec2(panelW - 20, 75), true);
 
     for (const auto& log : m_eventLogs) {
         ImGui::TextColored(Col::Accent, "%s", log.timeStr.c_str());
@@ -679,318 +647,12 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, const CelestialBody& body
     ImGui::PopStyleColor();
 
     ImGui::End();
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar();
 }
 
-// =========================================================================
-// 6. BOTTOM ROW: TIME CONTROLS, PHYSICS ENGINE & ORBIT VISUALIZATION
-// =========================================================================
-
-void UIManager::drawTimeControls(PhysicsEngine& physics, float x, float y, float w, float h) {
-    ImGui::SetNextWindowPos(ImVec2(x, y));
-    ImGui::SetNextWindowSize(ImVec2(w, h));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 10));
-
-    ImGui::Begin("##TimeControls", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
-
-    ImGui::TextColored(Col::Accent, "TIME CONTROLS");
-    ImGui::Separator();
-
-    bool isPaused = physics.isPaused();
-    float btnW = 28.0f;
-
-    // Transport buttons: |<  <<  >  ||  >>  >|
-    if (ImGui::Button("|<##Rewind", ImVec2(btnW, 24))) { physics.stepFrameBackward(); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button("<<##Slow", ImVec2(btnW, 24))) { physics.setTimeScale(std::max(1.0f, physics.getTimeScale() * 0.1f)); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button(isPaused ? " > ##Play" : " || ##Pause", ImVec2(btnW + 4, 24))) { physics.togglePause(); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button(">>##Fast", ImVec2(btnW, 24))) { physics.setTimeScale(std::min(31536000.0f, physics.getTimeScale() * 10.0f)); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button(">|##Step", ImVec2(btnW, 24))) { physics.stepFrameForward(); }
-
-    // Speed Slider
-    ImGui::Spacing();
-    float scale = physics.getTimeScale();
-    ImGui::PushItemWidth(w - 75.0f);
-    if (ImGui::SliderFloat("##SpeedSlider", &scale, 1.0f, 31536000.0f, "", ImGuiSliderFlags_Logarithmic)) {
-        physics.setTimeScale(scale);
-    }
-    ImGui::PopItemWidth();
-    ImGui::SameLine();
-    ImGui::TextColored(Col::Accent, "%.2f×", scale / 86400.0f);
-
-    // Speed Presets: 0.1x, 1x, 10x, 100x, 1000x
-    ImGui::Spacing();
-    float pW = (w - 48.0f) / 5.0f;
-    float presets[] = { 8640.0f, 86400.0f, 864000.0f, 8640000.0f, 86400000.0f };
-    const char* presetLabels[] = { "0.1×", "1×", "10×", "100×", "1000×" };
-
-    for (int p = 0; p < 5; ++p) {
-        if (p > 0) ImGui::SameLine(0, 4);
-        bool isActive = (std::abs(physics.getTimeScale() - presets[p]) < 1.0f);
-        if (isActive) {
-            ImGui::PushStyleColor(ImGuiCol_Button, Col::TabActive);
-            ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
-        } else {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.12f, 0.20f, 0.75f));
-            ImGui::PushStyleColor(ImGuiCol_Text, Col::TextSecondary);
-        }
-        if (ImGui::Button(presetLabels[p], ImVec2(pW, 22))) {
-            physics.setTimeScale(presets[p]);
-        }
-        ImGui::PopStyleColor(2);
-    }
-
-    ImGui::Spacing();
-    ImGui::TextColored(Col::TextSecondary, "SIMULATION TIME");
-    ImGui::TextColored(Col::TextPrimary, "2024-07-04 00:15:37 UTC");
-
-    ImGui::TextColored(Col::TextSecondary, "SIMULATION SPEED");
-    ImGui::SameLine(130);
-    ImGui::TextColored(Col::Accent, "%s", physics.getSimulationTimeStr().c_str());
-
-    ImGui::End();
-    ImGui::PopStyleVar(2);
-}
-
-void UIManager::drawSimMetrics(PhysicsEngine& physics, float fps, float x, float y, float w, float h) {
-    ImGui::SetNextWindowPos(ImVec2(x, y));
-    ImGui::SetNextWindowSize(ImVec2(w, h));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 10));
-
-    ImGui::Begin("##SimMetrics", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
-
-    ImGui::TextColored(Col::Accent, "PHYSICS & RELATIVITY ENGINE");
-    ImGui::Separator();
-
-    InfoRow("Engine Mode",      physics.isGeneralRelativityEnabled() ? "Einstein GR (1PN)" : "Newtonian Gravity", 125.0f);
-    InfoRow("Integrator",       "Verlet (Symplectic)", 125.0f);
-    InfoRow("Bodies",           std::to_string(physics.getObjectCount()), 125.0f);
-    InfoRow("Step Time",        "2.45 ms", 125.0f);
-    InfoRow("Total System Energy", physics.getTotalEnergyStr(), 125.0f);
-    InfoRow("Angular Momentum", physics.getTotalAngularMomentumStr(), 125.0f);
-    InfoRow("Time Flow",        physics.getSimVsRealTimeStr(), 125.0f);
-
-    ImGui::Spacing();
-
-    // Engine Active / Stable Status Pill Button
-    bool grOn = physics.isGeneralRelativityEnabled();
-    ImGui::PushStyleColor(ImGuiCol_Button, grOn ? ImVec4(0.08f, 0.35f, 0.18f, 0.90f) : ImVec4(0.35f, 0.18f, 0.08f, 0.90f));
-    ImGui::PushStyleColor(ImGuiCol_Text, grOn ? Col::Green : Col::Orange);
-
-    if (ImGui::Button(grOn ? "ENGINE ACTIVE  🟢 STABLE" : "NEWTONIAN ONLY  🟡 BASIC", ImVec2(w - 28, 24))) {
-        physics.toggleGeneralRelativity();
-    }
-    ImGui::PopStyleColor(2);
-
-    ImGui::End();
-    ImGui::PopStyleVar(2);
-}
-
-void UIManager::drawOrbitVis(PhysicsEngine& physics, Camera& camera, float x, float y, float w, float h) {
-    ImGui::SetNextWindowPos(ImVec2(x, y));
-    ImGui::SetNextWindowSize(ImVec2(w, h));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 10));
-
-    ImGui::Begin("##OrbitVis", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
-
-    ImGui::TextColored(Col::Accent, "ORBIT VISUALIZATION");
-
-    // Top Right Icon Buttons: [ ⬡ ], [ + ], [ - ], [ ⛶ ]
-    ImGui::SameLine(w - 110.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.12f, 0.20f, 0.75f));
-    if (ImGui::Button("⬡##Vis1", ImVec2(22, 20))) { m_orbitVisZoom = 1.0f; }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Fit View"); }
-    ImGui::SameLine(0, 3);
-    if (ImGui::Button("+##ZoomIn", ImVec2(22, 20))) { m_orbitVisZoom = std::min(30.0f, m_orbitVisZoom * 1.25f); }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Zoom In (+)"); }
-    ImGui::SameLine(0, 3);
-    if (ImGui::Button("-##ZoomOut", ImVec2(22, 20))) { m_orbitVisZoom = std::max(0.15f, m_orbitVisZoom * 0.8f); }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Zoom Out (-)"); }
-    ImGui::SameLine(0, 3);
-    if (ImGui::Button("⛶##Reset", ImVec2(22, 20))) { m_orbitVisZoom = 1.0f; }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Reset Zoom"); }
-    ImGui::PopStyleColor();
-
-    ImGui::Separator();
-
-    ImVec2 contentMin = ImGui::GetCursorScreenPos();
-    ImVec2 contentMax = ImVec2(x + w - 14.0f, y + h - 36.0f);
-    float areaW = contentMax.x - contentMin.x;
-    float areaH = contentMax.y - contentMin.y;
-    float halfSize = std::min(areaW, areaH) * 0.46f;
-    ImVec2 center = ImVec2(contentMin.x + areaW * 0.5f, contentMin.y + areaH * 0.5f);
-
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    ImGuiIO& io = ImGui::GetIO();
-    ImVec2 mousePos = ImGui::GetMousePos();
-    bool panelHovered = (mousePos.x >= x && mousePos.x <= x + w && mousePos.y >= y && mousePos.y <= y + h);
-
-    // Scroll wheel zoom within orbit visualization
-    if (panelHovered && io.MouseWheel != 0.0f) {
-        m_orbitVisZoom *= (io.MouseWheel > 0.0f) ? 1.18f : 0.85f;
-        m_orbitVisZoom = std::clamp(m_orbitVisZoom, 0.15f, 30.0f);
-    }
-
-    float maxAU = 32.0f / m_orbitVisZoom;
-    float scale = halfSize / maxAU;
-
-    const auto& bodies = physics.getBodies();
-    int selectedIdx = physics.getSelectedBodyIndex();
-
-    // 1. Draw Orbit Rings
-    for (const auto& body : bodies) {
-        if (body.realOrbitRadiusAU <= 0.0) continue;
-        float rPix = (float)body.realOrbitRadiusAU * scale;
-        if (rPix < 2.0f || rPix > halfSize * 3.0f) continue;
-        dl->AddCircle(center, rPix, ImGui::ColorConvertFloat4ToU32(ImVec4(0.18f, 0.28f, 0.42f, 0.40f)), 64, 1.0f);
-    }
-
-    // 2. Compute screen coordinates for celestial bodies
-    struct ScreenBody {
-        int index;
-        float px, py;
-        float dotR;
-    };
-    std::vector<ScreenBody> screenBodies;
-    screenBodies.reserve(bodies.size());
-
-    for (int i = 0; i < (int)bodies.size(); ++i) {
-        float px = (i == 0) ? center.x : (center.x + bodies[i].position.x * scale);
-        float py = (i == 0) ? center.y : (center.y + bodies[i].position.z * scale);
-        bool isSelected = (i == selectedIdx);
-        float dotR = (i == 0) ? 6.5f : (isSelected ? 5.5f : 3.5f);
-        screenBodies.push_back({ i, px, py, dotR });
-    }
-
-    // 3. Hover Detection & Hit Testing
-    int hoveredOrbitIdx = -1;
-    float bestDist = 14.0f; // Click hitbox radius
-
-    if (panelHovered) {
-        for (const auto& sb : screenBodies) {
-            float dx = mousePos.x - sb.px;
-            float dy = mousePos.y - sb.py;
-            float dist = std::sqrt(dx * dx + dy * dy);
-            if (dist < bestDist) {
-                bestDist = dist;
-                hoveredOrbitIdx = sb.index;
-            }
-        }
-    }
-
-    // Click on celestial body dot to select
-    if (hoveredOrbitIdx >= 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-        physics.selectBody(hoveredOrbitIdx);
-        camera.focusOnBody(bodies[hoveredOrbitIdx].position, bodies[hoveredOrbitIdx].radius3D, 0.85f);
-        addEventLog(bodies[hoveredOrbitIdx].name + " focused from Orbit Map");
-    }
-
-    // 4. Draw Sun
-    bool isSunHovered = (hoveredOrbitIdx == 0);
-    bool isSunSelected = (selectedIdx == 0);
-    float sunR = 6.0f + (isSunHovered ? 2.0f : 0.0f);
-    dl->AddCircleFilled(center, sunR, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 0.85f, 0.30f, 1.0f)), 16);
-    dl->AddCircle(center, sunR + 3.0f, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 0.70f, 0.20f, isSunHovered ? 0.6f : 0.30f)), 16, 1.5f);
-    if (isSunSelected) {
-        dl->AddCircle(center, sunR + 5.0f, ImGui::ColorConvertFloat4ToU32(Col::Accent), 16, 1.5f);
-    }
-
-    // 5. Draw Planets
-    for (int i = 1; i < (int)bodies.size(); ++i) {
-        const auto& sb = screenBodies[i];
-        bool isSelected = (i == selectedIdx);
-        bool isHovered = (i == hoveredOrbitIdx);
-
-        float dotR = sb.dotR + (isHovered ? 2.0f : 0.0f);
-        ImU32 col = ImGui::ColorConvertFloat4ToU32(ImVec4(bodies[i].color.r, bodies[i].color.g, bodies[i].color.b, 1.0f));
-
-        if (isHovered) {
-            dl->AddCircleFilled(ImVec2(sb.px, sb.py), dotR + 4.0f,
-                                ImGui::ColorConvertFloat4ToU32(ImVec4(bodies[i].color.r, bodies[i].color.g, bodies[i].color.b, 0.25f)), 12);
-        }
-
-        dl->AddCircleFilled(ImVec2(sb.px, sb.py), dotR, col, 12);
-
-        if (isSelected) {
-            dl->AddCircle(ImVec2(sb.px, sb.py), dotR + 3.0f, ImGui::ColorConvertFloat4ToU32(Col::Accent), 12, 1.5f);
-        }
-
-        // Show name label for selected or hovered
-        if (isSelected || isHovered) {
-            const char* label = bodies[i].name.c_str();
-            ImVec2 textSize = ImGui::CalcTextSize(label);
-            ImU32 labelCol = ImGui::ColorConvertFloat4ToU32(isSelected ? Col::Accent : Col::TextPrimary);
-            dl->AddText(ImVec2(sb.px - textSize.x * 0.5f, sb.py + dotR + 4.0f), labelCol, label);
-        }
-    }
-
-    // Tooltip on Hover
-    if (hoveredOrbitIdx >= 0) {
-        ImGui::SetCursorScreenPos(mousePos);
-        ImGui::BeginTooltip();
-        ImGui::TextColored(Col::Accent, "%s", bodies[hoveredOrbitIdx].name.c_str());
-        ImGui::TextColored(Col::TextSecondary, "%s", bodies[hoveredOrbitIdx].type.c_str());
-        if (hoveredOrbitIdx > 0) {
-            ImGui::TextColored(Col::TextPrimary, "Distance: %s", bodies[hoveredOrbitIdx].distanceStr.c_str());
-        }
-        ImGui::TextColored(Col::Green, "Click to focus view");
-        ImGui::EndTooltip();
-    }
-
-    // 6. Clickable Legend at bottom
-    ImGui::SetCursorScreenPos(ImVec2(contentMin.x, y + h - 28.0f));
-    const char* legendNames[] = { "Sol", "Mercury", "Venus", "Earth", "Mars" };
-    ImVec4 legendCols[] = {
-        ImVec4(1.0f, 0.85f, 0.30f, 1.0f),
-        ImVec4(0.85f, 0.65f, 0.40f, 1.0f),
-        ImVec4(0.95f, 0.75f, 0.50f, 1.0f),
-        ImVec4(0.20f, 0.65f, 1.00f, 1.0f),
-        ImVec4(0.95f, 0.35f, 0.25f, 1.0f)
-    };
-
-    for (int k = 0; k < 5; ++k) {
-        if (k > 0) ImGui::SameLine(0, 6);
-        ImGui::PushID(k);
-        ImVec2 p = ImGui::GetCursorScreenPos();
-        dl->AddCircleFilled(ImVec2(p.x + 4, p.y + 8), 3.5f, ImGui::ColorConvertFloat4ToU32(legendCols[k]));
-        ImGui::Dummy(ImVec2(8, 16));
-        ImGui::SameLine(0, 2);
-
-        bool isCurrent = (k == selectedIdx);
-        if (isCurrent) {
-            ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
-        } else {
-            ImGui::PushStyleColor(ImGuiCol_Text, Col::TextSecondary);
-        }
-        if (ImGui::SmallButton(legendNames[k])) {
-            if (k < (int)bodies.size()) {
-                physics.selectBody(k);
-                camera.focusOnBody(bodies[k].position, bodies[k].radius3D, 0.85f);
-                addEventLog(bodies[k].name + " selected");
-            }
-        }
-        ImGui::PopStyleColor();
-        ImGui::PopID();
-    }
-
-    // Zoom level indicator
-    ImGui::SetCursorScreenPos(ImVec2(contentMin.x + 2, contentMax.y - 14));
-    ImGui::TextColored(Col::TextSecondary, "%.1f×", m_orbitVisZoom);
-
-    ImGui::End();
-    ImGui::PopStyleVar(2);
-}
-
-// =========================================================================
-// 7. 3D VIEWPORT HUD RETICLE (DECLUTTERED & NON-OVERLAPPING)
-// =========================================================================
-
+// ------------------------------------------------------------------------------------------------
+// SELECTION PLACE 2: DIRECT HOVER & CLICK IN 3D VIEWPORT (HUD Screen Projection)
+// ------------------------------------------------------------------------------------------------
 void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vpX, float vpY, float vpW, float vpH) {
     if (vpW <= 0.0f || vpH <= 0.0f) return;
 
@@ -998,13 +660,21 @@ void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vp
     const auto& bodies = physics.getBodies();
     int selectedIdx = physics.getSelectedBodyIndex();
 
+    struct ProjectedBody {
+        int index;
+        glm::vec2 screenPos;
+        float screenRadius;
+        float distToMouse;
+        bool visible;
+    };
+
+    std::vector<ProjectedBody> projectedBodies;
     int bestHoverIdx = -1;
     float bestDist = 1e9f;
-    float baseHitbox = std::max(24.0f, vpH * 0.035f);
-    glm::vec2 targetScreenPos(0.0f);
-    float targetScreenRadius = 0.0f;
 
-    // Find ONLY the single closest celestial body to the mouse
+    // Minimum adaptive hitbox radius in pixels relative to viewport size
+    float baseHitbox = std::max(22.0f, vpH * 0.035f);
+
     for (int i = 0; i < (int)bodies.size(); ++i) {
         glm::vec2 sPos(0.0f);
         float sRadius = 0.0f;
@@ -1012,122 +682,468 @@ void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vp
                                                 vpX, vpY, vpW, vpH, sPos, sRadius, bodies[i].radius3D);
 
         bool inViewport = (inFrustum && sPos.x >= vpX && sPos.x <= vpX + vpW && sPos.y >= vpY && sPos.y <= vpY + vpH);
-        if (m_viewportHovered && inViewport && i != selectedIdx) {
+
+        float hitboxRadius = std::max(baseHitbox, sRadius + 12.0f);
+        float distToMouse = 1e9f;
+
+        if (m_viewportHovered && inViewport) {
             float dx = mousePos.x - sPos.x;
             float dy = mousePos.y - sPos.y;
-            float dist = std::sqrt(dx * dx + dy * dy);
+            distToMouse = std::sqrt(dx * dx + dy * dy);
 
-            if (dist <= std::max(baseHitbox, sRadius + 14.0f) && dist < bestDist) {
-                bestDist = dist;
+            if (distToMouse <= hitboxRadius && distToMouse < bestDist) {
+                bestDist = distToMouse;
                 bestHoverIdx = i;
-                targetScreenPos = sPos;
-                targetScreenRadius = sRadius;
             }
         }
+
+        projectedBodies.push_back({ i, sPos, sRadius, distToMouse, inViewport });
     }
 
     m_hoveredBodyIndex = bestHoverIdx;
 
-    // Click to select
-    if (m_viewportHovered && m_hoveredBodyIndex >= 0 && m_hoveredBodyIndex != selectedIdx && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+    // Direct Left Click in 3D Viewport on body selects it
+    if (m_viewportHovered && m_hoveredBodyIndex >= 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         physics.selectBody(m_hoveredBodyIndex);
         camera.focusOnBody(bodies[m_hoveredBodyIndex].position, bodies[m_hoveredBodyIndex].radius3D, 0.85f);
-        addEventLog(bodies[m_hoveredBodyIndex].name + " focused");
+        addEventLog(bodies[m_hoveredBodyIndex].name + " selected via 3D Viewport");
     }
 
-    // Render single clean hover reticle without clutter
+    // Draw HUD hover targeting reticle clipped to the 3D viewport area
+    ImDrawList* fg = ImGui::GetForegroundDrawList();
+    fg->PushClipRect(ImVec2(vpX, vpY), ImVec2(vpX + vpW, vpY + vpH), true);
+
     if (m_hoveredBodyIndex >= 0 && m_hoveredBodyIndex != selectedIdx) {
-        ImDrawList* fg = ImGui::GetForegroundDrawList();
-        fg->PushClipRect(ImVec2(vpX, vpY), ImVec2(vpX + vpW, vpY + vpH), true);
+        for (const auto& pb : projectedBodies) {
+            if (pb.index != m_hoveredBodyIndex || !pb.visible) continue;
 
-        const auto& body = bodies[m_hoveredBodyIndex];
-        float ringR = std::max(13.0f, targetScreenRadius + 4.0f);
-        ImU32 bodyCol = ImGui::ColorConvertFloat4ToU32(ImVec4(body.color.r, body.color.g, body.color.b, 1.0f));
+            const auto& body = bodies[pb.index];
+            float ringR = std::max(13.0f, pb.screenRadius + 4.0f);
+            ImVec2 center(pb.screenPos.x, pb.screenPos.y);
 
-        // Targeting ring
-        fg->AddCircle(ImVec2(targetScreenPos.x, targetScreenPos.y), ringR, bodyCol, 32, 1.5f);
+            ImU32 bodyCol = ImGui::ColorConvertFloat4ToU32(ImVec4(body.color.r, body.color.g, body.color.b, 1.0f));
+            ImU32 glowCol = ImGui::ColorConvertFloat4ToU32(ImVec4(body.color.r, body.color.g, body.color.b, 0.25f));
 
-        // Hover Info Pill Badge
-        std::string label = body.name + "  •  " + (body.id == "sol" ? "0.00 AU" : body.distanceStr);
-        ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
-        float pillW = textSize.x + 14.0f;
-        float pillH = textSize.y + 6.0f;
-        float pillX = targetScreenPos.x + ringR + 8.0f;
-        float pillY = targetScreenPos.y - pillH * 0.5f;
+            // Compact hover circle ring + subtle glow
+            fg->AddCircle(center, ringR, bodyCol, 32, 1.5f);
+            fg->AddCircle(center, ringR + 2.5f, glowCol, 32, 1.0f);
 
-        if (pillX + pillW > vpX + vpW - 10.0f) {
-            pillX = targetScreenPos.x - ringR - 8.0f - pillW;
+            // 4 Corner / cardinal HUD tick brackets
+            float tickLen = 4.0f;
+            fg->AddLine(ImVec2(center.x - ringR - 2.0f, center.y), ImVec2(center.x - ringR - 2.0f - tickLen, center.y), bodyCol, 1.2f);
+            fg->AddLine(ImVec2(center.x + ringR + 2.0f, center.y), ImVec2(center.x + ringR + 2.0f + tickLen, center.y), bodyCol, 1.2f);
+            fg->AddLine(ImVec2(center.x, center.y - ringR - 2.0f), ImVec2(center.x, center.y - ringR - 2.0f - tickLen), bodyCol, 1.2f);
+            fg->AddLine(ImVec2(center.x, center.y + ringR + 2.0f), ImVec2(center.x, center.y + ringR + 2.0f + tickLen), bodyCol, 1.2f);
+
+            // Hover Info Pill Badge (Name + Distance)
+            std::string label = body.name + "  •  " + (body.id == "sol" ? "0.00 AU" : body.distanceStr);
+            ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
+
+            float pillW = textSize.x + 14.0f;
+            float pillH = textSize.y + 6.0f;
+            float pillX = center.x + ringR + 8.0f;
+            float pillY = center.y - pillH * 0.5f;
+
+            if (pillX + pillW > vpX + vpW - 10.0f) {
+                pillX = center.x - ringR - 8.0f - pillW;
+            }
+
+            fg->AddRectFilled(ImVec2(pillX, pillY), ImVec2(pillX + pillW, pillY + pillH),
+                              ImGui::ColorConvertFloat4ToU32(ImVec4(0.04f, 0.06f, 0.12f, 0.92f)), 4.0f);
+            fg->AddRect(ImVec2(pillX, pillY), ImVec2(pillX + pillW, pillY + pillH),
+                        bodyCol, 4.0f, 0, 1.0f);
+            fg->AddText(ImVec2(pillX + 7.0f, pillY + 3.0f), bodyCol, label.c_str());
         }
-
-        fg->AddRectFilled(ImVec2(pillX, pillY), ImVec2(pillX + pillW, pillY + pillH),
-                          ImGui::ColorConvertFloat4ToU32(ImVec4(0.024f, 0.038f, 0.075f, 0.94f)), 4.0f);
-        fg->AddRect(ImVec2(pillX, pillY), ImVec2(pillX + pillW, pillY + pillH), bodyCol, 4.0f, 0, 1.0f);
-        fg->AddText(ImVec2(pillX + 7.0f, pillY + 3.0f), bodyCol, label.c_str());
-
-        fg->PopClipRect();
     }
+
+    fg->PopClipRect();
 }
 
-// =========================================================================
-// 8. ASTEROID BELT & DEFORMABLE MATTER LAB MODALS
-// =========================================================================
+void UIManager::drawTimeControls(PhysicsEngine& physics, float x, float y, float w, float h) {
+    ImGui::SetNextWindowPos(ImVec2(x, y));
+    ImGui::SetNextWindowSize(ImVec2(w, h));
+    ImGui::Begin("##TimeControls", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
-void UIManager::drawAsteroidBeltDiagnostics(PhysicsEngine& physics, float winW, float winH) {
+    ImGui::TextColored(Col::Accent, "TIME CONTROLS");
+    ImGui::Separator();
+
+    bool isPaused = physics.isPaused();
+    if (ImGui::Button("|<", ImVec2(28, 24))) { physics.stepFrameBackward(); }
+    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Step Backward (Frame)"); }
+    ImGui::SameLine();
+    if (ImGui::Button(isPaused ? " > " : " || ", ImVec2(28, 24))) { physics.togglePause(); }
+    if (ImGui::IsItemHovered()) { ImGui::SetTooltip(isPaused ? "Play (Space)" : "Pause (Space)"); }
+    ImGui::SameLine();
+    if (ImGui::Button(">|", ImVec2(28, 24))) { physics.stepFrameForward(); }
+    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Step Forward (Frame)"); }
+
+    ImGui::SameLine(0, 8);
+    if (ImGui::Button("1s/s", ImVec2(36, 24))) { physics.setTimeScale(1.0f); }
+    ImGui::SameLine(0, 4);
+    if (ImGui::Button("1d/s", ImVec2(36, 24))) { physics.setTimeScale(86400.0f); }
+    ImGui::SameLine(0, 4);
+    if (ImGui::Button("1m/s", ImVec2(36, 24))) { physics.setTimeScale(2592000.0f); }
+    ImGui::SameLine(0, 4);
+    if (ImGui::Button("1y/s", ImVec2(36, 24))) { physics.setTimeScale(31536000.0f); }
+
+    float scale = physics.getTimeScale();
+    ImGui::PushItemWidth(w - 20);
+    if (ImGui::SliderFloat("##speed", &scale, 1.0f, 31536000.0f, "Speed: %.0f sec/s", ImGuiSliderFlags_Logarithmic)) {
+        physics.setTimeScale(scale);
+    }
+    ImGui::PopItemWidth();
+
+    ImGui::TextColored(Col::TextSecondary, "%s", physics.getSimulationTimeStr().c_str());
+
+    ImGui::End();
+}
+
+void UIManager::drawSimMetrics(PhysicsEngine& physics, float fps, float x, float y, float w, float h) {
+    ImGui::SetNextWindowPos(ImVec2(x, y));
+    ImGui::SetNextWindowSize(ImVec2(w, h));
+    ImGui::Begin("##SimMetrics", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+
+    ImGui::TextColored(Col::Accent, "PHYSICS & RELATIVITY ENGINE");
+    ImGui::Separator();
+
+    float colW = (w - 30) / 4.0f;
+    ImGui::BeginGroup();
+    ImGui::TextColored(Col::TextSecondary, "FPS");
+    ImGui::TextColored(Col::Green, "%.0f", fps);
+    ImGui::EndGroup();
+
+    ImGui::SameLine(colW);
+    ImGui::BeginGroup();
+    ImGui::TextColored(Col::TextSecondary, "Bodies");
+    ImGui::TextColored(Col::TextPrimary, "%d", physics.getObjectCount());
+    ImGui::EndGroup();
+
+    ImGui::SameLine(colW * 2);
+    ImGui::BeginGroup();
+    ImGui::TextColored(Col::TextSecondary, "Step Time");
+    ImGui::TextColored(Col::TextPrimary, "%.2f ms", physics.getPhysicsStepTimeMs());
+    ImGui::EndGroup();
+
+    ImGui::SameLine(colW * 3);
+    ImGui::BeginGroup();
+    ImGui::TextColored(Col::TextSecondary, "Integrator");
+    ImGui::TextColored(Col::Accent, "Verlet (Sym)");
+    ImGui::EndGroup();
+
+    ImGui::Spacing();
+    float halfW = (w - 30) / 2.0f;
+
+    ImGui::BeginGroup();
+    ImGui::TextColored(Col::TextSecondary, "Total System Energy");
+    ImGui::TextColored(Col::TextPrimary, "%s", physics.getTotalEnergyStr().c_str());
+    ImGui::EndGroup();
+
+    ImGui::SameLine(halfW);
+    ImGui::BeginGroup();
+    ImGui::TextColored(Col::TextSecondary, "System Angular Momentum");
+    ImGui::TextColored(Col::TextPrimary, "%s", physics.getTotalAngularMomentumStr().c_str());
+    ImGui::EndGroup();
+
+    ImGui::Spacing();
+    ImGui::TextColored(Col::TextSecondary, "Time Flow: ");
+    ImGui::SameLine();
+    ImGui::TextColored(Col::Accent, "%s", physics.getSimVsRealTimeStr().c_str());
+
+    ImGui::Spacing();
+    ImGui::Separator();
+
+    bool grOn = physics.isGeneralRelativityEnabled();
+    if (grOn) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.45f, 0.25f, 0.9f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 1.0f, 0.85f, 1.0f));
+        if (ImGui::Button("EINSTEIN GR (1PN): ACTIVE", ImVec2(w - 20, 24))) {
+            physics.toggleGeneralRelativity();
+        }
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.4f, 0.2f, 0.1f, 0.9f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.85f, 0.75f, 1.0f));
+        if (ImGui::Button("GRAVITY: NEWTONIAN ONLY", ImVec2(w - 20, 24))) {
+            physics.toggleGeneralRelativity();
+        }
+    }
+    ImGui::PopStyleColor(2);
+
+    ImGui::End();
+}
+
+// ------------------------------------------------------------------------------------------------
+// SELECTION PLACE 3: 2D ORBIT VISUALIZATION SCHEMATIC (Click Planet to Select & Focus)
+// ------------------------------------------------------------------------------------------------
+void UIManager::drawOrbitVis(PhysicsEngine& physics, Camera& camera, float x, float y, float w, float h) {
+    ImGui::SetNextWindowPos(ImVec2(x, y));
+    ImGui::SetNextWindowSize(ImVec2(w, h));
+    ImGui::Begin("##OrbitVis", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
+
+    ImGui::TextColored(Col::Accent, "ORBIT VISUALIZATION");
+    ImGui::Separator();
+
+    ImVec2 contentMin = ImGui::GetCursorScreenPos();
+    ImVec2 contentMax = ImVec2(x + w - 10.0f, y + h - 10.0f);
+    float areaW = contentMax.x - contentMin.x;
+    float areaH = contentMax.y - contentMin.y;
+    float halfSize = std::min(areaW, areaH) * 0.45f;
+    ImVec2 center = ImVec2(contentMin.x + areaW * 0.5f, contentMin.y + areaH * 0.5f);
+
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 mousePos = ImGui::GetMousePos();
+    bool panelHovered = (mousePos.x >= x && mousePos.x <= x + w && mousePos.y >= y && mousePos.y <= y + h);
+
+    if (panelHovered && io.MouseWheel != 0.0f) {
+        m_orbitVisZoom *= (io.MouseWheel > 0) ? 1.15f : 0.87f;
+        m_orbitVisZoom = std::clamp(m_orbitVisZoom, 0.15f, 50.0f);
+    }
+
+    const auto& bodies = physics.getBodies();
+    int selectedIdx = physics.getSelectedBodyIndex();
+    float hitRadius = 12.0f;
+
+    // Dynamically calculate system scale based on bodies in the current system
+    float maxDistInSystem = 0.05f;
+    for (const auto& b : bodies) {
+        if (b.id != "sol" && b.type.find("Star") == std::string::npos) {
+            double r = (b.realOrbitRadiusAU > 0.0) ? b.realOrbitRadiusAU : (b.semiMajorAxisAU > 0.0 ? b.semiMajorAxisAU : (double)glm::length(b.position));
+            maxDistInSystem = std::max(maxDistInSystem, (float)r);
+        }
+    }
+    float baseSystemAU = (maxDistInSystem < 0.2f) ? (maxDistInSystem * 1.35f) : ((maxDistInSystem < 5.5f) ? (maxDistInSystem * 1.25f) : 32.0f);
+    float maxAU = baseSystemAU / m_orbitVisZoom;
+    float scale = halfSize / maxAU;
+
+    // Draw dynamic Keplerian osculating orbit tracks
+    for (const auto& body : bodies) {
+        if (body.id == "sol" || body.type.find("Star") != std::string::npos) continue;
+
+        ImU32 orbitLineCol = ImGui::ColorConvertFloat4ToU32(
+            ImVec4(body.color.r * 0.55f, body.color.g * 0.55f, body.color.b * 0.55f, 0.45f));
+
+        if (body.dynamicOrbitCurve.size() >= 2) {
+            for (size_t s = 0; s < body.dynamicOrbitCurve.size() - 1; ++s) {
+                ImVec2 pt1(center.x + body.dynamicOrbitCurve[s].x * scale,
+                           center.y + body.dynamicOrbitCurve[s].z * scale);
+                ImVec2 pt2(center.x + body.dynamicOrbitCurve[s + 1].x * scale,
+                           center.y + body.dynamicOrbitCurve[s + 1].z * scale);
+                dl->AddLine(pt1, pt2, orbitLineCol, 1.2f);
+            }
+        } else {
+            double orbitRadiusAU = (body.realOrbitRadiusAU > 0.0) ? body.realOrbitRadiusAU : (body.semiMajorAxisAU > 0.0 ? body.semiMajorAxisAU : (double)glm::length(body.position));
+            if (orbitRadiusAU > 0.00001) {
+                float ringRadius = (float)orbitRadiusAU * scale;
+                if (ringRadius >= 2.0f && ringRadius <= halfSize * 3.5f) {
+                    dl->AddCircle(center, ringRadius, orbitLineCol, 64, 1.0f);
+                }
+            }
+        }
+    }
+
+    struct BodyScreenInfo { int index; float px, py, dotR; bool visible; };
+    std::vector<BodyScreenInfo> screenBodies;
+
+    // Find star position in 3D AU coordinates
+    glm::vec3 starPosAU{0.0f};
+    for (const auto& b : bodies) {
+        if (b.id == "sol" || b.type.find("Star") != std::string::npos) {
+            starPosAU = b.position;
+            break;
+        }
+    }
+
+    for (int i = 0; i < (int)bodies.size(); ++i) {
+        float px, py;
+        if (i == 0 || bodies[i].id == "sol" || bodies[i].type.find("Star") != std::string::npos) {
+            px = center.x;
+            py = center.y;
+        } else {
+            glm::vec3 relPos = bodies[i].position - starPosAU;
+            px = center.x + relPos.x * scale;
+            py = center.y + relPos.z * scale;
+        }
+        bool visible = (px >= x - 20 && px <= x + w + 20 && py >= y - 20 && py <= y + h + 20);
+        bool isSelected = (i == selectedIdx);
+        float dotR = (i == 0 || bodies[i].type.find("Star") != std::string::npos) ? 6.0f : (isSelected ? 5.0f : 3.5f);
+        screenBodies.push_back({i, px, py, dotR, visible});
+    }
+
+    int hoveredIdx = -1;
+    if (panelHovered) {
+        float closestDist = hitRadius;
+        for (auto& sb : screenBodies) {
+            if (!sb.visible) continue;
+            float dx = mousePos.x - sb.px;
+            float dy = mousePos.y - sb.py;
+            float dist = sqrtf(dx * dx + dy * dy);
+            if (dist < closestDist) {
+                closestDist = dist;
+                hoveredIdx = sb.index;
+            }
+        }
+    }
+
+    // Direct Left Click on Orbit Vis Radar selects the body
+    if (hoveredIdx >= 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        physics.selectBody(hoveredIdx);
+        camera.focusOnBody(bodies[hoveredIdx].position, bodies[hoveredIdx].radius3D, 0.85f);
+        addEventLog(bodies[hoveredIdx].name + " selected via Orbit Radar");
+    }
+
+    // Draw central star
+    {
+        dl->AddCircleFilled(center, 7.0f, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 0.85f, 0.3f, 1.0f)), 32);
+        dl->AddCircle(center, 10.0f, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 0.85f, 0.3f, 0.35f)), 32, 1.5f);
+    }
+
+    // Draw planets on 2D radar
+    for (const auto& sb : screenBodies) {
+        if (!sb.visible || sb.index == 0 || bodies[sb.index].type.find("Star") != std::string::npos) continue;
+        const auto& body = bodies[sb.index];
+        bool isSel = (sb.index == selectedIdx);
+        bool isHov = (sb.index == hoveredIdx);
+
+        ImU32 col = ImGui::ColorConvertFloat4ToU32(ImVec4(body.color.r, body.color.g, body.color.b, 1.0f));
+
+        if (isSel) {
+            dl->AddCircle(ImVec2(sb.px, sb.py), sb.dotR + 4.0f, ImGui::ColorConvertFloat4ToU32(Col::Accent), 16, 1.5f);
+        }
+        if (isHov && !isSel) {
+            dl->AddCircle(ImVec2(sb.px, sb.py), sb.dotR + 3.0f, ImGui::ColorConvertFloat4ToU32(ImVec4(1, 1, 1, 0.6f)), 16, 1.0f);
+        }
+
+        dl->AddCircleFilled(ImVec2(sb.px, sb.py), sb.dotR, col, 16);
+
+        // Tooltip on Hover
+        if (isHov) {
+            std::string label = body.name + " (" + body.distanceStr + ")";
+            ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
+            float tX = sb.px + sb.dotR + 6.0f;
+            float tY = sb.py - textSize.y * 0.5f;
+
+            dl->AddRectFilled(ImVec2(tX - 4, tY - 2), ImVec2(tX + textSize.x + 4, tY + textSize.y + 2),
+                              ImGui::ColorConvertFloat4ToU32(ImVec4(0.04f, 0.06f, 0.12f, 0.90f)), 3.0f);
+            dl->AddRect(ImVec2(tX - 4, tY - 2), ImVec2(tX + textSize.x + 4, tY + textSize.y + 2),
+                        col, 3.0f, 0, 1.0f);
+            dl->AddText(ImVec2(tX, tY), col, label.c_str());
+        }
+    }
+
+    ImGui::End();
+}
+
+void UIManager::drawStatusBar(const PhysicsEngine& physics, const Camera& camera, float winW, float winH, float barH) {
+    ImGui::SetNextWindowPos(ImVec2(0, winH - barH));
+    ImGui::SetNextWindowSize(ImVec2(winW, barH));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 4));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.02f, 0.03f, 0.06f, 0.98f));
+
+    ImGui::Begin("##StatusBar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
+
+    const CelestialBody& sel = physics.getSelectedBody();
+    ImGui::TextColored(Col::Accent, "TARGET: %s (%s)", sel.name.c_str(), sel.type.c_str());
+    ImGui::SameLine(0, 20);
+    ImGui::TextColored(Col::TextSecondary, "| Dist: %s", sel.distanceStr.c_str());
+    ImGui::SameLine(0, 20);
+    ImGui::TextColored(Col::TextSecondary, "| Cam: %.2f AU (fov %.0f°)", camera.getDistance(), camera.getFOV());
+    ImGui::SameLine(0, 20);
+    ImGui::TextColored(Col::TextSecondary, "| Engine: %s", physics.isGeneralRelativityEnabled() ? "Einstein 1PN GR" : "Newtonian");
+    ImGui::SameLine(0, 20);
+    ImGui::TextColored(Col::Green, "● Database: Active");
+
+    ImGui::SameLine(winW - 200.0f);
+    ImGui::TextColored(Col::TextSecondary, "Epoch: %s", sel.epochUtcStr.c_str());
+
+    ImGui::End();
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar(2);
+}
+
+void UIManager::drawAsteroidBeltDiagnostics(PhysicsEngine& physics, ObjectRepository& objRepo, float winW, float winH) {
     auto& belt = physics.getAsteroidBelt();
-    const auto& diag = belt.getDiagnostics();
     const auto& hist = belt.getHistogram();
+    const auto& diag = belt.getDiagnostics();
 
     float w = 720.0f;
     float h = 540.0f;
     ImGui::SetNextWindowPos(ImVec2((winW - w) * 0.5f, (winH - h) * 0.5f), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(w, h));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.035f, 0.05f, 0.09f, 0.98f));
-    ImGui::PushStyleColor(ImGuiCol_Border, Col::BorderLight);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.04f, 0.05f, 0.09f, 0.97f));
+    ImGui::PushStyleColor(ImGuiCol_Border, Col::AccentDim);
 
-    if (ImGui::Begin("ASTEROID BELT (N-BODY) & RESONANCE ANALYSIS##BeltModal", &m_showAsteroidBeltDiagnostics, ImGuiWindowFlags_NoCollapse)) {
-        ImGui::TextColored(Col::Accent, "REAL-TIME ASTROPHYSICAL N(a) POPULATION HISTOGRAM & KIRKWOOD GAPS");
+    if (ImGui::Begin("ASTEROID BELT POPULATION & KIRKWOOD GAPS MONITOR##BeltDiag", &m_showAsteroidBeltDiagnostics, ImGuiWindowFlags_NoCollapse)) {
+        ImGui::TextColored(Col::Accent, "RADIAL DISTRIBUTION N(a) & MEAN-MOTION ORBITAL RESONANCES");
         ImGui::Separator();
 
-        // Draw Histogram
-        ImVec2 plotMin = ImGui::GetCursorScreenPos();
-        float plotW = w - 40.0f;
-        float plotH = 180.0f;
-        ImVec2 plotMax = ImVec2(plotMin.x + plotW, plotMin.y + plotH);
-        ImDrawList* dl = ImGui::GetWindowDrawList();
+        // Population Mode Switcher
+        int curMode = (int)physics.getAsteroidPopulationMode();
+        const char* modeNames[] = {
+            "Real SBDB Population (Major Asteroids from DB)",
+            "Synthetic Statistical (Kirkwood Gaps Simulation)",
+            "Hybrid (Real Major Asteroids + Synthetic Swarm)"
+        };
 
-        dl->AddRectFilled(plotMin, plotMax, ImGui::ColorConvertFloat4ToU32(ImVec4(0.02f, 0.03f, 0.06f, 0.95f)), 4.0f);
-        dl->AddRect(plotMin, plotMax, ImGui::ColorConvertFloat4ToU32(Col::Border), 4.0f);
-
-        int maxBinCount = 1;
-        for (int c : hist.counts) maxBinCount = std::max(maxBinCount, c);
-
-        int numBins = (int)hist.counts.size();
-        float binW = plotW / (float)std::max(1, numBins);
-        for (int b = 0; b < numBins; ++b) {
-            float barH = ((float)hist.counts[b] / (float)maxBinCount) * (plotH - 24.0f);
-            ImVec2 b0(plotMin.x + b * binW, plotMax.y - barH - 12.0f);
-            ImVec2 b1(plotMin.x + (b + 1) * binW - 1.0f, plotMax.y - 12.0f);
-            dl->AddRectFilled(b0, b1, ImGui::ColorConvertFloat4ToU32(ImVec4(0.20f, 0.60f, 0.90f, 0.85f)));
+        ImGui::Text("Population Mode:");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(360.0f);
+        if (ImGui::Combo("##PopModeCombo", &curMode, modeNames, 3)) {
+            physics.setAsteroidPopulationMode((AsteroidPopulationMode)curMode, &objRepo);
+            addEventLog("Asteroid population mode set to: " + std::string(modeNames[curMode]));
         }
 
-        // Kirkwood Resonance Lines (3:1, 5:2, 7:3, 2:1)
-        struct ResLine { double a; const char* label; };
-        ResLine resList[] = { { 2.50, "3:1" }, { 2.82, "5:2" }, { 2.95, "7:3" }, { 3.28, "2:1" } };
-        for (const auto& res : resList) {
-            float normA = (float)((res.a - hist.minAU) / (hist.maxAU - hist.minAU));
-            if (normA >= 0.0f && normA <= 1.0f) {
-                float lx = plotMin.x + normA * plotW;
-                dl->AddLine(ImVec2(lx, plotMin.y + 4), ImVec2(lx, plotMax.y - 12),
-                            ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 0.35f, 0.25f, 0.75f)), 1.2f);
-                dl->AddText(ImVec2(lx - 8, plotMin.y + 6), ImGui::ColorConvertFloat4ToU32(Col::Yellow), res.label);
+        ImGui::Spacing();
+
+        // Histogram of Kirkwood Gaps N(a)
+        ImVec2 plotMin = ImGui::GetCursorScreenPos();
+        float plotW = w - 40.0f;
+        float plotH = 160.0f;
+        ImVec2 plotMax(plotMin.x + plotW, plotMin.y + plotH);
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+
+        dl->AddRectFilled(plotMin, plotMax, ImGui::ColorConvertFloat4ToU32(ImVec4(0.02f, 0.03f, 0.06f, 0.9f)), 4.0f);
+        dl->AddRect(plotMin, plotMax, ImGui::ColorConvertFloat4ToU32(Col::Border), 4.0f);
+
+        if (!hist.counts.empty() && hist.maxBinCount > 0) {
+            float barW = plotW / (float)hist.counts.size();
+            for (size_t i = 0; i < hist.counts.size(); ++i) {
+                float normH = (float)hist.counts[i] / (float)hist.maxBinCount;
+                float bx0 = plotMin.x + (float)i * barW;
+                float bx1 = bx0 + barW - 1.0f;
+                float by0 = plotMax.y;
+                float by1 = plotMax.y - normH * (plotH - 12.0f);
+
+                ImU32 barCol = ImGui::ColorConvertFloat4ToU32(ImVec4(0.12f, 0.55f, 0.85f, 0.85f));
+                dl->AddRectFilled(ImVec2(bx0, by1), ImVec2(bx1, by0), barCol);
+            }
+
+            // Resonance markers
+            struct ResMarker { float au; const char* name; };
+            ResMarker markers[] = {
+                { ParticleHistogram::RES_4_1, "4:1" },
+                { ParticleHistogram::RES_3_1, "3:1" },
+                { ParticleHistogram::RES_5_2, "5:2" },
+                { ParticleHistogram::RES_7_3, "7:3" },
+                { ParticleHistogram::RES_2_1, "2:1" }
+            };
+
+            for (const auto& rm : markers) {
+                if (rm.au < hist.minAU || rm.au > hist.maxAU) continue;
+                float normX = (rm.au - hist.minAU) / (hist.maxAU - hist.minAU);
+                float rx = plotMin.x + normX * plotW;
+
+                dl->AddLine(ImVec2(rx, plotMin.y), ImVec2(rx, plotMax.y),
+                            ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 0.35f, 0.25f, 0.85f)), 1.2f);
+                dl->AddText(ImVec2(rx + 2.0f, plotMin.y + 4.0f),
+                            ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 0.65f, 0.45f, 1.0f)), rm.name);
             }
         }
 
         ImGui::SetCursorScreenPos(ImVec2(plotMin.x, plotMax.y + 10.0f));
         ImGui::Separator();
 
-        // Belt Population Metrics
         float halfW = (w - 40.0f) * 0.5f;
         StatCard2Col("Active Physical Asteroids", std::to_string(diag.activePhysical).c_str(),
                      "Visual Asteroids (GPU)", std::to_string(diag.totalVisual).c_str(), halfW);
@@ -1137,9 +1153,13 @@ void UIManager::drawAsteroidBeltDiagnostics(PhysicsEngine& physics, float winW, 
                      "Energy Conservation Drift", (std::to_string(diag.energyDriftPct).substr(0, 6) + " %").c_str(), halfW);
 
         ImGui::Spacing();
-        if (ImGui::Button("⚡ Jupiter Flyby Perturbation Impulse Test", ImVec2(300, 26))) {
+        if (ImGui::Button("⚡ Jupiter Flyby Perturbation Impulse Test", ImVec2(320, 26))) {
             belt.triggerResonanceImpulseTest();
         }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Simulates strong gravitational kicks at Jupiter resonances (3:1 and 2:1) to demonstrate orbital excitation and gap depletion!");
+        }
+
         ImGui::SameLine(w - 120.0f);
         if (ImGui::Button("Close##Belt", ImVec2(90, 26))) {
             m_showAsteroidBeltDiagnostics = false;
@@ -1161,11 +1181,11 @@ void UIManager::drawMatterLab(PhysicsEngine& physics, float winW, float winH) {
     ImGui::SetNextWindowPos(ImVec2((winW - w) * 0.5f, (winH - h) * 0.5f), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(w, h));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.035f, 0.05f, 0.09f, 0.98f));
-    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.65f, 0.35f, 0.15f, 0.70f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.04f, 0.05f, 0.09f, 0.97f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.65f, 0.35f, 0.15f, 0.7f));
 
     if (ImGui::Begin("DEFORMABLE MATTER & MATERIALS PHYSICS LABORATORY##MatterLab", &m_showMatterLab, ImGuiWindowFlags_NoCollapse)) {
-        ImGui::TextColored(ImVec4(0.95f, 0.70f, 0.35f, 1.0f), "COUPLED CONTINUUM MECHANICS, XPBD, PLASTICITY & FRACTURE ENGINE");
+        ImGui::TextColored(ImVec4(0.95f, 0.7f, 0.35f, 1.0f), "COUPLED CONTINUUM MECHANICS, XPBD, PLASTICITY & FRACTURE ENGINE");
         ImGui::Separator();
 
         // 1. Scientific Field Visualization Mode Selector
@@ -1190,10 +1210,11 @@ void UIManager::drawMatterLab(PhysicsEngine& physics, float winW, float winH) {
         ImGui::Spacing();
         ImGui::Separator();
 
-        // 2. Material Property Inspector
+        // 2. Material Property Inspector & Derived Physics
         ImGui::TextColored(Col::Accent, "MATERIAL PROPERTY & DERIVED ELASTIC CONSTANTS INSPECTOR");
         static int selectedMatIdx = 1;
         std::vector<std::string> matNames = lib.getMaterialNames();
+
         std::vector<const char*> matNameCstrs;
         for (const auto& name : matNames) matNameCstrs.push_back(name.c_str());
 
@@ -1206,6 +1227,7 @@ void UIManager::drawMatterLab(PhysicsEngine& physics, float winW, float winH) {
         auto derived = MaterialModel::computeDerivedProperties(selMat);
 
         float halfW = (w - 40.0f) * 0.5f;
+
         ImGui::BeginGroup();
         ImGui::TextColored(Col::TextSecondary, "Fundamental Parameters:");
         ImGui::Text("Density (rho0): %.0f kg/m3", selMat.referenceDensityKgM3);
@@ -1265,24 +1287,38 @@ void UIManager::drawMatterLab(PhysicsEngine& physics, float winW, float winH) {
         // 4. Sandbox Scenario Presets
         ImGui::TextColored(Col::Accent, "DEFORMABLE ASTROPHYSICAL SCENARIOS & EXPERIMENTS");
 
-        if (ImGui::Button("🌌 Black Hole Tidal Disruption Laboratory", ImVec2(340, 28))) {
+        if (ImGui::Button("\xF0\x9F\x8C\x8C Black Hole Tidal Disruption Laboratory", ImVec2(340, 28))) {
             matter.spawnBlackHoleTidalDisruptionLab();
             addEventLog("Black Hole Tidal Disruption spawned");
         }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Spawns a 150 km asteroid on an extreme periapsis trajectory near a massive gravitational attractor. Watch differential gravity stretch, yield, and fragment the object into a tidal debris stream!");
+        }
+
         ImGui::SameLine();
-        if (ImGui::Button("☄ Hypervelocity Impact & Crater Fracture", ImVec2(340, 28))) {
+        if (ImGui::Button("\xE2\x98\x84 Hypervelocity Impact & Crater Fracture", ImVec2(340, 28))) {
             matter.spawnHypervelocityCollision();
             addEventLog("Hypervelocity Collision spawned");
         }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Collides a high-speed Iron impactor with a Basalt rock target, producing realistic contact stress, plastic deformation, impact heating, and fragmentation!");
+        }
 
-        if (ImGui::Button("⚡ Tensile Stress & Necking / Ductile Failure", ImVec2(340, 28))) {
+        if (ImGui::Button("\xE2\x9A\xA1 Tensile Stress & Necking / Ductile Failure", ImVec2(340, 28))) {
             matter.spawnTensileTest();
             addEventLog("Tensile Test specimen spawned");
         }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Anchors a specimen on one end while applying tensile velocity to the other. Demonstrates linear elasticity, von Mises yielding, necking, and ductile fracture!");
+        }
+
         ImGui::SameLine();
-        if (ImGui::Button("🔥 Thermal Heating & Melting Phase Change", ImVec2(340, 28))) {
+        if (ImGui::Button("\xF0\x9F\x94\xA5 Thermal Heating & Melting Phase Change", ImVec2(340, 28))) {
             matter.spawnThermalMeltingLab();
             addEventLog("Thermal Melting specimen spawned");
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Applies intense heat flux to an ice/metal block, demonstrating thermal conduction, thermal softening, melting, and fluid drop relaxation!");
         }
 
         ImGui::Spacing();

@@ -18,6 +18,10 @@ add_subdirectory(external/glm)
 add_library(glad STATIC external/glad/src/gl.c)
 target_include_directories(glad PUBLIC external/glad/include)
 
+# ── SQLite3 ────────────────────────────────────────────────────────────────────
+add_library(sqlite3 STATIC external/sqlite/sqlite3.c)
+target_include_directories(sqlite3 PUBLIC external/sqlite)
+
 # ── Dear ImGui ──────────────────────────────────────────────────────────────────
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/external/imgui)
 add_library(imgui STATIC
@@ -35,34 +39,83 @@ target_include_directories(imgui PUBLIC
 )
 target_link_libraries(imgui PUBLIC glfw glad)
 
-# ── Main Executable ────────────────────────────────────────────────────────────
-set(ASTROGENESIS_SOURCES
-    src/main.cpp
-    src/core/Application.cpp
+# ── Core Engine Library ────────────────────────────────────────────────────────
+set(ASTROGENESIS_CORE_SOURCES
+    src/net/HttpClient.cpp
+    src/data/UnitConverter.cpp
+    src/data/DatabaseManager.cpp
+    src/data/SeedData.cpp
+    src/data/DataManager.cpp
+    src/data/repositories/ObjectRepository.cpp
+    src/data/repositories/EphemerisRepository.cpp
+    src/data/repositories/ValidationRepository.cpp
+    src/data/providers/JPLHorizonsProvider.cpp
+    src/data/providers/JPLSBDBProvider.cpp
+    src/data/providers/NASAExoplanetProvider.cpp
     src/simulation/PhysicsEngine.cpp
     src/simulation/ParticleSystem.cpp
     src/simulation/MaterialModel.cpp
     src/simulation/DeformableBody.cpp
     src/simulation/MatterSystem.cpp
+    src/simulation/ValidationEngine.cpp
     src/renderer/Camera.cpp
     src/renderer/Renderer.cpp
     src/renderer/ParticleRenderer.cpp
     src/renderer/DeformableRenderer.cpp
     src/ui/UIManager.cpp
+    src/ui/DataManagerUI.cpp
+    src/ui/ValidationUI.cpp
 )
 
-add_executable(AstroGenesis ${ASTROGENESIS_SOURCES})
+# ── Main Executable ────────────────────────────────────────────────────────────
+add_executable(AstroGenesis 
+    src/main.cpp
+    src/core/Application.cpp
+    ${ASTROGENESIS_CORE_SOURCES}
+)
 
 target_include_directories(AstroGenesis PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/external
+    ${CMAKE_SOURCE_DIR}/external/sqlite
+    ${CMAKE_SOURCE_DIR}/external/nlohmann
 )
 
-target_link_libraries(AstroGenesis PRIVATE imgui glfw glad glm::glm opengl32)
+target_link_libraries(AstroGenesis PRIVATE 
+    imgui 
+    glfw 
+    glad 
+    glm::glm 
+    sqlite3
+    opengl32 
+    winhttp
+)
+
+# ── Automated Test Suite Executable ───────────────────────────────────────────
+add_executable(test_data_system
+    src/test_data_system.cpp
+    ${ASTROGENESIS_CORE_SOURCES}
+)
+
+target_include_directories(test_data_system PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/external
+    ${CMAKE_SOURCE_DIR}/external/sqlite
+    ${CMAKE_SOURCE_DIR}/external/nlohmann
+)
+
+target_link_libraries(test_data_system PRIVATE 
+    imgui 
+    glfw 
+    glad 
+    glm::glm 
+    sqlite3
+    opengl32 
+    winhttp
+)
 
 # ── Assets Sync ────────────────────────────────────────────────────────────────
 add_custom_command(TARGET AstroGenesis POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:AstroGenesis>/assets
 )
-

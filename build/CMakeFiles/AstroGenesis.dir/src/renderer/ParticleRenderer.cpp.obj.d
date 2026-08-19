@@ -343,6 +343,7 @@ CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.obj: \
  C:/msys64/ucrt64/include/c++/14.2.0/deque \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_deque.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/deque.tcc \
+ C:/msys64/ucrt64/include/c++/14.2.0/optional \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/type_ptr.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/gtc/quaternion.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/ext/vector_relational.hpp \

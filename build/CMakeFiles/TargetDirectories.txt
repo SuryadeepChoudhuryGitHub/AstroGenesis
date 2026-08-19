@@ -1,6 +1,8 @@
 D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/CMakeFiles/glad.dir
+D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/CMakeFiles/sqlite3.dir
 D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/CMakeFiles/imgui.dir
 D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/CMakeFiles/AstroGenesis.dir
+D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/CMakeFiles/test_data_system.dir
 D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/CMakeFiles/edit_cache.dir
 D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/CMakeFiles/rebuild_cache.dir
 D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/build/external/glfw/CMakeFiles/edit_cache.dir

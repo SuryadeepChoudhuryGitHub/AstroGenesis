@@ -1,0 +1,2 @@
+C:\msys64\ucrt64\bin\ar.exe qc libsqlite3.a CMakeFiles/sqlite3.dir/external/sqlite/sqlite3.c.obj
+C:\msys64\ucrt64\bin\ranlib.exe libsqlite3.a

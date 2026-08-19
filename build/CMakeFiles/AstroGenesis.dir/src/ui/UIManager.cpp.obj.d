@@ -300,6 +300,11 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: \
  C:/msys64/ucrt64/include/c++/14.2.0/deque \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_deque.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/deque.tcc \
+ C:/msys64/ucrt64/include/c++/14.2.0/optional \
+ C:/msys64/ucrt64/include/c++/14.2.0/exception \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/exception_ptr.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/cxxabi_init_exception.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/nested_exception.h \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/ParticleSystem.hpp \
  C:/msys64/ucrt64/include/c++/14.2.0/random \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/random.h \
@@ -339,10 +344,6 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: \
  C:/msys64/ucrt64/include/pthread_unistd.h \
  C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/atomic_word.h \
  C:/msys64/ucrt64/include/c++/14.2.0/ext/concurrence.h \
- C:/msys64/ucrt64/include/c++/14.2.0/exception \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/exception_ptr.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/cxxabi_init_exception.h \
- C:/msys64/ucrt64/include/c++/14.2.0/bits/nested_exception.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/shared_ptr_atomic.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/atomic_base.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/atomic_lockfree_defines.h \
@@ -355,4 +356,39 @@ CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj: \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_algo.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/algorithmfwd.h \
  C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_heap.h \
- C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_algorithm_defs.h
+ C:/msys64/ucrt64/include/c++/14.2.0/pstl/glue_algorithm_defs.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/repositories/ObjectRepository.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/AstronomicalModels.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/DatabaseManager.hpp \
+ C:/msys64/ucrt64/include/c++/14.2.0/mutex \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/chrono.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/ratio \
+ C:/msys64/ucrt64/include/c++/14.2.0/ctime \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/parse_numbers.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/std_mutex.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/unique_lock.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/error_constants.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/sqlite/sqlite3.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/simulation/ValidationEngine.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/repositories/EphemerisRepository.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/repositories/ValidationRepository.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/DataManager.hpp \
+ C:/msys64/ucrt64/include/c++/14.2.0/map \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_tree.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_map.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/stl_multimap.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/future \
+ C:/msys64/ucrt64/include/c++/14.2.0/condition_variable \
+ C:/msys64/ucrt64/include/c++/14.2.0/system_error \
+ C:/msys64/ucrt64/include/c++/14.2.0/stdexcept \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/atomic_futex.h \
+ C:/msys64/ucrt64/include/c++/14.2.0/atomic \
+ C:/msys64/ucrt64/include/c++/14.2.0/bits/std_thread.h \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/providers/IAstronomicalDataProvider.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/providers/JPLHorizonsProvider.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/net/HttpClient.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/providers/JPLSBDBProvider.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/providers/NASAExoplanetProvider.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/DataManagerUI.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/ValidationUI.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/data/UnitConverter.hpp
