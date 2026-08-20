@@ -54,6 +54,19 @@ int main() {
     std::cout << "    - Data Source: " << earth.sourceName << std::endl;
     std::cout << "    - Epoch: " << earth.epochUtcStr << std::endl;
 
+    // Verify Ganymede & Jupiter Galilean Moons
+    auto ganymedeOpt = objRepo.getHydratedBodyBySlug("ganymede");
+    assert(ganymedeOpt.has_value());
+    const auto& ganymede = ganymedeOpt.value();
+    std::cout << "    Ganymede Verified:" << std::endl;
+    std::cout << "    - Name: " << ganymede.name << " (" << ganymede.type << ")" << std::endl;
+    std::cout << "    - Mass: " << ganymede.massStr << " (" << ganymede.massKg << " kg)" << std::endl;
+    std::cout << "    - Radius: " << ganymede.radiusStr << std::endl;
+    std::cout << "    - Orbit Radius: " << ganymede.realOrbitRadiusAU << " AU (" << (ganymede.realOrbitRadiusAU * UnitConverter::AU_TO_KM) << " km)" << std::endl;
+    assert(ganymede.parentObjectId.has_value());
+    assert(ganymede.realOrbitRadiusAU > 0.005 && ganymede.realOrbitRadiusAU < 0.01);
+    assert(ganymede.massKg > 1e23);
+
     // 5. Verify Exoplanets & Orbits
     auto exoBodies = objRepo.getSystemBodies("TRAPPIST-1 System");
     std::cout << "[4] TRAPPIST-1 System Bodies Count: " << exoBodies.size() << std::endl;

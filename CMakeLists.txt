@@ -67,6 +67,23 @@ set(ASTROGENESIS_CORE_SOURCES
     src/ui/ValidationUI.cpp
 )
 
+# ── Platform-Specific Dependencies ─────────────────────────────────────────────
+if (WIN32)
+    set(PLATFORM_LIBS opengl32 winhttp)
+elseif (APPLE)
+    find_package(OpenGL REQUIRED)
+    set(PLATFORM_LIBS
+        OpenGL::GL
+        "-framework Cocoa"
+        "-framework IOKit"
+        "-framework CoreVideo"
+        "-framework CoreFoundation"
+    )
+else()
+    find_package(OpenGL REQUIRED)
+    set(PLATFORM_LIBS OpenGL::GL pthread dl)
+endif()
+
 # ── Main Executable ────────────────────────────────────────────────────────────
 add_executable(AstroGenesis 
     src/main.cpp
@@ -87,8 +104,7 @@ target_link_libraries(AstroGenesis PRIVATE
     glad 
     glm::glm 
     sqlite3
-    opengl32 
-    winhttp
+    ${PLATFORM_LIBS}
 )
 
 # ── Automated Test Suite Executable ───────────────────────────────────────────
@@ -110,8 +126,7 @@ target_link_libraries(test_data_system PRIVATE
     glad 
     glm::glm 
     sqlite3
-    opengl32 
-    winhttp
+    ${PLATFORM_LIBS}
 )
 
 # ── Assets Sync ────────────────────────────────────────────────────────────────

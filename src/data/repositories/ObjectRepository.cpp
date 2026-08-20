@@ -745,6 +745,17 @@ std::vector<CelestialBody> ObjectRepository::getSystemBodies(const std::string& 
         bodies.push_back(body);
     }
 
+    // Calculate moon counts for host planets
+    for (auto& b : bodies) {
+        int moonCount = 0;
+        for (const auto& other : bodies) {
+            if (other.parentObjectId.has_value() && other.parentObjectId.value() == b.dbId) {
+                moonCount++;
+            }
+        }
+        b.moons = moonCount;
+    }
+
     return bodies;
 }
 

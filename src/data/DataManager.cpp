@@ -154,9 +154,25 @@ bool DataManager::importObject(ProviderType providerType, const std::string& sou
     if (rec.object.slug.empty()) rec.object.slug = sourceIdOrName;
     if (rec.object.name.empty()) rec.object.name = sourceIdOrName;
 
+    // Check if body is a moon and link to parent body
+    auto metaOpt = JPLHorizonsProvider::getBodyMetadata(sourceIdOrName);
+    if (metaOpt.has_value() && !metaOpt.value().parentSlug.empty()) {
+        auto parentObj = m_objRepo.getObjectBySlug(metaOpt.value().parentSlug);
+        if (parentObj.has_value()) {
+            rec.object.parentObjectId = parentObj.value().id;
+            rec.object.category = parentObj.value().category;
+            
+            auto parentState = m_objRepo.getStateVector(parentObj.value().id);
+            if (parentState.has_value()) {
+                rec.stateVector.positionM = parentState.value().positionM + rec.stateVector.positionM;
+                rec.stateVector.velocityMps = parentState.value().velocityMps + rec.stateVector.velocityMps;
+            }
+        }
+    }
+
     // Validate Physical Properties
     if (!rec.physical.massKg.has_value() || rec.physical.massKg.value() <= 0.0) {
-        rec.physical.massKg = 1.0e15; // default 1 billion tonnes for small bodies
+        rec.physical.massKg = 1.0e15; // default for small bodies
     }
     if (!rec.physical.radiusM.has_value() || rec.physical.radiusM.value() <= 0.0) {
         rec.physical.radiusM = 500.0;

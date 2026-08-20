@@ -28,8 +28,19 @@ public:
                               std::vector<EphemerisRecord>& outRecords, 
                               std::string& outError) override;
 
-    // Helper: Map common body names to JPL Horizons IDs
+    struct HorizonsBodyMeta {
+        std::string id;
+        std::string name;
+        std::string type;
+        std::string parentSlug;
+        std::string parentId;
+        double defaultRadiusKm = 0.0;
+        double defaultMassKg = 0.0;
+    };
+
+    // Helper: Map common body names to JPL Horizons IDs and metadata
     static std::string resolveHorizonsId(const std::string& nameOrId);
+    static std::optional<HorizonsBodyMeta> getBodyMetadata(const std::string& nameOrId);
 
 private:
     HttpClient& m_http;

@@ -1,15 +1,23 @@
 #include "net/HttpClient.hpp"
-#include <windows.h>
-#include <winhttp.h>
 #include <sstream>
 #include <iomanip>
 #include <chrono>
 #include <iostream>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <winhttp.h>
 #pragma comment(lib, "winhttp.lib")
+#else
+#include <cstdio>
+#include <cstdlib>
+#include <array>
+#include <memory>
+#endif
 
 namespace AstroGenesis {
 
+#ifdef _WIN32
 static std::wstring stringToWString(const std::string& str) {
     if (str.empty()) return std::wstring();
     int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
@@ -25,6 +33,7 @@ static std::string wstringToString(const std::wstring& wstr) {
     WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], sizeNeeded, NULL, NULL);
     return strTo;
 }
+#endif
 
 HttpClient::HttpClient() {}
 HttpClient::~HttpClient() {}
@@ -47,40 +56,42 @@ std::string HttpClient::urlEncode(const std::string& value) {
     return escaped.str();
 }
 
-bool HttpClient::parseUrl(const std::string& url, std::wstring& outHost, std::wstring& outPath, unsigned short& outPort, bool& outIsHttps) {
-    std::wstring wUrl = stringToWString(url);
-    URL_COMPONENTS urlComp;
-    ZeroMemory(&urlComp, sizeof(urlComp));
-    urlComp.dwStructSize = sizeof(urlComp);
+bool HttpClient::parseUrl(const std::string& url, std::string& outHost, std::string& outPath, unsigned short& outPort, bool& outIsHttps) {
+    std::string temp = url;
+    outIsHttps = true;
+    outPort = 443;
 
-    wchar_t hostName[512] = {0};
-    wchar_t urlPath[4096] = {0};
-    wchar_t extraInfo[4096] = {0};
-
-    urlComp.lpszHostName = hostName;
-    urlComp.dwHostNameLength = sizeof(hostName) / sizeof(hostName[0]);
-    urlComp.lpszUrlPath = urlPath;
-    urlComp.dwUrlPathLength = sizeof(urlPath) / sizeof(urlPath[0]);
-    urlComp.lpszExtraInfo = extraInfo;
-    urlComp.dwExtraInfoLength = sizeof(extraInfo) / sizeof(extraInfo[0]);
-
-    if (!WinHttpCrackUrl(wUrl.c_str(), (DWORD)wUrl.length(), 0, &urlComp)) {
-        return false;
+    if (temp.rfind("http://", 0) == 0) {
+        outIsHttps = false;
+        outPort = 80;
+        temp = temp.substr(7);
+    } else if (temp.rfind("https://", 0) == 0) {
+        outIsHttps = true;
+        outPort = 443;
+        temp = temp.substr(8);
     }
 
-    outHost = hostName;
-    std::wstring fullPath = urlPath;
-    if (extraInfo[0] != L'\0') {
-        fullPath += extraInfo;
+    size_t slashPos = temp.find('/');
+    if (slashPos != std::string::npos) {
+        outHost = temp.substr(0, slashPos);
+        outPath = temp.substr(slashPos);
+    } else {
+        outHost = temp;
+        outPath = "/";
     }
-    if (fullPath.empty()) fullPath = L"/";
-    outPath = fullPath;
-    outPort = urlComp.nPort;
-    outIsHttps = (urlComp.nScheme == INTERNET_SCHEME_HTTPS);
 
-    return true;
+    size_t colonPos = outHost.find(':');
+    if (colonPos != std::string::npos) {
+        try {
+            outPort = (unsigned short)std::stoi(outHost.substr(colonPos + 1));
+        } catch (...) {}
+        outHost = outHost.substr(0, colonPos);
+    }
+
+    return !outHost.empty();
 }
 
+#ifdef _WIN32
 HttpResponse HttpClient::executeRequest(const std::string& verb,
                                        const std::string& url,
                                        const std::string& postData,
@@ -89,7 +100,7 @@ HttpResponse HttpClient::executeRequest(const std::string& verb,
     HttpResponse response;
     auto startTime = std::chrono::high_resolution_clock::now();
 
-    std::wstring host, path;
+    std::string host, path;
     unsigned short port = 0;
     bool isHttps = true;
 
@@ -98,6 +109,9 @@ HttpResponse HttpClient::executeRequest(const std::string& verb,
         response.errorMessage = "Failed to parse URL: " + url;
         return response;
     }
+
+    std::wstring wHost = stringToWString(host);
+    std::wstring wPath = stringToWString(path);
 
     HINTERNET hSession = WinHttpOpen(L"AstroGenesis/1.0 (Windows NT)",
                                      WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
@@ -113,10 +127,10 @@ HttpResponse HttpClient::executeRequest(const std::string& verb,
     DWORD timeoutMs = (DWORD)(timeoutSeconds * 1000);
     WinHttpSetTimeouts(hSession, timeoutMs, timeoutMs, timeoutMs, timeoutMs);
 
-    HINTERNET hConnect = WinHttpConnect(hSession, host.c_str(), port, 0);
+    HINTERNET hConnect = WinHttpConnect(hSession, wHost.c_str(), port, 0);
     if (!hConnect) {
         response.success = false;
-        response.errorMessage = "Failed to connect to host: " + wstringToString(host);
+        response.errorMessage = "Failed to connect to host: " + host;
         WinHttpCloseHandle(hSession);
         return response;
     }
@@ -124,7 +138,7 @@ HttpResponse HttpClient::executeRequest(const std::string& verb,
     std::wstring wVerb = stringToWString(verb);
     DWORD flags = isHttps ? WINHTTP_FLAG_SECURE : 0;
 
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, wVerb.c_str(), path.c_str(),
+    HINTERNET hRequest = WinHttpOpenRequest(hConnect, wVerb.c_str(), wPath.c_str(),
                                            NULL, WINHTTP_NO_REFERER,
                                            WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
     if (!hRequest) {
@@ -197,6 +211,68 @@ HttpResponse HttpClient::executeRequest(const std::string& verb,
     response.elapsedSeconds = std::chrono::duration<double>(endTime - startTime).count();
     return response;
 }
+#else
+HttpResponse HttpClient::executeRequest(const std::string& verb,
+                                       const std::string& url,
+                                       const std::string& postData,
+                                       const std::map<std::string, std::string>& headers,
+                                       int timeoutSeconds) {
+    HttpResponse response;
+    auto startTime = std::chrono::high_resolution_clock::now();
+
+    // macOS & Linux built-in curl execution
+    std::string cmd = "curl -s -w \"\\n__HTTP_STATUS__%{http_code}\" --max-time " + std::to_string(timeoutSeconds);
+    if (verb == "POST") {
+        cmd += " -X POST";
+        if (!postData.empty()) {
+            cmd += " -d " + std::string("\"") + postData + std::string("\"");
+        }
+    }
+    for (const auto& kv : headers) {
+        cmd += " -H \"" + kv.first + ": " + kv.second + "\"";
+    }
+    cmd += " \"" + url + "\"";
+
+    std::array<char, 4096> buffer;
+    std::string output;
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        response.success = false;
+        response.errorMessage = "Failed to execute curl process.";
+        return response;
+    }
+
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+        output += buffer.data();
+    }
+    pclose(pipe);
+
+    // Extract HTTP status code tag
+    const std::string tag = "\n__HTTP_STATUS__";
+    size_t tagPos = output.rfind(tag);
+    if (tagPos != std::string::npos) {
+        std::string codeStr = output.substr(tagPos + tag.length());
+        try {
+            response.statusCode = std::stoi(codeStr);
+            response.body = output.substr(0, tagPos);
+        } catch (...) {
+            response.statusCode = 0;
+            response.body = output;
+        }
+    } else {
+        response.body = output;
+    }
+
+    response.success = (response.statusCode >= 200 && response.statusCode < 300);
+    if (!response.success && response.errorMessage.empty()) {
+        response.errorMessage = (response.statusCode > 0) ? ("HTTP Error " + std::to_string(response.statusCode)) : "Network request failed";
+    }
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    response.elapsedSeconds = std::chrono::duration<double>(endTime - startTime).count();
+    return response;
+}
+#endif
 
 HttpResponse HttpClient::get(const std::string& url, 
                              const std::map<std::string, std::string>& headers,

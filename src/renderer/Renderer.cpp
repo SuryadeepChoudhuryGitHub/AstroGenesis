@@ -830,27 +830,48 @@ void Renderer::renderTrails(const Camera& camera, float aspect, const std::vecto
         bool isSelected = (i == selectedIndex);
         float guideAlpha = isSelected ? 0.45f : 0.22f;
         glm::vec3 ringColor = body.color * (isSelected ? 1.25f : 0.85f);
-        glm::vec3 relStarPos = starPos - cameraTarget;
+
+        // Determine orbit center: parent planet for moons, primary star for planets
+        glm::vec3 centerPos = starPos;
+        bool isMoon = (body.type.find("Moon") != std::string::npos || body.type.find("Satellite") != std::string::npos ||
+                       body.id == "moon" || body.id == "ganymede" || body.id == "europa" || body.id == "io" || body.id == "callisto" || body.id == "titan" ||
+                       body.id == "phobos" || body.id == "deimos" || body.id == "enceladus" || body.id == "triton" || body.id == "charon");
+
+        if (isMoon) {
+            for (const auto& p : bodies) {
+                if ((body.id == "moon" && p.id == "earth") ||
+                    ((body.id == "ganymede" || body.id == "europa" || body.id == "io" || body.id == "callisto") && p.id == "jupiter") ||
+                    ((body.id == "titan" || body.id == "enceladus" || body.id == "mimas") && p.id == "saturn") ||
+                    ((body.id == "phobos" || body.id == "deimos") && p.id == "mars") ||
+                    ((body.id == "triton" || body.id == "proteus") && p.id == "neptune") ||
+                    (body.id == "charon" && p.id == "pluto") ||
+                    (body.parentObjectId.has_value() && body.parentObjectId.value() == p.dbId)) {
+                    centerPos = p.position;
+                    break;
+                }
+            }
+        }
+        glm::vec3 relCenterPos = centerPos - cameraTarget;
 
         if (body.dynamicOrbitCurve.size() >= 2) {
             for (size_t s = 0; s < body.dynamicOrbitCurve.size() - 1; ++s) {
-                glm::vec3 p1 = relStarPos + body.dynamicOrbitCurve[s];
-                glm::vec3 p2 = relStarPos + body.dynamicOrbitCurve[s + 1];
+                glm::vec3 p1 = relCenterPos + body.dynamicOrbitCurve[s];
+                glm::vec3 p2 = relCenterPos + body.dynamicOrbitCurve[s + 1];
 
                 guideVerts.push_back({ p1, glm::vec4(ringColor, guideAlpha) });
                 guideVerts.push_back({ p2, glm::vec4(ringColor, guideAlpha) });
             }
         } else {
             // Fallback circular ring if curve not yet initialized
-            double orbitRadiusAU = (body.realOrbitRadiusAU > 0.0) ? body.realOrbitRadiusAU : (body.semiMajorAxisAU > 0.0 ? body.semiMajorAxisAU : (double)glm::length(body.position - starPos));
-            if (orbitRadiusAU > 0.0001) {
+            double orbitRadiusAU = (body.realOrbitRadiusAU > 0.0) ? body.realOrbitRadiusAU : (body.semiMajorAxisAU > 0.0 ? body.semiMajorAxisAU : (double)glm::length(body.position - centerPos));
+            if (orbitRadiusAU > 0.00005) {
                 const int circleSegments = 128;
                 for (int s = 0; s < circleSegments; ++s) {
                     float theta1 = 2.0f * PI * (float)s / (float)circleSegments;
                     float theta2 = 2.0f * PI * (float)(s + 1) / (float)circleSegments;
 
-                    glm::vec3 p1 = starPos + glm::vec3((float)(orbitRadiusAU * std::cos(theta1)), 0.0f, (float)(orbitRadiusAU * std::sin(theta1))) - cameraTarget;
-                    glm::vec3 p2 = starPos + glm::vec3((float)(orbitRadiusAU * std::cos(theta2)), 0.0f, (float)(orbitRadiusAU * std::sin(theta2))) - cameraTarget;
+                    glm::vec3 p1 = centerPos + glm::vec3((float)(orbitRadiusAU * std::cos(theta1)), 0.0f, (float)(orbitRadiusAU * std::sin(theta1))) - cameraTarget;
+                    glm::vec3 p2 = centerPos + glm::vec3((float)(orbitRadiusAU * std::cos(theta2)), 0.0f, (float)(orbitRadiusAU * std::sin(theta2))) - cameraTarget;
 
                     guideVerts.push_back({ p1, glm::vec4(ringColor, guideAlpha) });
                     guideVerts.push_back({ p2, glm::vec4(ringColor, guideAlpha) });

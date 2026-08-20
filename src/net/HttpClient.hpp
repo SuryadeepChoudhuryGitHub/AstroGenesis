@@ -42,7 +42,7 @@ public:
     static std::string urlEncode(const std::string& value);
 
     // Utility: Parse URL into host, path, port, isHttps
-    static bool parseUrl(const std::string& url, std::wstring& outHost, std::wstring& outPath, unsigned short& outPort, bool& outIsHttps);
+    static bool parseUrl(const std::string& url, std::string& outHost, std::string& outPath, unsigned short& outPort, bool& outIsHttps);
 
 private:
     HttpResponse executeRequest(const std::string& verb,

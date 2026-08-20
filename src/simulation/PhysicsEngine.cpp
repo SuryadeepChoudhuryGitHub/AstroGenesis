@@ -278,28 +278,56 @@ void PhysicsEngine::updatePhysicalQuantities() {
             continue;
         }
 
-        // Relative vector to central star
-        glm::dvec3 rVec = b.positionM - sol.positionM;
-        glm::dvec3 vVec = b.velocityMps - sol.velocityMps;
+        // Identify central attractor: parent planet if body is a moon, otherwise primary star
+        size_t attractorIdx = solIdx;
+        bool isMoon = (b.type.find("Moon") != std::string::npos || b.type.find("Satellite") != std::string::npos ||
+                       b.id == "moon" || b.id == "ganymede" || b.id == "europa" || b.id == "io" || b.id == "callisto" || b.id == "titan" ||
+                       b.id == "phobos" || b.id == "deimos" || b.id == "enceladus" || b.id == "triton" || b.id == "charon");
+
+        if (isMoon) {
+            for (size_t p = 0; p < m_bodies.size(); ++p) {
+                if (p == i) continue;
+                if ((b.id == "moon" && m_bodies[p].id == "earth") ||
+                    ((b.id == "ganymede" || b.id == "europa" || b.id == "io" || b.id == "callisto") && m_bodies[p].id == "jupiter") ||
+                    ((b.id == "titan" || b.id == "enceladus" || b.id == "mimas") && m_bodies[p].id == "saturn") ||
+                    ((b.id == "phobos" || b.id == "deimos") && m_bodies[p].id == "mars") ||
+                    ((b.id == "triton" || b.id == "proteus") && m_bodies[p].id == "neptune") ||
+                    (b.id == "charon" && m_bodies[p].id == "pluto") ||
+                    (b.parentObjectId.has_value() && b.parentObjectId.value() == m_bodies[p].dbId)) {
+                    attractorIdx = p;
+                    break;
+                }
+            }
+        }
+        const auto& attractor = m_bodies[attractorIdx];
+        double attractorMass = (attractor.massKg > 0.0) ? attractor.massKg : solMass;
+
+        // Relative vector to central attractor (parent planet for moons, sol for planets)
+        glm::dvec3 rVec = b.positionM - attractor.positionM;
+        glm::dvec3 vVec = b.velocityMps - attractor.velocityMps;
         double rM = glm::length(rVec);
         double vMps = glm::length(vVec);
+
+        // Solar distance for solar radiation flux and thermal balance
+        double rSolM = glm::length(b.positionM - sol.positionM);
+        if (rSolM < 1000.0) rSolM = 1000.0;
 
         b.distanceAU = rM / AU_METERS;
         b.distanceKm = rM / 1000.0;
         b.orbitalSpeedKmpS = vMps / 1000.0;
 
         char distBuf[64], speedBuf[64];
-        if (b.distanceAU >= 0.01) {
+        if (b.distanceAU >= 0.05) {
             snprintf(distBuf, sizeof(distBuf), "%.3f AU (%.1fM km)", b.distanceAU, (rM * 1e-9));
         } else {
-            snprintf(distBuf, sizeof(distBuf), "%'.1f km", b.distanceKm);
+            snprintf(distBuf, sizeof(distBuf), "%'.0f km", b.distanceKm);
         }
         b.distanceStr = distBuf;
         snprintf(speedBuf, sizeof(speedBuf), "%.2f km/s", b.orbitalSpeedKmpS);
         b.orbitalSpeedStr = speedBuf;
 
-        // Instantaneous Solar Radiation Flux: F = L / (4 * pi * r^2)
-        b.solarRadiationFlux = solLum / (4.0 * PI_DBL * rM * rM);
+        // Instantaneous Solar Radiation Flux: F = L / (4 * pi * r_sol^2)
+        b.solarRadiationFlux = solLum / (4.0 * PI_DBL * rSolM * rSolM);
         char fluxBuf[64];
         snprintf(fluxBuf, sizeof(fluxBuf), "%'.1f W/m²", b.solarRadiationFlux);
         b.solarRadiationStr = fluxBuf;
@@ -342,7 +370,7 @@ void PhysicsEngine::updatePhysicalQuantities() {
         }
 
         // Relativistic Time Dilation
-        double phiPotential = - (G_CONST * solMass) / rM;
+        double phiPotential = - (G_CONST * attractorMass) / rM;
         double gravitationalShift = phiPotential / C_LIGHT_SQ;
         double kinematicShift = - 0.5 * (vMps * vMps) / C_LIGHT_SQ;
         b.timeDilationShift = gravitationalShift + kinematicShift;
@@ -359,7 +387,7 @@ void PhysicsEngine::updatePhysicalQuantities() {
         snprintf(hBuf, sizeof(hBuf), "%.2e m²/s", b.specificAngularMomentum);
         b.angularMomentumStr = hBuf;
 
-        double muTotal = G_CONST * (solMass + b.massKg);
+        double muTotal = G_CONST * (attractorMass + b.massKg);
         b.specificOrbitalEnergy = 0.5 * vMps * vMps - (muTotal / rM);
         char energyBuf[64];
         snprintf(energyBuf, sizeof(energyBuf), "%.1f MJ/kg", b.specificOrbitalEnergy * 1e-6);

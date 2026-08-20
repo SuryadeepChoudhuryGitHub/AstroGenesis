@@ -47,6 +47,13 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
     int64_t solId = 0;
     repo.saveCelestialBodyRecord(sol, &solId);
 
+    struct BodySeedResult {
+        int64_t id = 0;
+        glm::dvec3 posM{0.0};
+        glm::dvec3 velMps{0.0};
+        double massKg = 0.0;
+    };
+
     // Lambda helper for planet insertion
     auto addPlanet = [&](const std::string& slug, const std::string& name, const std::string& type,
                          double massKg, double radiusM, double semiMajorAU, double eccentricity,
@@ -58,7 +65,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
                          const glm::vec3& color, const std::string& texPath,
                          const std::string& ringsJson = "",
                          std::optional<int64_t> parentId = std::nullopt,
-                         const std::string& category = "Solar System") {
+                         const std::string& category = "Solar System") -> BodySeedResult {
         CelestialBodyRecord b;
         b.sourceName = SOURCE_NAME;
         b.object.slug = slug;
@@ -109,11 +116,71 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
         b.composition = comp;
         int64_t outId = 0;
         repo.saveCelestialBodyRecord(b, &outId);
-        return outId;
+        return { outId, b.stateVector.positionM, b.stateVector.velocityMps, massKg };
+    };
+
+    // Lambda helper for moon insertion (parent-relative orbits with true physical quantities)
+    auto addMoon = [&](const std::string& slug, const std::string& name,
+                       double massKg, double radiusM, double semiMajorKm, double eccentricity,
+                       double initialAngleRad, double albedo, double greenhouseK,
+                       double axialTiltDeg, double rotPeriodHours,
+                       const std::string& atmStr, const std::string& pressStr,
+                       const std::string& magStr, const std::string& sourceRecId,
+                       const std::vector<CompositionRecord>& comp,
+                       const glm::vec3& color, const std::string& texPath,
+                       const BodySeedResult& parent) -> BodySeedResult {
+        CelestialBodyRecord b;
+        b.sourceName = SOURCE_NAME;
+        b.object.slug = slug;
+        b.object.name = name;
+        b.object.type = "Natural Satellite (Moon)";
+        b.object.category = "Solar System";
+        b.object.color = color;
+        b.object.texturePath = texPath;
+        b.object.parentObjectId = parent.id;
+
+        b.physical.massKg = massKg;
+        b.physical.radiusM = radiusM;
+        b.physical.albedo = albedo;
+        b.physical.greenhouseK = greenhouseK;
+        b.physical.axialTiltDeg = axialTiltDeg;
+        b.physical.rotationPeriodHours = rotPeriodHours;
+        b.physical.atmosphereSummary = atmStr;
+        b.physical.magneticFieldStr = magStr;
+        b.physical.sourceRecordId = sourceRecId;
+
+        if (radiusM > 0.0) {
+            b.physical.surfaceGravityMps2 = (UnitConverter::G_CONST * massKg) / (radiusM * radiusM);
+            b.physical.escapeVelocityMps = std::sqrt(2.0 * UnitConverter::G_CONST * massKg / radiusM);
+            double volM3 = (4.0 / 3.0) * UnitConverter::PI * std::pow(radiusM, 3.0);
+            b.physical.meanDensityKgM3 = massKg / volM3;
+        }
+
+        double aM = semiMajorKm * 1000.0;
+        b.orbital.epochJd = UnitConverter::J2000_JD;
+        b.orbital.semiMajorAxisM = aM;
+        b.orbital.semiMajorAxisAU = aM / UnitConverter::AU_TO_METERS;
+        b.orbital.eccentricity = eccentricity;
+        b.orbital.orbitalPeriodDays = (2.0 * UnitConverter::PI * std::sqrt(std::pow(aM, 3.0) / (UnitConverter::G_CONST * (parent.massKg + massKg)))) / UnitConverter::SEC_PER_DAY;
+
+        double vOrb = std::sqrt(UnitConverter::G_CONST * (parent.massKg + massKg) / aM);
+        double cosA = std::cos(initialAngleRad);
+        double sinA = std::sin(initialAngleRad);
+        glm::dvec3 relPosM = glm::dvec3(aM * cosA, 0.0, aM * sinA);
+        glm::dvec3 relVelMps = glm::dvec3(-vOrb * sinA, 0.0, vOrb * cosA);
+
+        b.stateVector.positionM = parent.posM + relPosM;
+        b.stateVector.velocityMps = parent.velMps + relVelMps;
+        b.stateVector.epochJd = UnitConverter::J2000_JD;
+        b.composition = comp;
+
+        int64_t outId = 0;
+        repo.saveCelestialBodyRecord(b, &outId);
+        return { outId, b.stateVector.positionM, b.stateVector.velocityMps, massKg };
     };
 
     // 2. Mercury
-    addPlanet("mercury", "Mercury", "Terrestrial Planet",
+    auto mercuryRes = addPlanet("mercury", "Mercury", "Terrestrial Planet",
               3.3011e23, 2439700.0, 0.387098, 0.205630, 0.2,
               0.088, 0.0, 0.034, 1407.5,
               "42% O₂, 29% Na, 22% H₂", "10⁻¹⁴ kPa", "0.3 µT", "199",
@@ -121,7 +188,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               glm::vec3(0.7f, 0.6f, 0.5f), "assets/textures/mercury_surface.jpg");
 
     // 3. Venus
-    addPlanet("venus", "Venus", "Terrestrial Planet",
+    auto venusRes = addPlanet("venus", "Venus", "Terrestrial Planet",
               4.8675e24, 6051800.0, 0.723332, 0.006772, 1.1,
               0.760, 480.0, 177.36, -5832.6,
               "96.5% CO₂, 3.5% N₂", "9,200 kPa", "Induced", "299",
@@ -129,7 +196,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               glm::vec3(0.9f, 0.7f, 0.3f), "assets/textures/venus_surface.jpg");
 
     // 4. Earth
-    int64_t earthId = addPlanet("earth", "Earth", "Terrestrial Planet",
+    auto earthRes = addPlanet("earth", "Earth", "Terrestrial Planet",
               5.9722e24, 6371000.0, 1.000000, 0.0167086, 2.4,
               0.306, 33.0, 23.44, 23.93446,
               "78% N₂, 21% O₂", "101.3 kPa", "25.0–65.0 µT", "399",
@@ -137,15 +204,15 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               glm::vec3(0.0f, 0.83f, 1.0f), "assets/textures/earth_daymap.jpg");
 
     // 4b. Moon (Luna)
-    addPlanet("moon", "Moon", "Terrestrial Moon",
-              UnitConverter::LUNAR_MASS_KG, UnitConverter::LUNAR_RADIUS_M, 1.00257, 0.0549, 2.42,
+    auto moonRes = addMoon("moon", "Moon",
+              UnitConverter::LUNAR_MASS_KG, UnitConverter::LUNAR_RADIUS_M, 384400.0, 0.0549, 2.42,
               0.12, 0.0, 1.54, 655.7,
               "Trace Helium, Neon, Hydrogen", "10⁻¹² kPa", "None", "301",
               { {0,0,"Helium",40.0f,{0.8f,0.8f,0.8f,1.0f}}, {0,0,"Neon",40.0f,{0.9f,0.4f,0.1f,1.0f}}, {0,0,"Hydrogen",20.0f,{0.3f,0.7f,1.0f,1.0f}} },
-              glm::vec3(0.75f, 0.75f, 0.75f), "", "", earthId);
+              glm::vec3(0.75f, 0.75f, 0.75f), "", earthRes);
 
     // 5. Mars
-    addPlanet("mars", "Mars", "Terrestrial Planet",
+    auto marsRes = addPlanet("mars", "Mars", "Terrestrial Planet",
               6.4171e23, 3389500.0, 1.523679, 0.093400, 3.6,
               0.250, 5.0, 25.19, 24.6229,
               "95.3% CO₂, 2.6% N₂", "0.61 kPa", "Remnant", "499",
@@ -153,24 +220,61 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               glm::vec3(0.95f, 0.35f, 0.2f), "assets/textures/mars_surface.jpg");
 
     // 6. Jupiter
-    addPlanet("jupiter", "Jupiter", "Gas Giant",
+    auto jupiterRes = addPlanet("jupiter", "Jupiter", "Gas Giant",
               1.8982e27, 69911000.0, 5.204400, 0.048900, 4.5,
               0.503, 0.0, 3.13, 9.925,
               "89% H₂, 10% He", "100 kPa", "420 µT", "599",
               { {0,0,"Hydrogen",89.8f,{0.9f,0.8f,0.6f,1.0f}}, {0,0,"Helium",10.2f,{0.9f,0.6f,0.3f,1.0f}} },
               glm::vec3(0.85f, 0.65f, 0.45f), "assets/textures/jupiter_surface.jpg");
 
+    // 6b. Jupiter's Galilean Moons (Io, Europa, Ganymede, Callisto)
+    addMoon("io", "Io",
+            8.9319e22, 1821600.0, 421700.0, 0.0041, 0.5,
+            0.63, 0.0, 0.0, 42.46,
+            "Trace SO₂", "10⁻⁹ kPa", "Induced", "501",
+            { {0,0,"Sulfur / Silicates",90.0f,{0.9f,0.8f,0.2f,1.0f}}, {0,0,"Iron Core",10.0f,{0.5f,0.3f,0.1f,1.0f}} },
+            glm::vec3(0.95f, 0.85f, 0.2f), "", jupiterRes);
+
+    addMoon("europa", "Europa",
+            4.7998e22, 1560800.0, 670900.0, 0.0090, 1.8,
+            0.67, 0.0, 0.1, 85.23,
+            "Trace O₂", "10⁻¹¹ kPa", "Induced", "502",
+            { {0,0,"Water Ice Crust",85.0f,{0.8f,0.9f,1.0f,1.0f}}, {0,0,"Silicate Mantle",15.0f,{0.6f,0.5f,0.4f,1.0f}} },
+            glm::vec3(0.85f, 0.85f, 0.95f), "", jupiterRes);
+
+    addMoon("ganymede", "Ganymede",
+            1.4819e23, 2634100.0, 1070400.0, 0.0013, 3.2,
+            0.43, 0.0, 0.2, 171.71,
+            "Trace O₂, O₃", "10⁻¹¹ kPa", "1.2 µT (Intrinsic)", "503",
+            { {0,0,"Water Ice",50.0f,{0.7f,0.8f,0.9f,1.0f}}, {0,0,"Silicates",40.0f,{0.5f,0.5f,0.5f,1.0f}}, {0,0,"Iron Core",10.0f,{0.6f,0.4f,0.2f,1.0f}} },
+            glm::vec3(0.7f, 0.65f, 0.6f), "", jupiterRes);
+
+    addMoon("callisto", "Callisto",
+            1.0759e23, 2410300.0, 1882700.0, 0.0074, 4.6,
+            0.22, 0.0, 0.0, 400.54,
+            "Trace CO₂", "10⁻¹¹ kPa", "Induced", "504",
+            { {0,0,"Water Ice",50.0f,{0.6f,0.6f,0.7f,1.0f}}, {0,0,"Silicates",50.0f,{0.4f,0.4f,0.4f,1.0f}} },
+            glm::vec3(0.55f, 0.5f, 0.45f), "", jupiterRes);
+
     // 7. Saturn with rings
     std::string saturnRing = R"({"hasRing":true,"innerRadiusM":74500000.0,"outerRadiusM":140220000.0,"massKg":1.5e19,"thicknessM":20.0,"colorR":0.88,"colorG":0.82,"colorB":0.70,"texturePath":"assets/textures/saturn_ring_alpha.png"})";
-    addPlanet("saturn", "Saturn", "Gas Giant",
+    auto saturnRes = addPlanet("saturn", "Saturn", "Gas Giant",
               5.6834e26, 58232000.0, 9.582600, 0.056500, 5.2,
               0.342, 0.0, 26.73, 10.656,
               "96% H₂, 3% He", "100 kPa", "21 µT", "699",
               { {0,0,"Hydrogen",96.3f,{0.9f,0.85f,0.5f,1.0f}}, {0,0,"Helium",3.2f,{0.9f,0.7f,0.4f,1.0f}} },
               glm::vec3(0.9f, 0.8f, 0.5f), "assets/textures/saturn_surface.jpg", saturnRing);
 
+    // 7b. Saturn's Titan
+    addMoon("titan", "Titan",
+            1.3452e23, 2574700.0, 1221870.0, 0.0288, 1.2,
+            0.22, 12.0, 0.0, 382.68,
+            "95% N₂, 5% CH₄", "146.7 kPa", "Induced", "606",
+            { {0,0,"Nitrogen Atmosphere",60.0f,{0.9f,0.6f,0.2f,1.0f}}, {0,0,"Water Ice Mantle",40.0f,{0.6f,0.7f,0.9f,1.0f}} },
+            glm::vec3(0.9f, 0.7f, 0.3f), "", saturnRes);
+
     // 8. Uranus
-    addPlanet("uranus", "Uranus", "Ice Giant",
+    auto uranusRes = addPlanet("uranus", "Uranus", "Ice Giant",
               8.6810e25, 25362000.0, 19.20120, 0.047170, 5.8,
               0.300, 0.0, 97.77, -17.24,
               "83% H₂, 15% He, 2.3% CH₄", "100 kPa", "23 µT", "799",
@@ -178,7 +282,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               glm::vec3(0.5f, 0.8f, 0.9f), "assets/textures/uranus_surface.jpg");
 
     // 9. Neptune
-    addPlanet("neptune", "Neptune", "Ice Giant",
+    auto neptuneRes = addPlanet("neptune", "Neptune", "Ice Giant",
               1.02413e26, 24622000.0, 30.04720, 0.008678, 0.5,
               0.290, 0.0, 28.32, 16.11,
               "80% H₂, 19% He, 1.5% CH₄", "100 kPa", "14 µT", "899",
@@ -186,7 +290,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               glm::vec3(0.2f, 0.4f, 0.9f), "assets/textures/neptune_surface.jpg");
 
     // 10. Pluto
-    addPlanet("pluto", "Pluto", "Dwarf Planet",
+    auto plutoRes = addPlanet("pluto", "Pluto", "Dwarf Planet",
               1.303e22, 1188300.0, 39.482, 0.2488, 1.8,
               0.52, 0.0, 122.53, -153.3,
               "99% N₂, 0.5% CH₄, 0.5% CO", "0.001 kPa", "None", "999",

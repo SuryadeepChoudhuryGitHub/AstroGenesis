@@ -8,27 +8,68 @@
 
 namespace AstroGenesis {
 
-static const std::map<std::string, std::pair<std::string, std::string>> KNOWN_HORIZONS_BODIES = {
-    { "sun",      { "10",  "Sol (Sun)" } },
-    { "sol",      { "10",  "Sol (Sun)" } },
-    { "mercury",  { "199", "Mercury" } },
-    { "venus",    { "299", "Venus" } },
-    { "earth",    { "399", "Earth" } },
-    { "moon",     { "301", "Moon (Luna)" } },
-    { "mars",     { "499", "Mars" } },
-    { "jupiter",  { "599", "Jupiter" } },
-    { "saturn",   { "699", "Saturn" } },
-    { "uranus",   { "799", "Uranus" } },
-    { "neptune",  { "899", "Neptune" } },
-    { "pluto",    { "999", "Pluto" } },
-    { "ceres",    { "2000001", "1 Ceres" } },
-    { "pallas",   { "2000002", "2 Pallas" } },
-    { "juno",     { "2000003", "3 Juno" } },
-    { "vesta",    { "2000004", "4 Vesta" } },
-    { "bennu",    { "2101955", "101955 Bennu" } },
-    { "apophis",  { "2099942", "99942 Apophis" } },
-    { "eros",     { "2000433", "433 Eros" } },
-    { "halley",   { "90000030", "1P/Halley" } }
+static const std::map<std::string, JPLHorizonsProvider::HorizonsBodyMeta> HORIZONS_CATALOG = {
+    // Sun & Terrestrial Planets
+    { "sun",       { "10",  "Sol (Sun)",        "G2V Main Sequence Star", "",        "",    696340.0, 1.9885e30 } },
+    { "sol",       { "10",  "Sol (Sun)",        "G2V Main Sequence Star", "",        "",    696340.0, 1.9885e30 } },
+    { "mercury",   { "199", "Mercury",          "Terrestrial Planet",     "",        "",    2439.7,   3.3011e23 } },
+    { "venus",     { "299", "Venus",            "Terrestrial Planet",     "",        "",    6051.8,   4.8675e24 } },
+    { "earth",     { "399", "Earth",            "Terrestrial Planet",     "",        "",    6371.0,   5.9722e24 } },
+    { "mars",      { "499", "Mars",             "Terrestrial Planet",     "",        "",    3389.5,   6.4171e23 } },
+
+    // Gas & Ice Giants
+    { "jupiter",   { "599", "Jupiter",          "Gas Giant",              "",        "",    69911.0,  1.8982e27 } },
+    { "saturn",    { "699", "Saturn",           "Gas Giant",              "",        "",    58232.0,  5.6834e26 } },
+    { "uranus",    { "799", "Uranus",           "Ice Giant",              "",        "",    25362.0,  8.6810e25 } },
+    { "neptune",   { "899", "Neptune",          "Ice Giant",              "",        "",    24622.0,  1.0241e26 } },
+    { "pluto",     { "999", "Pluto",            "Dwarf Planet",           "",        "",    1188.3,   1.3030e22 } },
+
+    // Earth's Moon
+    { "moon",      { "301", "Moon (Luna)",      "Natural Satellite (Moon)","earth",  "399", 1737.4,   7.3420e22 } },
+    { "luna",      { "301", "Moon (Luna)",      "Natural Satellite (Moon)","earth",  "399", 1737.4,   7.3420e22 } },
+
+    // Mars's Moons
+    { "phobos",    { "401", "Phobos",           "Natural Satellite (Moon)","mars",   "499", 11.26,    1.0659e16 } },
+    { "deimos",    { "402", "Deimos",           "Natural Satellite (Moon)","mars",   "499", 6.20,     1.4762e15 } },
+
+    // Jupiter's Galilean Moons
+    { "io",        { "501", "Io",               "Natural Satellite (Moon)","jupiter","599", 1821.6,   8.9319e22 } },
+    { "europa",    { "502", "Europa",           "Natural Satellite (Moon)","jupiter","599", 1560.8,   4.7998e22 } },
+    { "ganymede",  { "503", "Ganymede",         "Natural Satellite (Moon)","jupiter","599", 2634.1,   1.4819e23 } },
+    { "callisto",  { "504", "Callisto",         "Natural Satellite (Moon)","jupiter","599", 2410.3,   1.0759e23 } },
+
+    // Saturn's Major Moons
+    { "mimas",     { "601", "Mimas",            "Natural Satellite (Moon)","saturn", "699", 198.2,    3.7500e19 } },
+    { "enceladus", { "602", "Enceladus",        "Natural Satellite (Moon)","saturn", "699", 252.1,    1.0800e20 } },
+    { "tethys",    { "603", "Tethys",           "Natural Satellite (Moon)","saturn", "699", 531.1,    6.1700e20 } },
+    { "dione",     { "604", "Dione",            "Natural Satellite (Moon)","saturn", "699", 561.4,    1.0950e21 } },
+    { "rhea",      { "605", "Rhea",             "Natural Satellite (Moon)","saturn", "699", 763.8,    2.3060e21 } },
+    { "titan",     { "606", "Titan",            "Natural Satellite (Moon)","saturn", "699", 2574.7,   1.3452e23 } },
+    { "iapetus",   { "608", "Iapetus",          "Natural Satellite (Moon)","saturn", "699", 734.5,    1.8050e21 } },
+
+    // Uranus's Moons
+    { "miranda",   { "705", "Miranda",          "Natural Satellite (Moon)","uranus", "799", 235.8,    6.4000e19 } },
+    { "ariel",     { "701", "Ariel",            "Natural Satellite (Moon)","uranus", "799", 578.9,    1.2500e21 } },
+    { "umbriel",   { "702", "Umbriel",          "Natural Satellite (Moon)","uranus", "799", 584.7,    1.2700e21 } },
+    { "titania",   { "703", "Titania",          "Natural Satellite (Moon)","uranus", "799", 788.4,    3.4000e21 } },
+    { "oberon",    { "704", "Oberon",           "Natural Satellite (Moon)","uranus", "799", 761.4,    3.0000e21 } },
+
+    // Neptune's Moons
+    { "triton",    { "801", "Triton",           "Natural Satellite (Moon)","neptune","899", 1353.4,   2.1400e22 } },
+    { "proteus",   { "808", "Proteus",          "Natural Satellite (Moon)","neptune","899", 210.0,    4.4000e19 } },
+
+    // Pluto's Moon
+    { "charon",    { "901", "Charon",           "Natural Satellite (Moon)","pluto",  "999", 606.0,    1.5860e21 } },
+
+    // Asteroids & Comets
+    { "ceres",     { "2000001", "1 Ceres",      "Dwarf Planet / Asteroid","",        "",    473.0,     9.3835e20 } },
+    { "pallas",    { "2000002", "2 Pallas",     "Asteroid",               "",        "",    256.0,     2.1100e20 } },
+    { "juno",      { "2000003", "3 Juno",       "Asteroid",               "",        "",    127.0,     2.6700e19 } },
+    { "vesta",     { "2000004", "4 Vesta",      "Asteroid",               "",        "",    262.7,     2.5900e20 } },
+    { "bennu",     { "2101955", "101955 Bennu", "Near-Earth Asteroid",    "",        "",    0.245,     7.3290e10 } },
+    { "apophis",   { "2099942", "99942 Apophis","Near-Earth Asteroid",    "",        "",    0.170,     6.1000e10 } },
+    { "eros",      { "2000433", "433 Eros",     "Near-Earth Asteroid",    "",        "",    8.4,       6.6870e15 } },
+    { "halley",    { "90000030","1P/Halley",    "Periodic Comet",         "",        "",    5.5,       2.2000e14 } }
 };
 
 JPLHorizonsProvider::JPLHorizonsProvider(HttpClient& httpClient) : m_http(httpClient) {}
@@ -36,11 +77,24 @@ JPLHorizonsProvider::JPLHorizonsProvider(HttpClient& httpClient) : m_http(httpCl
 std::string JPLHorizonsProvider::resolveHorizonsId(const std::string& nameOrId) {
     std::string lower = nameOrId;
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-    auto it = KNOWN_HORIZONS_BODIES.find(lower);
-    if (it != KNOWN_HORIZONS_BODIES.end()) {
-        return it->second.first;
+    auto it = HORIZONS_CATALOG.find(lower);
+    if (it != HORIZONS_CATALOG.end()) {
+        return it->second.id;
     }
     return nameOrId;
+}
+
+std::optional<JPLHorizonsProvider::HorizonsBodyMeta> JPLHorizonsProvider::getBodyMetadata(const std::string& nameOrId) {
+    std::string lower = nameOrId;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    auto it = HORIZONS_CATALOG.find(lower);
+    if (it != HORIZONS_CATALOG.end()) {
+        return it->second;
+    }
+    for (const auto& kv : HORIZONS_CATALOG) {
+        if (kv.second.id == nameOrId) return kv.second;
+    }
+    return std::nullopt;
 }
 
 bool JPLHorizonsProvider::searchObjects(const std::string& query, 
@@ -51,14 +105,14 @@ bool JPLHorizonsProvider::searchObjects(const std::string& query,
     std::transform(lowerQ.begin(), lowerQ.end(), lowerQ.begin(), ::tolower);
 
     // 1. Check known lookup dictionary
-    for (const auto& kv : KNOWN_HORIZONS_BODIES) {
-        if (kv.first.find(lowerQ) != std::string::npos || kv.second.second.find(query) != std::string::npos) {
+    for (const auto& kv : HORIZONS_CATALOG) {
+        if (kv.first.find(lowerQ) != std::string::npos || kv.second.name.find(query) != std::string::npos) {
             SearchResult res;
             res.sourceName = getProviderName();
-            res.sourceId = kv.second.first;
-            res.name = kv.second.second;
-            res.type = (kv.second.first.length() > 5) ? "Asteroid / Small Body" : "Major Body / Planet";
-            res.details = "NASA JPL Horizons target code: " + kv.second.first;
+            res.sourceId = kv.second.id;
+            res.name = kv.second.name;
+            res.type = kv.second.type;
+            res.details = "NASA JPL Horizons target code: " + kv.second.id + (!kv.second.parentSlug.empty() ? (" (Orbiting " + kv.second.parentSlug + ")") : "");
             outResults.push_back(res);
         }
     }
@@ -71,13 +125,11 @@ bool JPLHorizonsProvider::searchObjects(const std::string& query,
             auto j = nlohmann::json::parse(resp.body);
             if (j.contains("result")) {
                 std::string resText = j["result"].get<std::string>();
-                // Extract match lines if multiple records match
                 std::istringstream stream(resText);
                 std::string line;
                 while (std::getline(stream, line)) {
                     if (line.find("Multiple major-bodies match") != std::string::npos || 
                         line.find("Matching small-bodies") != std::string::npos) {
-                        // Scan subsequent lines for matches
                         while (std::getline(stream, line) && !line.empty() && line.find("---") == std::string::npos) {
                             if (line.length() > 10) {
                                 SearchResult res;
@@ -112,11 +164,18 @@ bool JPLHorizonsProvider::fetchObjectData(const std::string& sourceIdOrName,
                                          CelestialBodyRecord& outRecord, 
                                          std::string& outError) {
     std::string targetId = resolveHorizonsId(sourceIdOrName);
+    auto metaOpt = getBodyMetadata(sourceIdOrName);
 
-    // Build URL for J2000 state vectors from Solar System Barycenter (@0)
+    // Center selection:
+    // If the body is a moon (has parent planet), query parent-relative vectors (e.g. '@599' for Jupiter moons)
+    std::string centerParam = "'@0'"; // Default: Solar System Barycenter
+    if (metaOpt.has_value() && !metaOpt.value().parentId.empty()) {
+        centerParam = "'@" + metaOpt.value().parentId + "'";
+    }
+
     std::string url = getBaseUrl() + "?format=json"
                       "&COMMAND=" + HttpClient::urlEncode("'" + targetId + "'") +
-                      "&CENTER='@0'"
+                      "&CENTER=" + HttpClient::urlEncode(centerParam) +
                       "&EPHEM_TYPE='VECTORS'"
                       "&VEC_TABLE='2'"
                       "&REF_PLANE='ECLIPTIC'"
@@ -152,6 +211,17 @@ bool JPLHorizonsProvider::fetchObjectData(const std::string& sourceIdOrName,
     outRecord.object.name = sourceIdOrName;
     outRecord.object.category = "Solar System";
 
+    if (metaOpt.has_value()) {
+        outRecord.object.name = metaOpt.value().name;
+        outRecord.object.type = metaOpt.value().type;
+        if (metaOpt.value().defaultRadiusKm > 0.0) {
+            outRecord.physical.radiusM = metaOpt.value().defaultRadiusKm * 1000.0;
+        }
+        if (metaOpt.value().defaultMassKg > 0.0) {
+            outRecord.physical.massKg = metaOpt.value().defaultMassKg;
+        }
+    }
+
     return parseHorizonsResponse(rawResult, outRecord, outError);
 }
 
@@ -165,35 +235,34 @@ bool JPLHorizonsProvider::parseHorizonsResponse(const std::string& rawText,
         std::string line = rawText.substr(targetIdx + 17, endLine - (targetIdx + 17));
         size_t braceIdx = line.find('{');
         if (braceIdx != std::string::npos) line = line.substr(0, braceIdx);
-        // Trim whitespace
         while (!line.empty() && (line.back() == ' ' || line.back() == '\r')) line.pop_back();
         while (!line.empty() && line.front() == ' ') line.erase(line.begin());
         if (!line.empty()) outRecord.object.name = line;
     }
 
     // 2. Extract Physical Parameters
-    // Radius
-    std::regex radRegex(R"(Radius\s*\(?km\)?\s*=\s*([0-9.+-E]+))", std::regex::icase);
-    std::regex radMeanRegex(R"(Mean\s+Radius\s*\(?km\)?\s*=\s*([0-9.+-E]+))", std::regex::icase);
+    // Radius (km)
+    std::regex radRegex(R"(Radius\s*\(?km\)?\s*=\s*~?([0-9.+-E]+))", std::regex::icase);
+    std::regex radMeanRegex(R"(Mean\s+Radius\s*\(?km\)?\s*=\s*~?([0-9.+-E]+))", std::regex::icase);
+    std::regex volRadRegex(R"(Vol\.\s*Mean\s*Radius\s*\(?km\)?\s*=\s*~?([0-9.+-E]+))", std::regex::icase);
     std::smatch match;
-    if (std::regex_search(rawText, match, radMeanRegex) || std::regex_search(rawText, match, radRegex)) {
+    if (std::regex_search(rawText, match, volRadRegex) || 
+        std::regex_search(rawText, match, radMeanRegex) || 
+        std::regex_search(rawText, match, radRegex)) {
         try {
             double radKm = std::stod(match[1].str());
             outRecord.physical.radiusM = radKm * 1000.0;
         } catch (...) {}
     }
 
-    // Mass (e.g. Mass, 10^24 kg = 5.97219 or Mass (10^20 kg) = 9.38)
-    std::regex mass24Regex(R"(Mass.*10\^24\s*kg\s*=\s*~?([0-9.+-E]+))", std::regex::icase);
-    std::regex mass20Regex(R"(Mass.*10\^20\s*kg\s*=\s*~?([0-9.+-E]+))", std::regex::icase);
+    // Mass (Supports 10^24, 10^23, 10^22, 10^21, 10^20, 10^19, 10^18, 10^15, kg)
+    std::regex massExpRegex(R"(Mass[^\n=]*10\^(\d+)\s*kg\s*=\s*~?([0-9.+-E]+))", std::regex::icase);
     std::regex massKgRegex(R"(Mass\s*\(?kg\)?\s*=\s*~?([0-9.+-E]+))", std::regex::icase);
-    if (std::regex_search(rawText, match, mass24Regex)) {
+    if (std::regex_search(rawText, match, massExpRegex)) {
         try {
-            outRecord.physical.massKg = std::stod(match[1].str()) * 1e24;
-        } catch (...) {}
-    } else if (std::regex_search(rawText, match, mass20Regex)) {
-        try {
-            outRecord.physical.massKg = std::stod(match[1].str()) * 1e20;
+            int exp = std::stoi(match[1].str());
+            double val = std::stod(match[2].str());
+            outRecord.physical.massKg = val * std::pow(10.0, (double)exp);
         } catch (...) {}
     } else if (std::regex_search(rawText, match, massKgRegex)) {
         try {
@@ -202,18 +271,39 @@ bool JPLHorizonsProvider::parseHorizonsResponse(const std::string& rawText,
     }
 
     // Density (g/cm^3 -> kg/m^3 (* 1000.0))
-    std::regex densRegex(R"(density.*g/cm\^3\s*=\s*~?([0-9.+-E]+))", std::regex::icase);
+    std::regex densRegex(R"(density[^\n=]*g/cm\^3\s*=\s*~?([0-9.+-E]+))", std::regex::icase);
     if (std::regex_search(rawText, match, densRegex)) {
         try {
             outRecord.physical.meanDensityKgM3 = std::stod(match[1].str()) * 1000.0;
         } catch (...) {}
     }
 
-    // Albedo
+    // Geometric / Bond Albedo
     std::regex albedoRegex(R"(albedo\s*=\s*~?([0-9.+-E]+))", std::regex::icase);
     if (std::regex_search(rawText, match, albedoRegex)) {
         try {
             outRecord.physical.albedo = std::stod(match[1].str());
+        } catch (...) {}
+    }
+
+    // Rotation Period (hours or days)
+    std::regex rotPerDRegex(R"(Rot\.\s*Per\.\s*\(?d\)?\s*=\s*~?([0-9.+-E]+))", std::regex::icase);
+    std::regex rotPerHRegex(R"(Rot\.\s*Per\.\s*\(?h\)?\s*=\s*~?([0-9.+-E]+))", std::regex::icase);
+    if (std::regex_search(rawText, match, rotPerHRegex)) {
+        try {
+            outRecord.physical.rotationPeriodHours = std::stod(match[1].str());
+        } catch (...) {}
+    } else if (std::regex_search(rawText, match, rotPerDRegex)) {
+        try {
+            outRecord.physical.rotationPeriodHours = std::stod(match[1].str()) * 24.0;
+        } catch (...) {}
+    }
+
+    // Axial tilt (degrees)
+    std::regex tiltRegex(R"(Obliquity\s*to\s*orbit\s*\(?deg\)?\s*=\s*~?([0-9.+-E]+))", std::regex::icase);
+    if (std::regex_search(rawText, match, tiltRegex)) {
+        try {
+            outRecord.physical.axialTiltDeg = std::stod(match[1].str());
         } catch (...) {}
     }
 
@@ -237,9 +327,19 @@ bool JPLHorizonsProvider::parseHorizonsResponse(const std::string& rawText,
 
         outRecord.orbital.epochJd = firstState.epochJd;
         double rM = glm::length(firstState.positionM);
-        double vMps = glm::length(firstState.velocityMps);
         outRecord.orbital.semiMajorAxisM = rM;
         outRecord.orbital.semiMajorAxisAU = rM / UnitConverter::AU_TO_METERS;
+
+        // Calculate surface gravity and escape velocity if physical parameters exist
+        if (outRecord.physical.radiusM.has_value() && outRecord.physical.massKg.has_value()) {
+            double r = outRecord.physical.radiusM.value();
+            double m = outRecord.physical.massKg.value();
+            if (r > 0.0) {
+                outRecord.physical.surfaceGravityMps2 = (UnitConverter::G_CONST * m) / (r * r);
+                outRecord.physical.escapeVelocityMps = std::sqrt(2.0 * UnitConverter::G_CONST * m / r);
+            }
+        }
+
         return true;
     }
 
