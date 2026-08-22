@@ -156,6 +156,12 @@ bool DataManager::importObject(ProviderType providerType, const std::string& sou
 
     // Check if body is a moon and link to parent body
     auto metaOpt = JPLHorizonsProvider::getBodyMetadata(sourceIdOrName);
+    if (!metaOpt.has_value()) {
+        metaOpt = JPLHorizonsProvider::getBodyMetadata(rec.object.slug);
+    }
+    if (!metaOpt.has_value()) {
+        metaOpt = JPLHorizonsProvider::getBodyMetadata(rec.object.name);
+    }
     if (metaOpt.has_value() && !metaOpt.value().parentSlug.empty()) {
         auto parentObj = m_objRepo.getObjectBySlug(metaOpt.value().parentSlug);
         if (parentObj.has_value()) {

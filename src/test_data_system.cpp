@@ -144,8 +144,28 @@ int main() {
     }
     std::cout << "    - Live Keplerian Dynamic Orbit Curves Verified for all planets." << std::endl;
 
+    // 11. Test PhysicsEngine::resetSimulation (Clean workspace & restore baseline)
+    int initialCount = physics.getObjectCount();
+    CelestialBody customProbe;
+    customProbe.id = "test_spacecraft";
+    customProbe.name = "Test Spacecraft Probe";
+    customProbe.type = "Artificial Satellite";
+    customProbe.position = glm::vec3(5.0f, 0.0f, 5.0f);
+    customProbe.massKg = 800.0;
+    customProbe.radius3D = 0.01f;
+    physics.addBody(customProbe);
+    assert(physics.getObjectCount() == initialCount + 1);
+
+    physics.resetSimulation(objRepo);
+    assert(physics.getObjectCount() == initialCount);
+    assert(physics.getSimulatedTimeSeconds() == 0.0);
+    assert(physics.getRealTimeElapsedSeconds() == 0.0);
+    assert(!physics.isPaused());
+    std::cout << "[11] PhysicsEngine::resetSimulation -> PASS" << std::endl;
+    std::cout << "    - Successfully cleared custom bodies and restored clean baseline simulation state (" << initialCount << " bodies)." << std::endl;
+
     std::cout << "\n==========================================================" << std::endl;
-    std::cout << " ALL 10 TEST SUITES PASSED SUCCESSFULLY!" << std::endl;
+    std::cout << " ALL 11 TEST SUITES PASSED SUCCESSFULLY!" << std::endl;
     std::cout << "==========================================================" << std::endl;
 
     return 0;

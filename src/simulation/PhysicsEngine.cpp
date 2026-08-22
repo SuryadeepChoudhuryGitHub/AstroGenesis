@@ -66,10 +66,80 @@ void PhysicsEngine::reloadCurrentSystem(ObjectRepository& repo) {
     loadFromDatabase(repo, m_currentCategory);
 }
 
+void PhysicsEngine::resetSimulation(ObjectRepository& repo) {
+    m_isPaused = false;
+    m_timeScale = 86400.0f;
+    m_simulatedTimeSeconds = 0.0;
+    m_realTimeElapsedSeconds = 0.0;
+    m_initialSystemEnergyJ = 0.0;
+    m_totalSystemEnergyJ = 0.0;
+    m_energyConservationDriftPct = 0.0;
+    m_selectedBodyIndex = 0;
+
+    // Reload clean default Solar System from database
+    loadFromDatabase(repo, "Solar System");
+
+    // Clear all orbital trails and generate clean fresh 3D trails
+    generateOrbitalTrails();
+
+    // Reset particle system (Asteroid belt)
+    m_particleSystem.initializeDefaultSystem();
+    setAsteroidPopulationMode(m_asteroidPopulationMode, &repo);
+
+    // Reset deformable matter lab
+    m_matterSystem.initialize();
+
+    std::cout << "[PhysicsEngine] Simulation workspace reset to clean baseline start." << std::endl;
+}
+
 void PhysicsEngine::addBody(const CelestialBody& body) {
     m_bodies.push_back(body);
     updateBodyScales();
     updatePhysicalQuantities();
+
+    auto& newBody = m_bodies.back();
+    newBody.trailHistory.clear();
+
+    if (newBody.dynamicOrbitCurve.size() >= 2) {
+        glm::vec3 centerPosAU(0.0f);
+        if (newBody.parentObjectId.has_value()) {
+            for (const auto& p : m_bodies) {
+                if (p.dbId == newBody.parentObjectId.value()) {
+                    centerPosAU = p.position;
+                    break;
+                }
+            }
+        } else {
+            for (const auto& p : m_bodies) {
+                if (p.id == "sol" || p.type.find("Star") != std::string::npos) {
+                    centerPosAU = p.position;
+                    break;
+                }
+            }
+        }
+
+        glm::vec3 curRelPos = newBody.position - centerPosAU;
+        size_t closestIdx = 0;
+        float minDistSq = 1e12f;
+        for (size_t k = 0; k < newBody.dynamicOrbitCurve.size(); ++k) {
+            glm::vec3 diff = newBody.dynamicOrbitCurve[k] - curRelPos;
+            float dSq = glm::dot(diff, diff);
+            if (dSq < minDistSq) {
+                minDistSq = dSq;
+                closestIdx = k;
+            }
+        }
+
+        size_t totalPts = newBody.dynamicOrbitCurve.size();
+        size_t numTrailPts = std::min((size_t)160, totalPts);
+        for (size_t s = 0; s < numTrailPts; ++s) {
+            size_t ptIdx = (closestIdx + totalPts - (numTrailPts - 1 - s)) % totalPts;
+            glm::vec3 trailPtAU = centerPosAU + newBody.dynamicOrbitCurve[ptIdx];
+            newBody.trailHistory.push_back(trailPtAU);
+        }
+    } else {
+        newBody.trailHistory.push_back(newBody.position);
+    }
 }
 
 void PhysicsEngine::clearBodies() {
@@ -104,30 +174,53 @@ void PhysicsEngine::computeBarycenterTransform() {
 }
 
 void PhysicsEngine::generateOrbitalTrails() {
-    glm::dvec3 starPosM(0.0);
-    for (const auto& b : m_bodies) {
-        if (b.id == "sol" || b.type.find("Star") != std::string::npos) {
-            starPosM = b.positionM;
-            break;
-        }
-    }
+    updatePhysicalQuantities();
 
     for (auto& body : m_bodies) {
-        if (body.id != "sol" && body.type.find("Star") == std::string::npos) {
-            body.trailHistory.clear();
-            const int initialSteps = 240;
-            glm::dvec3 relPosM = body.positionM - starPosM;
-            double r = glm::length(relPosM) / AU_METERS;
-            if (r <= 0.0001) continue;
+        if (body.id == "sol" || body.type.find("Star") != std::string::npos) continue;
 
-            double curAngle = std::atan2(relPosM.z, relPosM.x);
-            glm::vec3 starPosAU = glm::vec3((float)(starPosM.x / AU_METERS), (float)(starPosM.y / AU_METERS), (float)(starPosM.z / AU_METERS));
-            for (int s = initialSteps; s >= 0; --s) {
-                double angle = curAngle - (2.0 * PI_DBL * (double)s / (double)initialSteps);
-                float px = (float)(r * std::cos(angle));
-                float pz = (float)(r * std::sin(angle));
-                body.trailHistory.push_back(starPosAU + glm::vec3(px, 0.0f, pz));
+        body.trailHistory.clear();
+
+        if (body.dynamicOrbitCurve.size() >= 2) {
+            // Find attractor center position (Parent Planet for Moons, Host Star for Planets/Asteroids)
+            glm::vec3 centerPosAU(0.0f);
+            if (body.parentObjectId.has_value()) {
+                for (const auto& p : m_bodies) {
+                    if (p.dbId == body.parentObjectId.value()) {
+                        centerPosAU = p.position;
+                        break;
+                    }
+                }
+            } else {
+                for (const auto& p : m_bodies) {
+                    if (p.id == "sol" || p.type.find("Star") != std::string::npos) {
+                        centerPosAU = p.position;
+                        break;
+                    }
+                }
             }
+
+            glm::vec3 curRelPos = body.position - centerPosAU;
+            size_t closestIdx = 0;
+            float minDistSq = 1e12f;
+            for (size_t k = 0; k < body.dynamicOrbitCurve.size(); ++k) {
+                glm::vec3 diff = body.dynamicOrbitCurve[k] - curRelPos;
+                float dSq = glm::dot(diff, diff);
+                if (dSq < minDistSq) {
+                    minDistSq = dSq;
+                    closestIdx = k;
+                }
+            }
+
+            size_t totalPts = body.dynamicOrbitCurve.size();
+            size_t numTrailPts = std::min((size_t)160, totalPts);
+            for (size_t s = 0; s < numTrailPts; ++s) {
+                size_t ptIdx = (closestIdx + totalPts - (numTrailPts - 1 - s)) % totalPts;
+                glm::vec3 trailPtAU = centerPosAU + body.dynamicOrbitCurve[ptIdx];
+                body.trailHistory.push_back(trailPtAU);
+            }
+        } else {
+            body.trailHistory.push_back(body.position);
         }
     }
 }
@@ -238,8 +331,11 @@ void PhysicsEngine::integrateNBody(double deltaSeconds) {
         // Update 3D orbital trail history
         if (m_bodies[i].id != "sol" && m_bodies[i].type.find("Star") == std::string::npos) {
             glm::vec3 curPos = m_bodies[i].position;
+            double orbR = (m_bodies[i].realOrbitRadiusAU > 0.0) ? m_bodies[i].realOrbitRadiusAU : (m_bodies[i].semiMajorAxisAU > 0.0 ? m_bodies[i].semiMajorAxisAU : (double)glm::length(curPos));
+            float minTrailDist = std::clamp((float)(orbR * 0.003), 0.00001f, 0.003f);
+
             if (m_bodies[i].trailHistory.empty() ||
-                glm::distance(m_bodies[i].trailHistory.back(), curPos) > 0.005f) {
+                glm::distance(m_bodies[i].trailHistory.back(), curPos) >= minTrailDist) {
                 m_bodies[i].trailHistory.push_back(curPos);
                 if (m_bodies[i].trailHistory.size() > m_bodies[i].maxTrailPoints) {
                     m_bodies[i].trailHistory.pop_front();
@@ -467,7 +563,7 @@ void PhysicsEngine::updatePhysicalQuantities() {
 
             // Generate full dynamic Keplerian ellipse (updating in real time with physical forces)
             b.dynamicOrbitCurve.clear();
-            const int numOrbitSegments = 160;
+            const int numOrbitSegments = (b.parentObjectId.has_value() || b.realOrbitRadiusAU < 0.05) ? 256 : 512;
             double pSemiLatusM = b.semiMajorAxisM * (1.0 - b.eccentricity * b.eccentricity);
             if (pSemiLatusM > 0.0) {
                 b.dynamicOrbitCurve.reserve(numOrbitSegments + 1);

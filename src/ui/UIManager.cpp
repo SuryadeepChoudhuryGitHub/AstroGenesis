@@ -148,7 +148,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
                          mousePos.y >= m_viewportY && mousePos.y <= m_viewportY + m_viewportH) && !io.WantCaptureMouse;
 
     // 1. Top Bar (can switch systems or open modals)
-    drawTopBar(windowWidth, physics, objRepo);
+    drawTopBar(windowWidth, physics, camera, objRepo);
 
     // 2. Left Hierarchy & Navigation Panel (Selection Place 1, can switch systems or select bodies)
     drawLeftPanel(physics, camera, objRepo, topBarH, statusBarH, windowHeight);
@@ -159,7 +159,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
     // 4. Bottom Row Cards (including 2D Orbit Vis Schematic: Selection Place 3)
     float bottomY = windowHeight - statusBarH - bottomH;
     float bpW = m_viewportW / 3.0f;
-    drawTimeControls(physics, leftPanelW,                 bottomY, bpW, bottomH);
+    drawTimeControls(physics, camera, objRepo, leftPanelW, bottomY, bpW, bottomH);
     drawSimMetrics  (physics, fps, leftPanelW + bpW,      bottomY, bpW, bottomH);
     drawOrbitVis    (physics, camera, leftPanelW + bpW * 2, bottomY, bpW, bottomH);
 
@@ -190,7 +190,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
     }
 }
 
-void UIManager::drawTopBar(float width, PhysicsEngine& physics, ObjectRepository& objRepo) {
+void UIManager::drawTopBar(float width, PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo) {
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(width, 48));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
@@ -226,11 +226,26 @@ void UIManager::drawTopBar(float width, PhysicsEngine& physics, ObjectRepository
         ImGui::PopStyleColor(2);
     }
 
-    // Top Bar Action Buttons: Data Manager, Validation, Asteroids, Matter Lab
-    float rightOffset = width - 670.0f;
+    // Top Bar Action Buttons: Reset Workspace, Data Manager, Validation, Asteroids, Matter Lab
+    float rightOffset = width - 830.0f;
     ImGui::SameLine(rightOffset);
 
+    // 0. RESET WORKSPACE (Clean Start)
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.50f, 0.16f, 0.16f, 0.85f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.70f, 0.22f, 0.22f, 0.95f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.9f, 0.9f, 1.0f));
+    if (ImGui::Button("↺ RESET WORKSPACE", ImVec2(150, 28))) {
+        physics.resetSimulation(objRepo);
+        camera.resetOverview(glm::vec3(0.0f), 6.0f);
+        addEventLog("Simulation workspace reset to fresh start");
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Clear workspace, remove all custom loaded objects, and reset simulation to a fresh default start (Hotkey: R / Ctrl+R)");
+    }
+    ImGui::PopStyleColor(3);
+
     // 1. DATA MANAGER
+    ImGui::SameLine(0, 5);
     if (m_showDataManager) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.00f, 0.65f, 0.85f, 0.95f));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
@@ -312,7 +327,21 @@ void UIManager::drawLeftPanel(PhysicsEngine& physics, Camera& camera, ObjectRepo
     std::string headerLabel = curCat.empty() ? "SOLAR SYSTEM" : curCat;
     std::transform(headerLabel.begin(), headerLabel.end(), headerLabel.begin(), ::toupper);
 
-    if (SectionHeader(headerLabel.c_str(), true)) {
+    ImGui::TextColored(Col::Accent, "%s", headerLabel.c_str());
+    ImGui::SameLine(panelW - 68.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.40f, 0.14f, 0.14f, 0.75f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.85f, 0.85f, 1.0f));
+    if (ImGui::Button("↺ Reset", ImVec2(56, 18))) {
+        physics.resetSimulation(objRepo);
+        camera.resetOverview(glm::vec3(0.0f), 6.0f);
+        addEventLog("Simulation workspace reset to fresh start");
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Reset workspace to clean start (Hotkey: R)");
+    }
+    ImGui::PopStyleColor(2);
+
+    if (true) {
         const auto& bodies = physics.getBodies();
         int selectedIndex = physics.getSelectedBodyIndex();
 
@@ -759,7 +788,7 @@ void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vp
     fg->PopClipRect();
 }
 
-void UIManager::drawTimeControls(PhysicsEngine& physics, float x, float y, float w, float h) {
+void UIManager::drawTimeControls(PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo, float x, float y, float w, float h) {
     ImGui::SetNextWindowPos(ImVec2(x, y));
     ImGui::SetNextWindowSize(ImVec2(w, h));
     ImGui::Begin("##TimeControls", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
@@ -777,14 +806,28 @@ void UIManager::drawTimeControls(PhysicsEngine& physics, float x, float y, float
     if (ImGui::Button(">|", ImVec2(28, 24))) { physics.stepFrameForward(); }
     if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Step Forward (Frame)"); }
 
-    ImGui::SameLine(0, 8);
-    if (ImGui::Button("1s/s", ImVec2(36, 24))) { physics.setTimeScale(1.0f); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button("1d/s", ImVec2(36, 24))) { physics.setTimeScale(86400.0f); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button("1m/s", ImVec2(36, 24))) { physics.setTimeScale(2592000.0f); }
-    ImGui::SameLine(0, 4);
-    if (ImGui::Button("1y/s", ImVec2(36, 24))) { physics.setTimeScale(31536000.0f); }
+    ImGui::SameLine(0, 6);
+    if (ImGui::Button("1s/s", ImVec2(32, 24))) { physics.setTimeScale(1.0f); }
+    ImGui::SameLine(0, 3);
+    if (ImGui::Button("1d/s", ImVec2(32, 24))) { physics.setTimeScale(86400.0f); }
+    ImGui::SameLine(0, 3);
+    if (ImGui::Button("1m/s", ImVec2(32, 24))) { physics.setTimeScale(2592000.0f); }
+    ImGui::SameLine(0, 3);
+    if (ImGui::Button("1y/s", ImVec2(32, 24))) { physics.setTimeScale(31536000.0f); }
+
+    ImGui::SameLine(0, 6);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.48f, 0.16f, 0.16f, 0.85f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.68f, 0.22f, 0.22f, 0.95f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.88f, 0.88f, 1.0f));
+    if (ImGui::Button("↺ Reset", ImVec2(56, 24))) {
+        physics.resetSimulation(objRepo);
+        camera.resetOverview(glm::vec3(0.0f), 6.0f);
+        addEventLog("Simulation workspace reset to fresh start");
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Clear workspace, remove all custom loaded objects, and reset simulation to a fresh default start (Hotkey: R / Ctrl+R)");
+    }
+    ImGui::PopStyleColor(3);
 
     float scale = physics.getTimeScale();
     ImGui::PushItemWidth(w - 20);

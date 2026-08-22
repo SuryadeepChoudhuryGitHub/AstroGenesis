@@ -135,4 +135,84 @@ std::string UnitConverter::formatDensity(double kgM3) {
     return std::string(buf);
 }
 
+void UnitConverter::keplerianToCartesian(double aMeters,
+                                        double eccentricity,
+                                        double inclinationDeg,
+                                        double longAscNodeDeg,
+                                        double argPeriapsisDeg,
+                                        double meanAnomalyDeg,
+                                        double centralMassKg,
+                                        double bodyMassKg,
+                                        double& outPosX, double& outPosY, double& outPosZ,
+                                        double& outVelX, double& outVelY, double& outVelZ) {
+    if (aMeters <= 0.0) aMeters = 1.0 * AU_TO_METERS;
+    double e = std::clamp(eccentricity, 0.0, 0.999);
+    double iRad = degToRad(inclinationDeg);
+    double omegaNodeRad = degToRad(longAscNodeDeg);
+    double argPeriRad = degToRad(argPeriapsisDeg);
+    double mRad = degToRad(meanAnomalyDeg);
+
+    // 1. Solve Kepler's Equation for Eccentric Anomaly E: M = E - e*sin(E)
+    double E = mRad;
+    for (int iter = 0; iter < 15; ++iter) {
+        double f = E - e * std::sin(E) - mRad;
+        double fPrime = 1.0 - e * std::cos(E);
+        double delta = f / fPrime;
+        E -= delta;
+        if (std::abs(delta) < 1e-12) break;
+    }
+
+    // 2. Compute True Anomaly nu
+    double sinNu = (std::sqrt(1.0 - e * e) * std::sin(E)) / (1.0 - e * std::cos(E));
+    double cosNu = (std::cos(E) - e) / (1.0 - e * std::cos(E));
+    double nu = std::atan2(sinNu, cosNu);
+
+    // 3. Radial distance r and speed in perifocal coordinate frame
+    double r = (aMeters * (1.0 - e * e)) / (1.0 + e * std::cos(nu));
+    double mu = G_CONST * (centralMassKg + bodyMassKg);
+    double p = aMeters * (1.0 - e * e);
+    double h = std::sqrt(std::max(1.0, mu * p));
+
+    double x_peri = r * std::cos(nu);
+    double y_peri = r * std::sin(nu);
+
+    double vx_peri = - (mu / h) * std::sin(nu);
+    double vy_peri = (mu / h) * (e + std::cos(nu));
+
+    // 4. Standard 3D Euler Transformation to Ecliptic Frame: R_z(Omega) * R_x(i) * R_z(omega)
+    double cosNode = std::cos(omegaNodeRad);
+    double sinNode = std::sin(omegaNodeRad);
+    double cosInc = std::cos(iRad);
+    double sinInc = std::sin(iRad);
+    double cosArg = std::cos(argPeriRad);
+    double sinArg = std::sin(argPeriRad);
+
+    // Unit vectors in ecliptic plane:
+    double P_x = cosNode * cosArg - sinNode * sinArg * cosInc;
+    double P_y = sinNode * cosArg + cosNode * sinArg * cosInc;
+    double P_z = sinArg * sinInc;
+
+    double Q_x = -cosNode * sinArg - sinNode * cosArg * cosInc;
+    double Q_y = -sinNode * sinArg + cosNode * cosArg * cosInc;
+    double Q_z = cosArg * sinInc;
+
+    double posEcl_x = x_peri * P_x + y_peri * Q_x;
+    double posEcl_y = x_peri * P_y + y_peri * Q_y;
+    double posEcl_z = x_peri * P_z + y_peri * Q_z;
+
+    double velEcl_x = vx_peri * P_x + vy_peri * Q_x;
+    double velEcl_y = vx_peri * P_y + vy_peri * Q_y;
+    double velEcl_z = vx_peri * P_z + vy_peri * Q_z;
+
+    // 5. Map to AstroGenesis Coordinate System:
+    // AstroGenesis: X = Ecliptic X, Y = Ecliptic Z (UP / Normal), Z = Ecliptic Y (In-Plane Depth)
+    outPosX = posEcl_x;
+    outPosY = posEcl_z;
+    outPosZ = posEcl_y;
+
+    outVelX = velEcl_x;
+    outVelY = velEcl_z;
+    outVelZ = velEcl_y;
+}
+
 } // namespace AstroGenesis

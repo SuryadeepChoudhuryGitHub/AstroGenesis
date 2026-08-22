@@ -32,11 +32,14 @@ static const std::map<std::string, JPLHorizonsProvider::HorizonsBodyMeta> HORIZO
     { "phobos",    { "401", "Phobos",           "Natural Satellite (Moon)","mars",   "499", 11.26,    1.0659e16 } },
     { "deimos",    { "402", "Deimos",           "Natural Satellite (Moon)","mars",   "499", 6.20,     1.4762e15 } },
 
-    // Jupiter's Galilean Moons
+    // Jupiter's Galilean & Inner Moons
     { "io",        { "501", "Io",               "Natural Satellite (Moon)","jupiter","599", 1821.6,   8.9319e22 } },
     { "europa",    { "502", "Europa",           "Natural Satellite (Moon)","jupiter","599", 1560.8,   4.7998e22 } },
     { "ganymede",  { "503", "Ganymede",         "Natural Satellite (Moon)","jupiter","599", 2634.1,   1.4819e23 } },
     { "callisto",  { "504", "Callisto",         "Natural Satellite (Moon)","jupiter","599", 2410.3,   1.0759e23 } },
+    { "amalthea",  { "505", "Amalthea",         "Natural Satellite (Moon)","jupiter","599", 83.5,     2.0800e18 } },
+    { "himalia",   { "506", "Himalia",          "Natural Satellite (Moon)","jupiter","599", 85.0,     4.2000e18 } },
+    { "thebe",     { "514", "Thebe",            "Natural Satellite (Moon)","jupiter","599", 49.3,     4.3000e17 } },
 
     // Saturn's Major Moons
     { "mimas",     { "601", "Mimas",            "Natural Satellite (Moon)","saturn", "699", 198.2,    3.7500e19 } },
@@ -45,7 +48,11 @@ static const std::map<std::string, JPLHorizonsProvider::HorizonsBodyMeta> HORIZO
     { "dione",     { "604", "Dione",            "Natural Satellite (Moon)","saturn", "699", 561.4,    1.0950e21 } },
     { "rhea",      { "605", "Rhea",             "Natural Satellite (Moon)","saturn", "699", 763.8,    2.3060e21 } },
     { "titan",     { "606", "Titan",            "Natural Satellite (Moon)","saturn", "699", 2574.7,   1.3452e23 } },
+    { "hyperion",  { "607", "Hyperion",         "Natural Satellite (Moon)","saturn", "699", 135.0,    5.6200e18 } },
     { "iapetus",   { "608", "Iapetus",          "Natural Satellite (Moon)","saturn", "699", 734.5,    1.8050e21 } },
+    { "phoebe",    { "609", "Phoebe",           "Natural Satellite (Moon)","saturn", "699", 106.5,    8.2920e18 } },
+    { "janus",     { "610", "Janus",            "Natural Satellite (Moon)","saturn", "699", 89.5,     1.8975e18 } },
+    { "epimetheus",{ "611", "Epimetheus",       "Natural Satellite (Moon)","saturn", "699", 58.1,     5.2660e17 } },
 
     // Uranus's Moons
     { "miranda",   { "705", "Miranda",          "Natural Satellite (Moon)","uranus", "799", 235.8,    6.4000e19 } },
@@ -53,13 +60,17 @@ static const std::map<std::string, JPLHorizonsProvider::HorizonsBodyMeta> HORIZO
     { "umbriel",   { "702", "Umbriel",          "Natural Satellite (Moon)","uranus", "799", 584.7,    1.2700e21 } },
     { "titania",   { "703", "Titania",          "Natural Satellite (Moon)","uranus", "799", 788.4,    3.4000e21 } },
     { "oberon",    { "704", "Oberon",           "Natural Satellite (Moon)","uranus", "799", 761.4,    3.0000e21 } },
+    { "puck",      { "715", "Puck",             "Natural Satellite (Moon)","uranus", "799", 81.0,     2.9000e18 } },
 
     // Neptune's Moons
     { "triton",    { "801", "Triton",           "Natural Satellite (Moon)","neptune","899", 1353.4,   2.1400e22 } },
+    { "nereid",    { "802", "Nereid",           "Natural Satellite (Moon)","neptune","899", 170.0,    3.1000e19 } },
     { "proteus",   { "808", "Proteus",          "Natural Satellite (Moon)","neptune","899", 210.0,    4.4000e19 } },
 
     // Pluto's Moon
     { "charon",    { "901", "Charon",           "Natural Satellite (Moon)","pluto",  "999", 606.0,    1.5860e21 } },
+    { "nix",       { "902", "Nix",              "Natural Satellite (Moon)","pluto",  "999", 24.9,     4.5000e16 } },
+    { "hydra",     { "903", "Hydra",            "Natural Satellite (Moon)","pluto",  "999", 27.5,     4.8000e16 } },
 
     // Asteroids & Comets
     { "ceres",     { "2000001", "1 Ceres",      "Dwarf Planet / Asteroid","",        "",    473.0,     9.3835e20 } },
@@ -94,6 +105,19 @@ std::optional<JPLHorizonsProvider::HorizonsBodyMeta> JPLHorizonsProvider::getBod
     for (const auto& kv : HORIZONS_CATALOG) {
         if (kv.second.id == nameOrId) return kv.second;
     }
+
+    // Dynamic numeric satellite detection from JPL 3-digit planet/moon numbering
+    try {
+        int code = std::stoi(nameOrId);
+        if (code >= 301 && code <= 398) return HorizonsBodyMeta{ nameOrId, "Earth Satellite (" + nameOrId + ")", "Natural Satellite (Moon)", "earth", "399", 50.0, 1e16 };
+        if (code >= 401 && code <= 498) return HorizonsBodyMeta{ nameOrId, "Mars Satellite (" + nameOrId + ")", "Natural Satellite (Moon)", "mars", "499", 10.0, 1e15 };
+        if (code >= 501 && code <= 598) return HorizonsBodyMeta{ nameOrId, "Jovian Satellite (" + nameOrId + ")", "Natural Satellite (Moon)", "jupiter", "599", 100.0, 1e18 };
+        if (code >= 601 && code <= 698) return HorizonsBodyMeta{ nameOrId, "Saturnian Satellite (" + nameOrId + ")", "Natural Satellite (Moon)", "saturn", "699", 100.0, 1e18 };
+        if (code >= 701 && code <= 798) return HorizonsBodyMeta{ nameOrId, "Uranian Satellite (" + nameOrId + ")", "Natural Satellite (Moon)", "uranus", "799", 80.0, 1e18 };
+        if (code >= 801 && code <= 898) return HorizonsBodyMeta{ nameOrId, "Neptunian Satellite (" + nameOrId + ")", "Natural Satellite (Moon)", "neptune", "899", 80.0, 1e18 };
+        if (code >= 901 && code <= 998) return HorizonsBodyMeta{ nameOrId, "Plutonian Satellite (" + nameOrId + ")", "Natural Satellite (Moon)", "pluto", "999", 50.0, 1e16 };
+    } catch (...) {}
+
     return std::nullopt;
 }
 
@@ -381,9 +405,10 @@ bool JPLHorizonsProvider::parseVectorBlock(const std::string& vecBlock,
                         rec.targetName = targetName;
                         rec.epochJd = curJd;
                         rec.epochUtc = curUtc;
-                        rec.positionM = glm::dvec3(xKm * 1000.0, yKm * 1000.0, zKm * 1000.0);
-                        rec.velocityMps = glm::dvec3(vxKmS * 1000.0, vyKmS * 1000.0, vzKmS * 1000.0);
-                        rec.referenceFrame = "ICRF/Barycentric";
+                        // Map JPL Horizons Ecliptic (X, Y in-plane, Z normal) into AstroGenesis (X horizontal, Y normal/up, Z in-plane depth)
+                        rec.positionM = glm::dvec3(xKm * 1000.0, zKm * 1000.0, yKm * 1000.0);
+                        rec.velocityMps = glm::dvec3(vxKmS * 1000.0, vzKmS * 1000.0, vyKmS * 1000.0);
+                        rec.referenceFrame = "ICRF/Ecliptic_J2000";
                         rec.sourceId = 1;
                         outRecords.push_back(rec);
                     }

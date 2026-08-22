@@ -193,19 +193,24 @@ bool JPLSBDBProvider::fetchObjectData(const std::string& sourceIdOrName,
             }
         }
 
-        // Compute State Vector from Keplerian elements at epoch
+        // Compute 3D State Vector from full Keplerian elements at epoch
         double aM = outRecord.orbital.semiMajorAxisM.value_or(2.7 * UnitConverter::AU_TO_METERS);
         double e = outRecord.orbital.eccentricity.value_or(0.08);
-        double rPeri = aM * (1.0 - e);
+        double incDeg = outRecord.orbital.inclinationDeg.value_or(0.0);
+        double nodeDeg = outRecord.orbital.longAscendingNodeDeg.value_or(0.0);
+        double argDeg = outRecord.orbital.argPeriapsisDeg.value_or(0.0);
+        double maDeg = outRecord.orbital.meanAnomalyDeg.value_or(0.0);
         double massSol = 1.9885e30;
         double massObj = outRecord.physical.massKg.value_or(1e15);
-        double vPeri = std::sqrt((UnitConverter::G_CONST * (massSol + massObj) / aM) * ((1.0 + e) / (1.0 - e)));
 
-        double argRad = UnitConverter::degToRad(outRecord.orbital.argPeriapsisDeg.value_or(0.0));
         outRecord.stateVector.epochJd = outRecord.orbital.epochJd;
-        outRecord.stateVector.positionM = glm::dvec3(rPeri * std::cos(argRad), 0.0, rPeri * std::sin(argRad));
-        outRecord.stateVector.velocityMps = glm::dvec3(-vPeri * std::sin(argRad), 0.0, vPeri * std::cos(argRad));
-        outRecord.stateVector.referenceFrame = "ICRF/Barycentric";
+        UnitConverter::keplerianToCartesian(
+            aM, e, incDeg, nodeDeg, argDeg, maDeg,
+            massSol, massObj,
+            outRecord.stateVector.positionM.x, outRecord.stateVector.positionM.y, outRecord.stateVector.positionM.z,
+            outRecord.stateVector.velocityMps.x, outRecord.stateVector.velocityMps.y, outRecord.stateVector.velocityMps.z
+        );
+        outRecord.stateVector.referenceFrame = "ICRF/Ecliptic_J2000";
 
         // Composition
         outRecord.composition = {

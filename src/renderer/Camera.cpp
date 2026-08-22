@@ -97,6 +97,17 @@ void Camera::resetCenter() {
     m_distance = std::max(0.0000001f, m_targetRadius * 3.5f);
 }
 
+void Camera::resetOverview(const glm::vec3& targetPos, float distance) {
+    m_desiredTarget = targetPos;
+    m_currentTarget = targetPos;
+    m_startPos = targetPos;
+    m_yaw = 0.0f;
+    m_pitch = 0.45f;
+    m_distance = distance;
+    m_targetDistance = distance;
+    m_isTransitioning = false;
+}
+
 glm::vec3 Camera::getEyePosition() const {
     // Returns camera eye position relative to origin (0,0,0) — NOT world space.
     // The focused body is always at origin in view space.

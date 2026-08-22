@@ -64,10 +64,8 @@ bool Application::initialize(int width, int height, const char* title) {
         std::cerr << "[Application] Warning: Database initialization error: " << m_db.getLastError() << std::endl;
     }
 
-    // 2. Check Seed Data (Auto-seed high precision baseline if empty)
-    if (!SeedData::isDatabaseSeeded(m_objRepo)) {
-        SeedData::seedDefaultDatabase(m_objRepo);
-    }
+    // 2. Ensure Database has latest NASA/JPL high-precision baseline datasets
+    SeedData::seedDefaultDatabase(m_objRepo);
 
     // 3. Initialize External Data Providers
     m_dataManager.initialize();
@@ -181,8 +179,15 @@ void Application::processInput(float deltaTime) {
         }
     }
 
-    if (!io.WantTextInput && !io.WantCaptureKeyboard && ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
-        m_physics.togglePause();
+    if (!io.WantTextInput && !io.WantCaptureKeyboard) {
+        if (ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
+            m_physics.togglePause();
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_R, false)) {
+            m_physics.resetSimulation(m_objRepo);
+            m_camera.resetOverview(glm::vec3(0.0f), 6.0f);
+            m_uiManager.addEventLog("Simulation workspace reset to fresh start (Hotkey: R)");
+        }
     }
 }
 

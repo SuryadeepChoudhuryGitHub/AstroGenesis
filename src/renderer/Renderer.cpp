@@ -822,14 +822,13 @@ void Renderer::renderTrails(const Camera& camera, float aspect, const std::vecto
     }
 
     // 1. Render dynamic 3D Keplerian osculating orbit curve (computed live from physical state)
-    std::vector<TrailVertex> guideVerts;
     for (int i = 0; i < (int)bodies.size(); ++i) {
         const auto& body = bodies[i];
         if (body.id == "sol" || body.type.find("Star") != std::string::npos) continue;
 
         bool isSelected = (i == selectedIndex);
-        float guideAlpha = isSelected ? 0.45f : 0.22f;
-        glm::vec3 ringColor = body.color * (isSelected ? 1.25f : 0.85f);
+        float guideAlpha = isSelected ? 0.48f : 0.24f;
+        glm::vec3 ringColor = body.color * (isSelected ? 1.30f : 0.88f);
 
         // Determine orbit center: parent planet for moons, primary star for planets
         glm::vec3 centerPos = starPos;
@@ -853,61 +852,105 @@ void Renderer::renderTrails(const Camera& camera, float aspect, const std::vecto
         }
         glm::vec3 relCenterPos = centerPos - cameraTarget;
 
+        std::vector<TrailVertex> orbitVerts;
         if (body.dynamicOrbitCurve.size() >= 2) {
-            for (size_t s = 0; s < body.dynamicOrbitCurve.size() - 1; ++s) {
-                glm::vec3 p1 = relCenterPos + body.dynamicOrbitCurve[s];
-                glm::vec3 p2 = relCenterPos + body.dynamicOrbitCurve[s + 1];
-
-                guideVerts.push_back({ p1, glm::vec4(ringColor, guideAlpha) });
-                guideVerts.push_back({ p2, glm::vec4(ringColor, guideAlpha) });
+            orbitVerts.reserve(body.dynamicOrbitCurve.size());
+            for (size_t s = 0; s < body.dynamicOrbitCurve.size(); ++s) {
+                glm::vec3 p = relCenterPos + body.dynamicOrbitCurve[s];
+                orbitVerts.push_back({ p, glm::vec4(ringColor, guideAlpha) });
             }
         } else {
-            // Fallback circular ring if curve not yet initialized
+            // Fallback circular ring
             double orbitRadiusAU = (body.realOrbitRadiusAU > 0.0) ? body.realOrbitRadiusAU : (body.semiMajorAxisAU > 0.0 ? body.semiMajorAxisAU : (double)glm::length(body.position - centerPos));
             if (orbitRadiusAU > 0.00005) {
-                const int circleSegments = 128;
-                for (int s = 0; s < circleSegments; ++s) {
-                    float theta1 = 2.0f * PI * (float)s / (float)circleSegments;
-                    float theta2 = 2.0f * PI * (float)(s + 1) / (float)circleSegments;
-
-                    glm::vec3 p1 = centerPos + glm::vec3((float)(orbitRadiusAU * std::cos(theta1)), 0.0f, (float)(orbitRadiusAU * std::sin(theta1))) - cameraTarget;
-                    glm::vec3 p2 = centerPos + glm::vec3((float)(orbitRadiusAU * std::cos(theta2)), 0.0f, (float)(orbitRadiusAU * std::sin(theta2))) - cameraTarget;
-
-                    guideVerts.push_back({ p1, glm::vec4(ringColor, guideAlpha) });
-                    guideVerts.push_back({ p2, glm::vec4(ringColor, guideAlpha) });
+                const int circleSegments = 256;
+                orbitVerts.reserve(circleSegments + 1);
+                for (int s = 0; s <= circleSegments; ++s) {
+                    float theta = 2.0f * PI * (float)s / (float)circleSegments;
+                    glm::vec3 p = centerPos + glm::vec3((float)(orbitRadiusAU * std::cos(theta)), 0.0f, (float)(orbitRadiusAU * std::sin(theta))) - cameraTarget;
+                    orbitVerts.push_back({ p, glm::vec4(ringColor, guideAlpha) });
                 }
             }
         }
+
+        if (!orbitVerts.empty()) {
+            glBindVertexArray(m_trailVAO);
+            glBindBuffer(GL_ARRAY_BUFFER, m_trailVBO);
+            glBufferData(GL_ARRAY_BUFFER, orbitVerts.size() * sizeof(TrailVertex), orbitVerts.data(), GL_DYNAMIC_DRAW);
+            glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)orbitVerts.size());
+        }
     }
 
-    if (!guideVerts.empty()) {
-        glBindVertexArray(m_trailVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, m_trailVBO);
-        glBufferData(GL_ARRAY_BUFFER, guideVerts.size() * sizeof(TrailVertex), guideVerts.data(), GL_DYNAMIC_DRAW);
-        glDrawArrays(GL_LINES, 0, (GLsizei)guideVerts.size());
-    }
+    // 2. Render dynamic fading motion trails tracking actual real-time positions with Catmull-Rom Spline Smoothing & Adaptive LOD
+    auto catmullRom = [](const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, float t) -> glm::vec3 {
+        float t2 = t * t;
+        float t3 = t2 * t;
+        return 0.5f * ((2.0f * p1) +
+                       (-p0 + p2) * t +
+                       (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3) * t2 +
+                       (-p0 + 3.0f * p1 - 3.0f * p2 + p3) * t3);
+    };
 
-    // 2. Render dynamic fading motion trails tracking actual real-time positions
+    glm::vec3 camEye = cameraTarget + camera.getEyePosition();
+
     for (int i = 0; i < (int)bodies.size(); ++i) {
         const auto& body = bodies[i];
         if (body.id == "sol" || body.type.find("Star") != std::string::npos || body.trailHistory.size() < 2) continue;
 
         bool isSelected = (i == selectedIndex);
-        std::vector<TrailVertex> trailVerts;
-        trailVerts.reserve(body.trailHistory.size() + 1);
 
-        size_t n = body.trailHistory.size();
-        for (size_t pt = 0; pt < n; ++pt) {
-            float t = (float)pt / (float)(n - 1); // 0.0 at oldest tail point, 1.0 at head point
-            float alpha = std::pow(t, 1.5f) * (isSelected ? 0.98f : 0.82f);
-            glm::vec3 col = body.color * (0.5f + 0.7f * t);
-            if (isSelected) col *= 1.25f;
+        // Gather control points: recorded history + current live position
+        std::vector<glm::vec3> pts;
+        pts.reserve(body.trailHistory.size() + 1);
+        for (const auto& p : body.trailHistory) {
+            pts.push_back(p);
+        }
+        pts.push_back(body.position);
 
-            glm::vec3 relPos = body.trailHistory[pt] - cameraTarget;
-            trailVerts.push_back({ relPos, glm::vec4(col, alpha) });
+        size_t nPts = pts.size();
+        if (nPts < 2) continue;
+
+        // Adaptive Distance-Based LOD Optimization
+        float distToCam = glm::length(body.position - camEye);
+        int subdivisions = 1;
+        if (isSelected || distToCam < 6.0f) {
+            subdivisions = 5; // Ultra smooth silky closeup
+        } else if (distToCam < 20.0f) {
+            subdivisions = 3; // Medium distance
+        } else if (distToCam < 50.0f) {
+            subdivisions = 2; // Far distance
+        } else {
+            subdivisions = 1; // Extreme distance
         }
 
-        // Connect directly to current planet position
+        std::vector<TrailVertex> trailVerts;
+        trailVerts.reserve((nPts - 1) * subdivisions + 2);
+
+        for (size_t seg = 0; seg < nPts - 1; ++seg) {
+            const glm::vec3& p1 = pts[seg];
+            const glm::vec3& p2 = pts[seg + 1];
+            glm::vec3 p0 = (seg > 0) ? pts[seg - 1] : p1 + (p1 - p2);
+            glm::vec3 p3 = (seg + 2 < nPts) ? pts[seg + 2] : p2 + (p2 - p1);
+
+            float tStart = (float)seg / (float)(nPts - 1);
+            float tEnd = (float)(seg + 1) / (float)(nPts - 1);
+
+            int numSteps = subdivisions;
+            for (int s = 0; s < numSteps; ++s) {
+                float u = (float)s / (float)numSteps;
+                glm::vec3 interpolatedWorld = (subdivisions > 1) ? catmullRom(p0, p1, p2, p3, u) : p1;
+                glm::vec3 relPos = interpolatedWorld - cameraTarget;
+
+                float tGlobal = tStart + u * (tEnd - tStart);
+                float alpha = std::pow(tGlobal, 1.4f) * (isSelected ? 0.98f : 0.82f);
+                glm::vec3 col = body.color * (0.55f + 0.65f * tGlobal);
+                if (isSelected) col *= 1.25f;
+
+                trailVerts.push_back({ relPos, glm::vec4(col, alpha) });
+            }
+        }
+
+        // Final head vertex directly at current body position
         glm::vec3 currRelPos = body.position - cameraTarget;
         glm::vec3 headCol = body.color * (isSelected ? 1.5f : 1.2f);
         trailVerts.push_back({ currRelPos, glm::vec4(headCol, isSelected ? 1.0f : 0.95f) });
@@ -918,7 +961,7 @@ void Renderer::renderTrails(const Camera& camera, float aspect, const std::vecto
             glBufferData(GL_ARRAY_BUFFER, trailVerts.size() * sizeof(TrailVertex), trailVerts.data(), GL_DYNAMIC_DRAW);
             glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)trailVerts.size());
 
-            // Secondary pass for selected body to give rich glowing halo
+            // Secondary glow pass for selected body
             if (isSelected) {
                 glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)trailVerts.size());
             }

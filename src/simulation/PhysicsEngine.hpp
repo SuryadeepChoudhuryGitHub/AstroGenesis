@@ -22,6 +22,7 @@ public:
     // Data-Driven System Loading from Database
     bool loadFromDatabase(ObjectRepository& repo, const std::string& systemCategory = "Solar System");
     void reloadCurrentSystem(ObjectRepository& repo);
+    void resetSimulation(ObjectRepository& repo);
     void addBody(const CelestialBody& body);
     void clearBodies();
 

@@ -77,6 +77,18 @@ public:
     static std::string julianDateToUtcString(double jd);
     static double iso8601ToJulianDate(const std::string& isoStr);
 
+    // High-Precision Keplerian Elements to 3D Cartesian State Vector (in AstroGenesis X-Z ecliptic plane, Y-up)
+    static void keplerianToCartesian(double aMeters,
+                                    double eccentricity,
+                                    double inclinationDeg,
+                                    double longAscNodeDeg,
+                                    double argPeriapsisDeg,
+                                    double meanAnomalyDeg,
+                                    double centralMassKg,
+                                    double bodyMassKg,
+                                    double& outPosX, double& outPosY, double& outPosZ,
+                                    double& outVelX, double& outVelY, double& outVelZ);
+
     // Formatted presentation strings
     static std::string formatDistance(double meters);
     static std::string formatMass(double kg);

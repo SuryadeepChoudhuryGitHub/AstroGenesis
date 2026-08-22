@@ -38,12 +38,12 @@ public:
     void openValidationDashboard() { m_showValidationDashboard = true; }
 
 private:
-    void drawTopBar(float width, PhysicsEngine& physics, ObjectRepository& objRepo);
+    void drawTopBar(float width, PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo);
     void drawLeftPanel(PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo, float topBarH, float statusBarH, float winH);
     void drawInfoOverlay(const CelestialBody& body, float x, float y);
     void drawRightPanel(PhysicsEngine& physics, const CelestialBody& body, DataManager& dataManager, float topBarH, float winW, float winH, float statusBarH);
     void drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vpX, float vpY, float vpW, float vpH);
-    void drawTimeControls(PhysicsEngine& physics, float x, float y, float w, float h);
+    void drawTimeControls(PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo, float x, float y, float w, float h);
     void drawSimMetrics(PhysicsEngine& physics, float fps, float x, float y, float w, float h);
     void drawOrbitVis(PhysicsEngine& physics, Camera& camera, float x, float y, float w, float h);
     void drawStatusBar(const PhysicsEngine& physics, const Camera& camera, float winW, float winH, float barH);

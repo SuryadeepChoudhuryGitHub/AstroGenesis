@@ -238,6 +238,14 @@ void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepo
     }
     ImGui::PopStyleColor();
 
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.25f, 0.40f, 0.85f));
+    if (ImGui::Button("⚡ Refresh Database with NASA/JPL Baseline", ImVec2(300, 24))) {
+        SeedData::seedDefaultDatabase(objRepo);
+        physics.loadFromDatabase(objRepo, currentCat);
+    }
+    ImGui::PopStyleColor();
+
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();

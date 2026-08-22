@@ -15,6 +15,7 @@ public:
     void processMouseOrbit(float deltaX, float deltaY);
     void processMouseZoom(float deltaZoom);
     void resetCenter();
+    void resetOverview(const glm::vec3& targetPos = glm::vec3(0.0f), float distance = 6.0f);
 
     void setTargetPosition(const glm::vec3& target, bool immediate = false);
     void setTargetBodyRadius(float radius3D);
