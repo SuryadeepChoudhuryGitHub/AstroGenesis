@@ -487,8 +487,246 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
     kep186f.stateVector.velocityMps = glm::dvec3(0.0, 0.0, v_kf);
     repo.saveCelestialBodyRecord(kep186f);
 
-    std::cout << "[SeedData] Seeded " << repo.getObjectCount() << " astronomical bodies into database." << std::endl;
+    // 13. Kepler-90 System (Star + 8 Planets)
+    CelestialBodyRecord kep90;
+    kep90.sourceName = "NASA Exoplanet Archive (Bundled Seed)";
+    kep90.object.slug = "kepler_90";
+    kep90.object.name = "Kepler-90";
+    kep90.object.type = "G0V Yellow-White Star";
+    kep90.object.category = "Kepler-90 System";
+    kep90.object.color = glm::vec3(1.0f, 0.92f, 0.75f);
+    kep90.physical.massKg = 1.20 * UnitConverter::SOLAR_MASS_KG;
+    kep90.physical.radiusM = 1.20 * UnitConverter::SOLAR_RADIUS_M;
+    kep90.physical.surfaceTempK = 6080.0;
+    kep90.physical.sourceRecordId = "Kepler-90";
+    int64_t kep90Id = 0;
+    repo.saveCelestialBodyRecord(kep90, &kep90Id);
+
+    struct Kep90Pl { const char* slug; const char* name; double mEarth; double rEarth; double aAU; double ecc; };
+    Kep90Pl kep90Planets[] = {
+        { "kepler_90_b", "Kepler-90 b", 3.0, 1.31, 0.074, 0.0 },
+        { "kepler_90_c", "Kepler-90 c", 3.0, 1.18, 0.089, 0.0 },
+        { "kepler_90_i", "Kepler-90 i", 2.5, 1.32, 0.1234, 0.0 },
+        { "kepler_90_d", "Kepler-90 d", 10.0, 2.88, 0.32, 0.0 },
+        { "kepler_90_e", "Kepler-90 e", 9.0, 2.66, 0.42, 0.0 },
+        { "kepler_90_f", "Kepler-90 f", 15.0, 2.89, 0.48, 0.01 },
+        { "kepler_90_g", "Kepler-90 g", 50.0, 8.13, 0.71, 0.011 },
+        { "kepler_90_h", "Kepler-90 h", 300.0, 11.32, 1.01, 0.011 }
+    };
+    for (const auto& p : kep90Planets) {
+        CelestialBodyRecord rec;
+        rec.sourceName = "NASA Exoplanet Archive (Bundled Seed)";
+        rec.object.slug = p.slug;
+        rec.object.name = p.name;
+        rec.object.type = (p.rEarth > 4.0) ? "Gas Giant" : "Super-Earth";
+        rec.object.category = "Kepler-90 System";
+        rec.object.parentObjectId = kep90Id;
+        rec.object.color = glm::vec3(0.2f, 0.6f + (float)p.aAU * 0.3f, 0.85f);
+        rec.physical.massKg = p.mEarth * UnitConverter::EARTH_MASS_KG;
+        rec.physical.radiusM = p.rEarth * UnitConverter::EARTH_RADIUS_M;
+        rec.physical.surfaceGravityMps2 = (UnitConverter::G_CONST * rec.physical.massKg.value()) / (rec.physical.radiusM.value() * rec.physical.radiusM.value());
+        rec.physical.escapeVelocityMps = std::sqrt(2.0 * UnitConverter::G_CONST * rec.physical.massKg.value() / rec.physical.radiusM.value());
+        rec.orbital.semiMajorAxisAU = p.aAU;
+        rec.orbital.semiMajorAxisM = p.aAU * UnitConverter::AU_TO_METERS;
+        rec.orbital.eccentricity = p.ecc;
+        double aM = rec.orbital.semiMajorAxisM.value();
+        double v = std::sqrt(UnitConverter::G_CONST * (kep90.physical.massKg.value() + rec.physical.massKg.value()) / aM);
+        rec.stateVector.positionM = glm::dvec3(aM, 0.0, 0.0);
+        rec.stateVector.velocityMps = glm::dvec3(0.0, 0.0, v);
+        repo.saveCelestialBodyRecord(rec);
+    }
+
+    // 14. Binary Star System Preset (Alpha Centauri AB style)
+    CelestialBodyRecord binA;
+    binA.sourceName = "Preset System Template";
+    binA.object.slug = "binary_star_a";
+    binA.object.name = "Alpha Prime A";
+    binA.object.type = "G2V Main Sequence Star";
+    binA.object.category = "Binary Star System";
+    binA.object.color = glm::vec3(1.0f, 0.85f, 0.3f);
+    binA.physical.massKg = 1.10 * UnitConverter::SOLAR_MASS_KG;
+    binA.physical.radiusM = 1.22 * UnitConverter::SOLAR_RADIUS_M;
+    binA.physical.surfaceTempK = 5790.0;
+    double binDistM = 2.5 * UnitConverter::AU_TO_METERS;
+    double binMassA = binA.physical.massKg.value();
+    double binMassB = 0.90 * UnitConverter::SOLAR_MASS_KG;
+    double rA = binDistM * (binMassB / (binMassA + binMassB));
+    double rB = binDistM * (binMassA / (binMassA + binMassB));
+    double vRel = std::sqrt(UnitConverter::G_CONST * (binMassA + binMassB) / binDistM);
+    double vA = vRel * (binMassB / (binMassA + binMassB));
+    double vB = vRel * (binMassA / (binMassA + binMassB));
+    binA.stateVector.positionM = glm::dvec3(-rA, 0.0, 0.0);
+    binA.stateVector.velocityMps = glm::dvec3(0.0, 0.0, -vA);
+    int64_t binAId = 0;
+    repo.saveCelestialBodyRecord(binA, &binAId);
+
+    CelestialBodyRecord binB;
+    binB.sourceName = "Preset System Template";
+    binB.object.slug = "binary_star_b";
+    binB.object.name = "Alpha Prime B";
+    binB.object.type = "K1V Orange Dwarf Star";
+    binB.object.category = "Binary Star System";
+    binB.object.color = glm::vec3(1.0f, 0.45f, 0.1f);
+    binB.physical.massKg = binMassB;
+    binB.physical.radiusM = 0.86 * UnitConverter::SOLAR_RADIUS_M;
+    binB.physical.surfaceTempK = 5260.0;
+    binB.stateVector.positionM = glm::dvec3(rB, 0.0, 0.0);
+    binB.stateVector.velocityMps = glm::dvec3(0.0, 0.0, vB);
+    int64_t binBId = 0;
+    repo.saveCelestialBodyRecord(binB, &binBId);
+
+    CelestialBodyRecord binPl;
+    binPl.sourceName = "Preset System Template";
+    binPl.object.slug = "circumbinary_planet";
+    binPl.object.name = "Tatooine Prime";
+    binPl.object.type = "Circumbinary Terrestrial Planet";
+    binPl.object.category = "Binary Star System";
+    binPl.object.color = glm::vec3(0.85f, 0.70f, 0.45f);
+    binPl.physical.massKg = 2.0 * UnitConverter::EARTH_MASS_KG;
+    binPl.physical.radiusM = 1.25 * UnitConverter::EARTH_RADIUS_M;
+    binPl.physical.surfaceGravityMps2 = 12.5;
+    binPl.physical.escapeVelocityMps = 14200.0;
+    double pDistM = 7.0 * UnitConverter::AU_TO_METERS;
+    double pVel = std::sqrt(UnitConverter::G_CONST * (binMassA + binMassB) / pDistM);
+    binPl.stateVector.positionM = glm::dvec3(0.0, 0.0, pDistM);
+    binPl.stateVector.velocityMps = glm::dvec3(pVel, 0.0, 0.0);
+    binPl.orbital.semiMajorAxisAU = 7.0;
+    binPl.orbital.semiMajorAxisM = pDistM;
+    binPl.orbital.eccentricity = 0.02;
+    repo.saveCelestialBodyRecord(binPl);
+
+    // 15. Extreme Tidal Test Preset (Black Hole + Star + Planet)
+    CelestialBodyRecord bh;
+    bh.sourceName = "Preset System Template";
+    bh.object.slug = "cygnus_bh";
+    bh.object.name = "Singularity Cygnus X";
+    bh.object.type = "Stellar Mass Black Hole";
+    bh.object.category = "Extreme Tidal Test";
+    bh.object.color = glm::vec3(0.6f, 0.1f, 0.85f);
+    bh.physical.massKg = 10.0 * UnitConverter::SOLAR_MASS_KG;
+    bh.physical.radiusM = 29530.0; // 29.5 km Event Horizon (Schwarzschild Radius Rs = 2GM/c^2)
+    bh.physical.surfaceGravityMps2 = 1.5e12;
+    bh.physical.escapeVelocityMps = UnitConverter::SPEED_OF_LIGHT;
+    bh.physical.surfaceTempK = 6.17e-9;
+    bh.stateVector.positionM = glm::dvec3(0.0);
+    bh.stateVector.velocityMps = glm::dvec3(0.0);
+    int64_t bhId = 0;
+    repo.saveCelestialBodyRecord(bh, &bhId);
+
+    CelestialBodyRecord bhCompanion;
+    bhCompanion.sourceName = "Preset System Template";
+    bhCompanion.object.slug = "blue_supergiant";
+    bhCompanion.object.name = "HDE Blue Star";
+    bhCompanion.object.type = "O9.7 Iab Blue Supergiant";
+    bhCompanion.object.category = "Extreme Tidal Test";
+    bhCompanion.object.parentObjectId = bhId;
+    bhCompanion.object.color = glm::vec3(0.4f, 0.7f, 1.0f);
+    bhCompanion.physical.massKg = 2.0 * UnitConverter::SOLAR_MASS_KG;
+    bhCompanion.physical.radiusM = 1.5 * UnitConverter::SOLAR_RADIUS_M;
+    bhCompanion.physical.surfaceTempK = 31000.0;
+    double starDistM = 0.8 * UnitConverter::AU_TO_METERS;
+    double starVel = std::sqrt(UnitConverter::G_CONST * (bh.physical.massKg.value() + bhCompanion.physical.massKg.value()) / starDistM);
+    bhCompanion.stateVector.positionM = glm::dvec3(starDistM, 0.0, 0.0);
+    bhCompanion.stateVector.velocityMps = glm::dvec3(0.0, 0.0, starVel);
+    bhCompanion.orbital.semiMajorAxisAU = 0.8;
+    bhCompanion.orbital.semiMajorAxisM = starDistM;
+    bhCompanion.orbital.eccentricity = 0.06;
+    repo.saveCelestialBodyRecord(bhCompanion);
+
+    // 16. Earth-Moon System Preset (Isolated high-precision two-body system)
+    CelestialBodyRecord emEarth;
+    emEarth.sourceName = "Preset System Template";
+    emEarth.object.slug = "isolated_earth";
+    emEarth.object.name = "Earth";
+    emEarth.object.type = "Terrestrial Planet";
+    emEarth.object.category = "Earth-Moon System";
+    emEarth.object.color = glm::vec3(0.1f, 0.5f, 1.0f);
+    emEarth.physical.massKg = UnitConverter::EARTH_MASS_KG;
+    emEarth.physical.radiusM = UnitConverter::EARTH_RADIUS_M;
+    emEarth.physical.surfaceGravityMps2 = 9.80665;
+    emEarth.physical.escapeVelocityMps = 11186.0;
+    double emDistM = 384400000.0; // 384,400 km
+    double emMassE = UnitConverter::EARTH_MASS_KG;
+    double emMassM = UnitConverter::LUNAR_MASS_KG;
+    double emRE = emDistM * (emMassM / (emMassE + emMassM));
+    double emRM = emDistM * (emMassE / (emMassE + emMassM));
+    double emVRel = std::sqrt(UnitConverter::G_CONST * (emMassE + emMassM) / emDistM);
+    double emVE = emVRel * (emMassM / (emMassE + emMassM));
+    double emVM = emVRel * (emMassE / (emMassE + emMassM));
+    emEarth.stateVector.positionM = glm::dvec3(-emRE, 0.0, 0.0);
+    emEarth.stateVector.velocityMps = glm::dvec3(0.0, 0.0, -emVE);
+    int64_t emEarthId = 0;
+    repo.saveCelestialBodyRecord(emEarth, &emEarthId);
+
+    CelestialBodyRecord emMoon;
+    emMoon.sourceName = "Preset System Template";
+    emMoon.object.slug = "isolated_moon";
+    emMoon.object.name = "Moon";
+    emMoon.object.type = "Planetary Moon";
+    emMoon.object.category = "Earth-Moon System";
+    emMoon.object.parentObjectId = emEarthId;
+    emMoon.object.color = glm::vec3(0.75f, 0.75f, 0.80f);
+    emMoon.physical.massKg = emMassM;
+    emMoon.physical.radiusM = UnitConverter::LUNAR_RADIUS_M;
+    emMoon.physical.surfaceGravityMps2 = 1.62;
+    emMoon.physical.escapeVelocityMps = 2380.0;
+    emMoon.stateVector.positionM = glm::dvec3(emRM, 0.0, 0.0);
+    emMoon.stateVector.velocityMps = glm::dvec3(0.0, 0.0, emVM);
+    emMoon.orbital.semiMajorAxisAU = emDistM / UnitConverter::AU_TO_METERS;
+    emMoon.orbital.semiMajorAxisM = emDistM;
+    emMoon.orbital.eccentricity = 0.0549;
+    repo.saveCelestialBodyRecord(emMoon);
+
+    // ── 17. Register all baseline systems in `systems` and `system_objects` table ──
+    struct SystemRegistration {
+        const char* name;
+        const char* type;
+        const char* source;
+        const char* desc;
+    };
+    SystemRegistration sysToRegister[] = {
+        { "Solar System", "Preset", "NASA/JPL baseline", "The Sun and all 8 major planets, dwarf planets, and major moons." },
+        { "Earth-Moon System", "Preset", "NASA/JPL baseline", "Isolated high-precision two-body barycentric Earth-Moon dynamics." },
+        { "TRAPPIST-1 System", "Preset", "NASA Exoplanet Archive", "Ultracool red dwarf host star with 7 Earth-sized temperate planets." },
+        { "Kepler-90 System", "Preset", "NASA Exoplanet Archive", "Sun-like G-type star with 8 confirmed transiting exoplanets." },
+        { "Binary Star System", "Preset", "Astrophysical Template", "Co-orbiting binary star pair with a stable circumbinary habitable planet." },
+        { "Extreme Tidal Test", "Preset", "Relativity Model", "10 Solar Mass Black Hole orbiting a Blue Supergiant star and planet." },
+        { "Proxima Centauri", "Preset", "NASA Exoplanet Archive", "Closest stellar neighbour red dwarf hosting habitable zone exoplanet." },
+        { "Kepler-186 System", "Preset", "NASA Exoplanet Archive", "M-dwarf system hosting first validated Earth-sized habitable planet." },
+        { "Asteroid Belt", "Preset", "JPL SBDB baseline", "Inner Solar System asteroid belt with Ceres, Vesta, Pallas, and Hygiea." }
+    };
+
+    for (const auto& sr : sysToRegister) {
+        SystemRecord sysRec;
+        sysRec.name = sr.name;
+        sysRec.type = sr.type;
+        sysRec.source = sr.source;
+        sysRec.description = sr.desc;
+
+        int64_t sysId = 0;
+        repo.createSystem(sysRec, &sysId);
+
+        // Link existing objects categorized under this system
+        int ord = 0;
+        if (std::string(sr.name) == "Asteroid Belt") {
+            auto solObj = repo.getObjectBySlug("sol");
+            if (solObj.has_value()) {
+                repo.addSystemObject(sysId, solObj.value().id, std::nullopt, ord++);
+            }
+        }
+
+        auto sysObjs = repo.getAllObjects(sr.name, false);
+        for (const auto& obj : sysObjs) {
+            if (std::string(sr.name) == "Asteroid Belt" && obj.slug == "sol") continue;
+            repo.addSystemObject(sysId, obj.id, obj.parentObjectId, ord++);
+        }
+    }
+
+
+    std::cout << "[SeedData] Seeded " << repo.getObjectCount() << " astronomical bodies and registered " 
+              << sizeof(sysToRegister)/sizeof(sysToRegister[0]) << " baseline systems into database." << std::endl;
     return true;
 }
 
 } // namespace AstroGenesis
+

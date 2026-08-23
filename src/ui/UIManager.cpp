@@ -147,35 +147,58 @@ void UIManager::renderUI(PhysicsEngine& physics,
     m_viewportHovered = (mousePos.x >= m_viewportX && mousePos.x <= m_viewportX + m_viewportW &&
                          mousePos.y >= m_viewportY && mousePos.y <= m_viewportY + m_viewportH) && !io.WantCaptureMouse;
 
-    // 1. Top Bar (can switch systems or open modals)
+    // 1. Top Bar (Global Navigation & Workspace Switcher)
     drawTopBar(windowWidth, physics, camera, objRepo);
 
-    // 2. Left Hierarchy & Navigation Panel (Selection Place 1, can switch systems or select bodies)
-    drawLeftPanel(physics, camera, objRepo, topBarH, statusBarH, windowHeight);
+    // 2. Route Top-Level Workspaces
+    if (m_activeTopTab == 0) {
+        // ── UNIVERSE WORKSPACE (Primary Live Simulation & Controls) ────────────
+        drawLeftPanel(physics, camera, objRepo, topBarH, statusBarH, windowHeight);
+        drawViewportHUD(physics, camera, m_viewportX, m_viewportY, m_viewportW, m_viewportH);
 
-    // 3. 3D Viewport HUD Direct Hover & Click (Selection Place 2)
-    drawViewportHUD(physics, camera, m_viewportX, m_viewportY, m_viewportW, m_viewportH);
+        float bottomY = windowHeight - statusBarH - bottomH;
+        float bpW = m_viewportW / 3.0f;
+        drawTimeControls(physics, camera, objRepo, leftPanelW, bottomY, bpW, bottomH);
+        drawSimMetrics  (physics, fps, leftPanelW + bpW,      bottomY, bpW, bottomH);
+        drawOrbitVis    (physics, camera, leftPanelW + bpW * 2, bottomY, bpW, bottomH);
 
-    // 4. Bottom Row Cards (including 2D Orbit Vis Schematic: Selection Place 3)
-    float bottomY = windowHeight - statusBarH - bottomH;
-    float bpW = m_viewportW / 3.0f;
-    drawTimeControls(physics, camera, objRepo, leftPanelW, bottomY, bpW, bottomH);
-    drawSimMetrics  (physics, fps, leftPanelW + bpW,      bottomY, bpW, bottomH);
-    drawOrbitVis    (physics, camera, leftPanelW + bpW * 2, bottomY, bpW, bottomH);
+        const auto& currentBodies = physics.getBodies();
+        int selIdx = physics.getSelectedBodyIndex();
+        if (selIdx >= 0 && selIdx < (int)currentBodies.size()) {
+            CelestialBody currentBody = currentBodies[selIdx];
+            drawInfoOverlay(currentBody, m_viewportX, m_viewportY);
+            drawRightPanel(physics, currentBody, dataManager, objRepo, topBarH, windowWidth, windowHeight, statusBarH);
+        }
 
-    // Dynamic fetch of current selected body AFTER all interactions and system loads
-    const CelestialBody& currentBody = physics.getSelectedBody();
+        drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
+    } 
+    else if (m_activeTopTab == 1) {
+        // ── SYSTEM WORKSPACE (Import Existing & Custom System Builder) ─────────
+        m_systemWorkspaceUI.render(dataManager, objRepo, physics, camera, m_activeTopTab, windowWidth, windowHeight);
+        drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
+    } 
+    else if (m_activeTopTab == 2) {
+        // ── OBJECTS WORKSPACE (Celestial Object Library & Editor) ──────────────
+        m_objectWorkspaceUI.render(objRepo, physics, camera, m_activeTopTab, windowWidth, windowHeight);
+        drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
+    } 
+    else if (m_activeTopTab == 3) {
+        // ── EXPLORE WORKSPACE (Discovery & Catalog Browser) ────────────────────
+        drawExploreWorkspace(objRepo, physics, camera, windowWidth, windowHeight);
+        drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
+    } 
+    else if (m_activeTopTab == 4) {
+        // ── SIMULATION WORKSPACE (Physics Config, Integrator, Validation) ──────
+        drawSimulationWorkspace(physics, camera, valEngine, objRepo, windowWidth, windowHeight);
+        drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
+    } 
+    else if (m_activeTopTab == 5) {
+        // ── AI ASSISTANT WORKSPACE (Astrophysics & Orbital Calculator) ─────────
+        drawAIAssistantWorkspace(physics, objRepo, windowWidth, windowHeight);
+        drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
+    }
 
-    // 5. Floating Info Overlay
-    drawInfoOverlay(currentBody, m_viewportX, m_viewportY);
-
-    // 6. Right Scientific Data Panel
-    drawRightPanel(physics, currentBody, dataManager, topBarH, windowWidth, windowHeight, statusBarH);
-
-    // 7. Status Bar
-    drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
-
-    // 8. Modals / Overlay Windows
+    // Modals / Overlay Windows
     if (m_showAsteroidBeltDiagnostics) {
         drawAsteroidBeltDiagnostics(physics, objRepo, windowWidth, windowHeight);
     }
@@ -189,6 +212,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
         m_validationUI.render(m_showValidationDashboard, valEngine, objRepo, physics, windowWidth, windowHeight);
     }
 }
+
 
 void UIManager::drawTopBar(float width, PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo) {
     ImGui::SetNextWindowPos(ImVec2(0, 0));
@@ -454,7 +478,7 @@ void UIManager::drawInfoOverlay(const CelestialBody& body, float x, float y) {
     ImGui::End();
 }
 
-void UIManager::drawRightPanel(PhysicsEngine& physics, const CelestialBody& body, DataManager& dataManager, float topBarH, float winW, float winH, float statusBarH) {
+void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, DataManager& dataManager, ObjectRepository& objRepo, float topBarH, float winW, float winH, float statusBarH) {
     float panelW = 310.0f;
     float panelH = winH - topBarH - statusBarH;
     ImGui::SetNextWindowPos(ImVec2(winW - panelW, topBarH));
@@ -492,6 +516,51 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, const CelestialBody& body
 
     ImGui::Separator();
 
+    if (SectionHeader("LIVE SIMULATION TUNING & EDITING")) {
+        int selIdx = physics.getSelectedBodyIndex();
+        if (selIdx >= 0 && selIdx < (int)physics.getBodies().size()) {
+            CelestialBody& mutBody = physics.getBodies()[selIdx];
+            if (physics.isPaused()) {
+                ImGui::TextColored(Col::Green, "⏸ Simulation Paused (Live Editing Active)");
+                double curM = mutBody.massKg;
+                if (mutBody.type.find("Star") != std::string::npos || mutBody.type.find("Black Hole") != std::string::npos) {
+                    float mSun = (float)(curM / UnitConverter::SOLAR_MASS_KG);
+                    if (ImGui::DragFloat("Mass (M☉)##LiveEditM", &mSun, 0.05f, 0.01f, 500.0f, "%.3f M☉")) {
+                        mutBody.massKg = (double)mSun * UnitConverter::SOLAR_MASS_KG;
+                        mutBody.massStr = UnitConverter::formatMass(mutBody.massKg);
+                    }
+                } else {
+                    float mEarth = (float)(curM / UnitConverter::EARTH_MASS_KG);
+                    if (ImGui::DragFloat("Mass (M⊕)##LiveEditM", &mEarth, 0.05f, 0.001f, 5000.0f, "%.3f M⊕")) {
+                        mutBody.massKg = (double)mEarth * UnitConverter::EARTH_MASS_KG;
+                        mutBody.massStr = UnitConverter::formatMass(mutBody.massKg);
+                    }
+                }
+
+                float rKm = (float)(mutBody.radiusM / 1000.0);
+                if (ImGui::DragFloat("Radius (km)##LiveEditR", &rKm, 10.0f, 10.0f, 1000000.0f, "%.1f km")) {
+                    mutBody.radiusM = (double)rKm * 1000.0;
+                    char rBuf[64];
+                    snprintf(rBuf, sizeof(rBuf), "%'.1f km", mutBody.radiusM / 1000.0);
+                    mutBody.radiusStr = rBuf;
+                }
+            } else {
+                ImGui::TextColored(Col::TextSecondary, "Pause simulation to live-tune active object parameters.");
+                if (ImGui::Button("⏸ Pause Simulation to Live Edit", ImVec2(panelW - 20, 24))) {
+                    physics.setPaused(true);
+                }
+            }
+
+            ImGui::Spacing();
+            if (ImGui::Button("✏ Open in Object Editor Workspace", ImVec2(panelW - 20, 24))) {
+                m_objectWorkspaceUI.setSelectedObjectBySlug(mutBody.id, objRepo);
+                m_activeTopTab = 2; // OBJECTS workspace
+            }
+        }
+    }
+
+    ImGui::Separator();
+
     if (SectionHeader("ORBITAL MECHANICS & KEPLERIAN ELEMENTS")) {
         float hw = (panelW - 40) / 2.0f;
         ImGui::BeginGroup();
@@ -518,6 +587,7 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, const CelestialBody& body
         StatItem("\xE2\x88\xA0", "True Anomaly", body.trueAnomalyStr.c_str());
         ImGui::EndGroup();
     }
+
 
     if (body.ring.hasRing) {
         ImGui::Separator();
@@ -1380,4 +1450,350 @@ void UIManager::drawMatterLab(PhysicsEngine& physics, float winW, float winH) {
     ImGui::PopStyleVar();
 }
 
+// ------------------------------------------------------------------------------------------------
+// TOP-LEVEL WORKSPACE: EXPLORE (Catalog & Discovery Browser)
+// ------------------------------------------------------------------------------------------------
+void UIManager::drawExploreWorkspace(ObjectRepository& objRepo, PhysicsEngine& physics, Camera& camera, float winW, float winH) {
+    float topBarH = 48.0f;
+    float statusBarH = 28.0f;
+    float contentW = winW;
+    float contentH = winH - topBarH - statusBarH;
+
+    ImGui::SetNextWindowPos(ImVec2(0, topBarH));
+    ImGui::SetNextWindowSize(ImVec2(contentW, contentH));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 12));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, Col::BgDark);
+
+    ImGui::Begin("##ExploreWorkspace", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+
+    ImGui::TextColored(Col::Accent, "🌌 ASTRONOMICAL EXPLORER & CATALOG DISCOVERY");
+    ImGui::SameLine();
+    ImGui::TextColored(Col::TextSecondary, "| Explore Verified NASA/JPL Baseline Celestial Catalog");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    static char searchFilter[64] = "";
+    static int catFilter = 0; // 0: All, 1: Solar System, 2: Exoplanet Systems, 3: Asteroids
+
+    ImGui::TextColored(Col::TextSecondary, "Catalog Filter:");
+    const char* cats[] = { "All Astronomical Objects", "Solar System", "Exoplanet Systems", "Asteroid Belt" };
+    for (int i = 0; i < 4; ++i) {
+        if (i > 0) ImGui::SameLine(0, 8);
+        bool isSel = (catFilter == i);
+        if (isSel) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.00f, 0.55f, 0.80f, 0.85f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.12f, 0.20f, 0.85f));
+            ImGui::PushStyleColor(ImGuiCol_Text, Col::TextSecondary);
+        }
+        if (ImGui::Button(cats[i], ImVec2(180, 26))) catFilter = i;
+        ImGui::PopStyleColor(2);
+    }
+
+    ImGui::SameLine(contentW - 320.0f);
+    ImGui::PushItemWidth(300);
+    ImGui::InputTextWithHint("##ExploreSearch", "Search catalog...", searchFilter, sizeof(searchFilter));
+    ImGui::PopItemWidth();
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    std::string catStr = (catFilter == 1) ? "Solar System" : (catFilter == 2) ? "Exoplanet System" : (catFilter == 3) ? "Asteroid Belt" : "";
+    auto objects = objRepo.getAllObjects(catStr, false, searchFilter);
+
+    if (ImGui::BeginTable("##ExploreTable", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY)) {
+        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 200);
+        ImGui::TableSetupColumn("Classification", ImGuiTableColumnFlags_WidthFixed, 180);
+        ImGui::TableSetupColumn("Category", ImGuiTableColumnFlags_WidthFixed, 150);
+        ImGui::TableSetupColumn("Mass", ImGuiTableColumnFlags_WidthFixed, 140);
+        ImGui::TableSetupColumn("Radius", ImGuiTableColumnFlags_WidthFixed, 140);
+        ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableHeadersRow();
+
+        for (const auto& obj : objects) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            bool isStar = obj.type.find("Star") != std::string::npos;
+            ImGui::TextColored(isStar ? Col::Yellow : Col::Accent, "%s %s", isStar ? "★" : "●", obj.name.c_str());
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(obj.type.c_str());
+
+            ImGui::TableSetColumnIndex(2);
+            ImGui::TextColored(Col::TextSecondary, "%s", obj.category.c_str());
+
+            auto phys = objRepo.getPhysicalProperties(obj.id);
+            ImGui::TableSetColumnIndex(3);
+            if (phys.has_value() && phys->massKg.has_value()) {
+                ImGui::TextUnformatted(UnitConverter::formatMass(phys->massKg.value()).c_str());
+            } else {
+                ImGui::TextColored(Col::TextSecondary, "N/A");
+            }
+
+            ImGui::TableSetColumnIndex(4);
+            if (phys.has_value() && phys->radiusM.has_value()) {
+                ImGui::Text("%'.1f km", phys->radiusM.value() / 1000.0);
+            } else {
+                ImGui::TextColored(Col::TextSecondary, "N/A");
+            }
+
+            ImGui::TableSetColumnIndex(5);
+            ImGui::PushID((int)obj.id);
+            if (ImGui::SmallButton("🔍 Inspect in Object Editor")) {
+                m_objectWorkspaceUI.setSelectedObjectBySlug(obj.slug, objRepo);
+                m_activeTopTab = 2; // OBJECTS workspace
+            }
+            ImGui::SameLine();
+            if (ImGui::SmallButton("🚀 Test in Universe")) {
+                auto bOpt = objRepo.getHydratedBody(obj.id);
+                if (bOpt.has_value()) {
+                    physics.clearBodies();
+                    physics.addBody(bOpt.value());
+                    camera.resetOverview(glm::vec3(0.0f), 4.0f);
+                    m_activeTopTab = 0; // UNIVERSE
+                }
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndTable();
+    }
+
+    ImGui::End();
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar(2);
+}
+
+// ------------------------------------------------------------------------------------------------
+// TOP-LEVEL WORKSPACE: SIMULATION (Physics Config, Integrators, Diagnostics)
+// ------------------------------------------------------------------------------------------------
+void UIManager::drawSimulationWorkspace(PhysicsEngine& physics, Camera& camera, ValidationEngine& valEngine, ObjectRepository& objRepo, float winW, float winH) {
+    float topBarH = 48.0f;
+    float statusBarH = 28.0f;
+    float contentW = winW;
+    float contentH = winH - topBarH - statusBarH;
+
+    ImGui::SetNextWindowPos(ImVec2(0, topBarH));
+    ImGui::SetNextWindowSize(ImVec2(contentW, contentH));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 12));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, Col::BgDark);
+
+    ImGui::Begin("##SimulationWorkspace", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+
+    ImGui::TextColored(Col::Accent, "⚙ PHYSICS ENGINE, TIME SYSTEM & DIAGNOSTICS");
+    ImGui::SameLine();
+    ImGui::TextColored(Col::TextSecondary, "| Integrator, Gravitation & Conservation Diagnostics");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    float colW = (contentW - 48.0f) / 2.0f;
+
+    // Left Column: Physical Integrator & Time Configuration
+    ImGui::BeginChild("##SimLeftCol", ImVec2(colW, contentH - 50.0f), true);
+    ImGui::TextColored(Col::Accent, "GRAVITATION & INTEGRATOR CONFIGURATION");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    bool gr = physics.isGeneralRelativityEnabled();
+    if (ImGui::Checkbox("Enable Einstein 1PN Post-Newtonian General Relativity (GR)", &gr)) {
+        physics.setGeneralRelativityEnabled(gr);
+    }
+    ImGui::TextColored(Col::TextSecondary, "Computes 1PN relativistic perihelion precession and gravitational time dilation.");
+
+    ImGui::Spacing();
+    bool paused = physics.isPaused();
+    if (ImGui::Checkbox("Pause Simulation Dynamics", &paused)) {
+        physics.setPaused(paused);
+    }
+
+    ImGui::Spacing();
+    float timeScale = physics.getTimeScale();
+    if (ImGui::DragFloat("Simulation Time Warp (sec/sec)", &timeScale, 100.0f, 0.1f, 86400.0f * 365.0f, "%.1f x")) {
+        physics.setTimeScale(timeScale);
+    }
+
+    ImGui::Spacing();
+    bool trueScale = physics.isTrueScaleMode();
+    if (ImGui::Checkbox("True 1:1 Astronomical Scale", &trueScale)) {
+        physics.setTrueScaleMode(trueScale);
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::TextColored(Col::Accent, "DIAGNOSTIC & VALIDATION LABORATORIES");
+    if (ImGui::Button("⚖ Open Real-Data Validation Dashboard", ImVec2(-1, 28))) {
+        m_showValidationDashboard = true;
+    }
+    if (ImGui::Button("☄ Open Asteroid Belt Statistical Tool (N(a))", ImVec2(-1, 28))) {
+        m_showAsteroidBeltDiagnostics = true;
+    }
+    if (ImGui::Button("⬡ Open Deformable Matter Impact Lab", ImVec2(-1, 28))) {
+        m_showMatterLab = true;
+    }
+
+    ImGui::EndChild();
+
+    ImGui::SameLine();
+
+    // Right Column: System Conservation & Metrics
+    ImGui::BeginChild("##SimRightCol", ImVec2(colW, contentH - 50.0f), true);
+    ImGui::TextColored(Col::Accent, "GLOBAL SYSTEM CONSERVATION DIAGNOSTICS");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::TextColored(Col::TextSecondary, "Total System Energy:");
+    ImGui::TextColored(Col::TextPrimary, "%s", physics.getTotalEnergyStr().c_str());
+
+    ImGui::TextColored(Col::TextSecondary, "Total Angular Momentum:");
+    ImGui::TextColored(Col::TextPrimary, "%s", physics.getTotalAngularMomentumStr().c_str());
+
+    ImGui::TextColored(Col::TextSecondary, "Energy Conservation Drift:");
+    ImGui::TextColored((physics.getEnergyConservationDriftPct() < 0.01) ? Col::Green : Col::Orange, 
+                       "%.6f %%", physics.getEnergyConservationDriftPct());
+
+    ImGui::TextColored(Col::TextSecondary, "Simulated Epoch Time:");
+    ImGui::TextColored(Col::TextPrimary, "%s", physics.getSimulationTimeStr().c_str());
+
+    ImGui::TextColored(Col::TextSecondary, "Active Gravitational Bodies:");
+    ImGui::TextColored(Col::Accent, "%d bodies", physics.getObjectCount());
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    if (ImGui::Button("🚀 Return to UNIVERSE View", ImVec2(-1, 32))) {
+        m_activeTopTab = 0;
+    }
+
+    ImGui::EndChild();
+
+    ImGui::End();
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar(2);
+}
+
+// ------------------------------------------------------------------------------------------------
+// TOP-LEVEL WORKSPACE: AI ASSISTANT (Astrophysics & Orbital Calculator)
+// ------------------------------------------------------------------------------------------------
+void UIManager::drawAIAssistantWorkspace(PhysicsEngine& physics, ObjectRepository& objRepo, float winW, float winH) {
+    float topBarH = 48.0f;
+    float statusBarH = 28.0f;
+    float contentW = winW;
+    float contentH = winH - topBarH - statusBarH;
+
+    ImGui::SetNextWindowPos(ImVec2(0, topBarH));
+    ImGui::SetNextWindowSize(ImVec2(contentW, contentH));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 12));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, Col::BgDark);
+
+    ImGui::Begin("##AIAssistantWorkspace", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+
+    ImGui::TextColored(Col::Accent, "🤖 ASTROGENESIS ASTROPHYSICS & ORBITAL CALCULATOR");
+    ImGui::SameLine();
+    ImGui::TextColored(Col::TextSecondary, "| Theoretical Orbital Mechanics & System Stability Analytics");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    float colW = (contentW - 48.0f) / 3.0f;
+
+    // Card 1: Roche Limit & Tidal Disruption
+    ImGui::BeginChild("##CalcCard1", ImVec2(colW, contentH - 50.0f), true);
+    ImGui::TextColored(Col::Accent, "1. ROCHE LIMIT & TIDAL RADIUS");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    static float hostM = 1.0f; // M_Sun
+    static float satDens = 5500.0f; // kg/m^3
+    static float hostR = 696340.0f; // km
+    ImGui::DragFloat("Host Mass (M☉)##rm1", &hostM, 0.1f, 0.1f, 100.0f, "%.2f M☉");
+    ImGui::DragFloat("Host Radius (km)##rr1", &hostR, 1000.0f, 1000.0f, 10000000.0f, "%.0f km");
+    ImGui::DragFloat("Satellite Density (kg/m³)##rd1", &satDens, 50.0f, 500.0f, 20000.0f, "%.0f kg/m³");
+
+    double hostVolM3 = (4.0 / 3.0) * UnitConverter::PI * std::pow((double)hostR * 1000.0, 3.0);
+    double hostMassKg = (double)hostM * UnitConverter::SOLAR_MASS_KG;
+    double hostDens = hostMassKg / hostVolM3;
+
+    double rigidRocheKm = (double)hostR * std::cbrt(2.0 * hostDens / satDens);
+    double fluidRocheKm = 2.44 * (double)hostR * std::cbrt(hostDens / satDens);
+
+    ImGui::Spacing();
+    ImGui::TextColored(Col::Accent, "Rigid Body Roche Limit:");
+    ImGui::TextColored(Col::TextPrimary, "d_rigid = %'.1f km (%.3f AU)", rigidRocheKm, rigidRocheKm / UnitConverter::AU_TO_KM);
+
+    ImGui::TextColored(Col::Orange, "Fluid Body Roche Limit:");
+    ImGui::TextColored(Col::TextPrimary, "d_fluid = %'.1f km (%.3f AU)", fluidRocheKm, fluidRocheKm / UnitConverter::AU_TO_KM);
+    ImGui::EndChild();
+
+    ImGui::SameLine();
+
+    // Card 2: Habitable Zone Boundaries
+    ImGui::BeginChild("##CalcCard2", ImVec2(colW, contentH - 50.0f), true);
+    ImGui::TextColored(Col::Accent, "2. STELLAR HABITABLE ZONE (HZ)");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    static float starLum = 1.0f; // L_Sun
+    static float starTeff = 5778.0f; // K
+    ImGui::DragFloat("Stellar Luminosity (L☉)##hzLum", &starLum, 0.05f, 0.0001f, 100.0f, "%.4f L☉");
+    ImGui::DragFloat("Effective Temp (K)##hzTeff", &starTeff, 50.0f, 2000.0f, 40000.0f, "%.0f K");
+
+    double rInAU = std::sqrt((double)starLum / 1.1);
+    double rOutAU = std::sqrt((double)starLum / 0.53);
+
+    ImGui::Spacing();
+    ImGui::TextColored(Col::Green, "Inner Boundary (Runaway Greenhouse):");
+    ImGui::TextColored(Col::TextPrimary, "r_in = %.3f AU (%'.1fM km)", rInAU, rInAU * UnitConverter::AU_TO_KM / 1e6);
+
+    ImGui::TextColored(Col::Accent, "Outer Boundary (Maximum Greenhouse):");
+    ImGui::TextColored(Col::TextPrimary, "r_out = %.3f AU (%'.1fM km)", rOutAU, rOutAU * UnitConverter::AU_TO_KM / 1e6);
+
+    ImGui::TextColored(Col::Yellow, "Habitable Zone Width:");
+    ImGui::TextColored(Col::TextPrimary, "Δr = %.3f AU", rOutAU - rInAU);
+    ImGui::EndChild();
+
+    ImGui::SameLine();
+
+    // Card 3: Keplerian Period Solver & Hohmann Delta-V
+    ImGui::BeginChild("##CalcCard3", ImVec2(colW, contentH - 50.0f), true);
+    ImGui::TextColored(Col::Accent, "3. KEPLER'S 3RD LAW & ORBIT SOLVER");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    static float centMassM = 1.0f; // M_Sun
+    static float smaAU = 1.0f; // AU
+    ImGui::DragFloat("Central Mass (M☉)##kCent", &centMassM, 0.05f, 0.01f, 100.0f, "%.2f M☉");
+    ImGui::DragFloat("Semi-Major Axis (AU)##kSma", &smaAU, 0.05f, 0.01f, 100.0f, "%.3f AU");
+
+    double aM = (double)smaAU * UnitConverter::AU_TO_METERS;
+    double mu = UnitConverter::G_CONST * ((double)centMassM * UnitConverter::SOLAR_MASS_KG);
+    double periodSec = 2.0 * UnitConverter::PI * std::sqrt(std::pow(aM, 3.0) / mu);
+    double vOrbMps = std::sqrt(mu / aM);
+
+    ImGui::Spacing();
+    ImGui::TextColored(Col::Accent, "Orbital Period:");
+    ImGui::TextColored(Col::TextPrimary, "%s", UnitConverter::formatPeriod(periodSec).c_str());
+
+    ImGui::TextColored(Col::Accent, "Mean Orbital Speed:");
+    ImGui::TextColored(Col::TextPrimary, "%.2f km/s", vOrbMps / 1000.0);
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    if (ImGui::Button("🚀 Return to Simulation", ImVec2(-1, 28))) {
+        m_activeTopTab = 0;
+    }
+    ImGui::EndChild();
+
+    ImGui::End();
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar(2);
+}
+
 } // namespace AstroGenesis
+

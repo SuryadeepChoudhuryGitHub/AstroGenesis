@@ -45,6 +45,27 @@ public:
     std::vector<std::string> getAvailableCategories();
     int getObjectCount(const std::string& category = "");
 
+    // ── System Management (Systems & System-Object Hierarchies) ───────────────
+    bool createSystem(const SystemRecord& sys, int64_t* outId = nullptr);
+    bool updateSystem(const SystemRecord& sys);
+    bool deleteSystem(int64_t systemId);
+    bool deleteSystemByName(const std::string& name);
+    bool duplicateSystem(int64_t sourceSystemId, const std::string& newName, int64_t* outNewId = nullptr);
+
+    std::vector<SystemRecord> getAllSystems();
+    std::optional<SystemRecord> getSystemById(int64_t id);
+    std::optional<SystemRecord> getSystemByName(const std::string& name);
+
+    bool addSystemObject(int64_t systemId, int64_t objectId, std::optional<int64_t> parentObjectId = std::nullopt, int orbitalOrder = 0);
+    bool removeSystemObject(int64_t systemId, int64_t objectId);
+    std::vector<SystemObjectRecord> getSystemObjectLinks(int64_t systemId);
+
+    // Save complete custom system with all constituent bodies & hierarchy
+    bool saveCustomSystem(const SystemRecord& sys, const std::vector<CelestialBody>& bodies, int64_t* outSystemId = nullptr);
+
+    // Pre-flight physical plausibility validation
+    std::vector<SystemValidationWarning> validateSystem(const std::vector<CelestialBody>& bodies);
+
     // Quick Data Source lookup
     std::string getSourceName(int64_t sourceId);
     int64_t getOrCreateSourceId(const std::string& sourceName, const std::string& baseUrl = "", const std::string& description = "");
@@ -60,3 +81,4 @@ private:
 };
 
 } // namespace AstroGenesis
+

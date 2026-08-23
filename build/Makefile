@@ -1101,6 +1101,60 @@ src/ui/DataManagerUI.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_data_system.dir\build.make CMakeFiles/test_data_system.dir/src/ui/DataManagerUI.cpp.s
 .PHONY : src/ui/DataManagerUI.cpp.s
 
+src/ui/ObjectWorkspaceUI.obj: src/ui/ObjectWorkspaceUI.cpp.obj
+.PHONY : src/ui/ObjectWorkspaceUI.obj
+
+# target to build an object file
+src/ui/ObjectWorkspaceUI.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/ui/ObjectWorkspaceUI.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_data_system.dir\build.make CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.obj
+.PHONY : src/ui/ObjectWorkspaceUI.cpp.obj
+
+src/ui/ObjectWorkspaceUI.i: src/ui/ObjectWorkspaceUI.cpp.i
+.PHONY : src/ui/ObjectWorkspaceUI.i
+
+# target to preprocess a source file
+src/ui/ObjectWorkspaceUI.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/ui/ObjectWorkspaceUI.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_data_system.dir\build.make CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.i
+.PHONY : src/ui/ObjectWorkspaceUI.cpp.i
+
+src/ui/ObjectWorkspaceUI.s: src/ui/ObjectWorkspaceUI.cpp.s
+.PHONY : src/ui/ObjectWorkspaceUI.s
+
+# target to generate assembly for a file
+src/ui/ObjectWorkspaceUI.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/ui/ObjectWorkspaceUI.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_data_system.dir\build.make CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.s
+.PHONY : src/ui/ObjectWorkspaceUI.cpp.s
+
+src/ui/SystemWorkspaceUI.obj: src/ui/SystemWorkspaceUI.cpp.obj
+.PHONY : src/ui/SystemWorkspaceUI.obj
+
+# target to build an object file
+src/ui/SystemWorkspaceUI.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/ui/SystemWorkspaceUI.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_data_system.dir\build.make CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.obj
+.PHONY : src/ui/SystemWorkspaceUI.cpp.obj
+
+src/ui/SystemWorkspaceUI.i: src/ui/SystemWorkspaceUI.cpp.i
+.PHONY : src/ui/SystemWorkspaceUI.i
+
+# target to preprocess a source file
+src/ui/SystemWorkspaceUI.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/ui/SystemWorkspaceUI.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_data_system.dir\build.make CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.i
+.PHONY : src/ui/SystemWorkspaceUI.cpp.i
+
+src/ui/SystemWorkspaceUI.s: src/ui/SystemWorkspaceUI.cpp.s
+.PHONY : src/ui/SystemWorkspaceUI.s
+
+# target to generate assembly for a file
+src/ui/SystemWorkspaceUI.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/ui/SystemWorkspaceUI.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_data_system.dir\build.make CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.s
+.PHONY : src/ui/SystemWorkspaceUI.cpp.s
+
 src/ui/UIManager.obj: src/ui/UIManager.cpp.obj
 .PHONY : src/ui/UIManager.obj
 
@@ -1273,6 +1327,12 @@ help:
 	@echo ... src/ui/DataManagerUI.obj
 	@echo ... src/ui/DataManagerUI.i
 	@echo ... src/ui/DataManagerUI.s
+	@echo ... src/ui/ObjectWorkspaceUI.obj
+	@echo ... src/ui/ObjectWorkspaceUI.i
+	@echo ... src/ui/ObjectWorkspaceUI.s
+	@echo ... src/ui/SystemWorkspaceUI.obj
+	@echo ... src/ui/SystemWorkspaceUI.i
+	@echo ... src/ui/SystemWorkspaceUI.s
 	@echo ... src/ui/UIManager.obj
 	@echo ... src/ui/UIManager.i
 	@echo ... src/ui/UIManager.s

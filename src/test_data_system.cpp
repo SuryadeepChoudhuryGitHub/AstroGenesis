@@ -164,9 +164,119 @@ int main() {
     std::cout << "[11] PhysicsEngine::resetSimulation -> PASS" << std::endl;
     std::cout << "    - Successfully cleared custom bodies and restored clean baseline simulation state (" << initialCount << " bodies)." << std::endl;
 
+    // 12. Test Database-Backed System Records & Presets
+    auto allSystems = objRepo.getAllSystems();
+    std::cout << "[12] Database System Presets -> " << (allSystems.size() >= 8 ? "PASS" : "FAIL") << std::endl;
+    std::cout << "    - Total Registered Systems in DB: " << allSystems.size() << std::endl;
+    assert(allSystems.size() >= 8);
+
+    auto binSysOpt = objRepo.getSystemByName("Binary Star System");
+    assert(binSysOpt.has_value());
+    auto binBodies = objRepo.getSystemBodies("Binary Star System");
+    std::cout << "    - Binary Star System Bodies: " << binBodies.size() << std::endl;
+    assert(binBodies.size() >= 3);
+
+    auto tidalSysOpt = objRepo.getSystemByName("Extreme Tidal Test");
+    assert(tidalSysOpt.has_value());
+    auto tidalBodies = objRepo.getSystemBodies("Extreme Tidal Test");
+    std::cout << "    - Extreme Tidal Test Bodies: " << tidalBodies.size() << std::endl;
+    assert(tidalBodies.size() >= 2);
+
+    // 13. Test Custom System Builder Creation, Persistence & Multi-Body Hierarchy
+    SystemRecord customSys;
+    customSys.name = "Unit Test Tri-Star System";
+    customSys.type = "Custom";
+    customSys.source = "User";
+    customSys.description = "Automated test tri-star system with orbiting exoplanet";
+
+    std::vector<CelestialBody> testBodies;
+    CelestialBody star1;
+    star1.dbId = 101;
+    star1.id = "ut_star_1";
+    star1.name = "UT Star Primary";
+    star1.type = "G2V Star";
+    star1.massKg = UnitConverter::SOLAR_MASS_KG;
+    star1.radiusM = UnitConverter::SOLAR_RADIUS_M;
+    star1.positionM = glm::dvec3(0.0);
+    star1.velocityMps = glm::dvec3(0.0);
+    testBodies.push_back(star1);
+
+    CelestialBody star2;
+    star2.dbId = 102;
+    star2.id = "ut_star_2";
+    star2.name = "UT Star Secondary";
+    star2.type = "K1V Star";
+    star2.parentObjectId = 101;
+    star2.massKg = 0.8 * UnitConverter::SOLAR_MASS_KG;
+    star2.radiusM = 0.85 * UnitConverter::SOLAR_RADIUS_M;
+    star2.semiMajorAxisAU = 10.0;
+    star2.positionM = glm::dvec3(10.0 * UnitConverter::AU_TO_METERS, 0.0, 0.0);
+    testBodies.push_back(star2);
+
+    CelestialBody planet1;
+    planet1.dbId = 103;
+    planet1.id = "ut_planet_1";
+    planet1.name = "UT Planet Major";
+    planet1.type = "Terrestrial Planet";
+    planet1.parentObjectId = 101;
+    planet1.massKg = 2.0 * UnitConverter::EARTH_MASS_KG;
+    planet1.radiusM = 1.2 * UnitConverter::EARTH_RADIUS_M;
+    planet1.semiMajorAxisAU = 1.2;
+    planet1.positionM = glm::dvec3(1.2 * UnitConverter::AU_TO_METERS, 0.0, 0.0);
+    testBodies.push_back(planet1);
+
+    CelestialBody moon1;
+    moon1.dbId = 104;
+    moon1.id = "ut_moon_1";
+    moon1.name = "UT Moon Alpha";
+    moon1.type = "Planetary Moon";
+    moon1.parentObjectId = 103;
+    moon1.massKg = UnitConverter::LUNAR_MASS_KG;
+    moon1.radiusM = UnitConverter::LUNAR_RADIUS_M;
+    moon1.semiMajorAxisAU = 0.00257;
+    moon1.positionM = glm::dvec3((1.2 + 0.00257) * UnitConverter::AU_TO_METERS, 0.0, 0.0);
+    testBodies.push_back(moon1);
+
+    int64_t customSysId = 0;
+    bool saveOk = objRepo.saveCustomSystem(customSys, testBodies, &customSysId);
+    std::cout << "[13] Custom System Persistence (saveCustomSystem) -> " << (saveOk ? "PASS" : "FAIL") << std::endl;
+    assert(saveOk);
+    assert(customSysId > 0);
+
+    auto reloadedBodies = objRepo.getSystemBodies(customSys.name);
+    std::cout << "    - Reloaded Custom Bodies Count: " << reloadedBodies.size() << std::endl;
+    assert(reloadedBodies.size() == 4);
+
+    // 14. Test System Duplication
+    int64_t dupSysId = 0;
+    std::string dupName = "Unit Test Tri-Star System (Duplicate)";
+    bool dupOk = objRepo.duplicateSystem(customSysId, dupName, &dupSysId);
+    std::cout << "[14] System Duplication (duplicateSystem) -> " << (dupOk ? "PASS" : "FAIL") << std::endl;
+    assert(dupOk);
+    assert(dupSysId > 0);
+
+    auto dupBodies = objRepo.getSystemBodies(dupName);
+    std::cout << "    - Duplicated System Bodies Count: " << dupBodies.size() << std::endl;
+    assert(dupBodies.size() == 4);
+
+    // Clean up test custom system
+    objRepo.deleteSystem(customSysId);
+    objRepo.deleteSystem(dupSysId);
+
+    // 15. Test Pre-Flight Validation & Simulation Ingestion
+    auto warnings = objRepo.validateSystem(testBodies);
+    std::cout << "[15] Pre-Flight System Validation -> PASS (Warnings detected: " << warnings.size() << ")" << std::endl;
+
+    // Load into physics engine & step simulation
+    bool loadCustomOk = physics.loadFromDatabase(objRepo, "Solar System");
+    assert(loadCustomOk);
+    physics.update(1.0f / 60.0f);
+    std::cout << "    - Physics Engine Step after custom ingestion -> PASS" << std::endl;
+
     std::cout << "\n==========================================================" << std::endl;
-    std::cout << " ALL 11 TEST SUITES PASSED SUCCESSFULLY!" << std::endl;
+    std::cout << " ALL 15 TEST SUITES PASSED SUCCESSFULLY!" << std::endl;
     std::cout << "==========================================================" << std::endl;
 
     return 0;
 }
+

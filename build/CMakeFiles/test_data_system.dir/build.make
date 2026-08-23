@@ -446,6 +446,36 @@ CMakeFiles/test_data_system.dir/src/ui/ValidationUI.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_data_system.dir/src/ui/ValidationUI.cpp.s"
 	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\ui\ValidationUI.cpp" -o CMakeFiles\test_data_system.dir\src\ui\ValidationUI.cpp.s
 
+CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.obj: CMakeFiles/test_data_system.dir/flags.make
+CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.obj: CMakeFiles/test_data_system.dir/includes_CXX.rsp
+CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/SystemWorkspaceUI.cpp
+CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.obj: CMakeFiles/test_data_system.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_26) "Building CXX object CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.obj"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.obj -MF CMakeFiles\test_data_system.dir\src\ui\SystemWorkspaceUI.cpp.obj.d -o CMakeFiles\test_data_system.dir\src\ui\SystemWorkspaceUI.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\ui\SystemWorkspaceUI.cpp"
+
+CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.i"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\ui\SystemWorkspaceUI.cpp" > CMakeFiles\test_data_system.dir\src\ui\SystemWorkspaceUI.cpp.i
+
+CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.s"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\ui\SystemWorkspaceUI.cpp" -o CMakeFiles\test_data_system.dir\src\ui\SystemWorkspaceUI.cpp.s
+
+CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.obj: CMakeFiles/test_data_system.dir/flags.make
+CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.obj: CMakeFiles/test_data_system.dir/includes_CXX.rsp
+CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/ObjectWorkspaceUI.cpp
+CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.obj: CMakeFiles/test_data_system.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_27) "Building CXX object CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.obj"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.obj -MF CMakeFiles\test_data_system.dir\src\ui\ObjectWorkspaceUI.cpp.obj.d -o CMakeFiles\test_data_system.dir\src\ui\ObjectWorkspaceUI.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\ui\ObjectWorkspaceUI.cpp"
+
+CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.i"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\ui\ObjectWorkspaceUI.cpp" > CMakeFiles\test_data_system.dir\src\ui\ObjectWorkspaceUI.cpp.i
+
+CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.s"
+	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\src\ui\ObjectWorkspaceUI.cpp" -o CMakeFiles\test_data_system.dir\src\ui\ObjectWorkspaceUI.cpp.s
+
 # Object files for target test_data_system
 test_data_system_OBJECTS = \
 "CMakeFiles/test_data_system.dir/src/test_data_system.cpp.obj" \
@@ -472,7 +502,9 @@ test_data_system_OBJECTS = \
 "CMakeFiles/test_data_system.dir/src/renderer/DeformableRenderer.cpp.obj" \
 "CMakeFiles/test_data_system.dir/src/ui/UIManager.cpp.obj" \
 "CMakeFiles/test_data_system.dir/src/ui/DataManagerUI.cpp.obj" \
-"CMakeFiles/test_data_system.dir/src/ui/ValidationUI.cpp.obj"
+"CMakeFiles/test_data_system.dir/src/ui/ValidationUI.cpp.obj" \
+"CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.obj" \
+"CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.obj"
 
 # External object files for target test_data_system
 test_data_system_EXTERNAL_OBJECTS =
@@ -502,6 +534,8 @@ test_data_system.exe: CMakeFiles/test_data_system.dir/src/renderer/DeformableRen
 test_data_system.exe: CMakeFiles/test_data_system.dir/src/ui/UIManager.cpp.obj
 test_data_system.exe: CMakeFiles/test_data_system.dir/src/ui/DataManagerUI.cpp.obj
 test_data_system.exe: CMakeFiles/test_data_system.dir/src/ui/ValidationUI.cpp.obj
+test_data_system.exe: CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.obj
+test_data_system.exe: CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.obj
 test_data_system.exe: CMakeFiles/test_data_system.dir/build.make
 test_data_system.exe: libimgui.a
 test_data_system.exe: external/glfw/src/libglfw3.a
@@ -511,7 +545,7 @@ test_data_system.exe: libsqlite3.a
 test_data_system.exe: CMakeFiles/test_data_system.dir/linkLibs.rsp
 test_data_system.exe: CMakeFiles/test_data_system.dir/objects1.rsp
 test_data_system.exe: CMakeFiles/test_data_system.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_26) "Linking CXX executable test_data_system.exe"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_28) "Linking CXX executable test_data_system.exe"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles\test_data_system.dir\link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

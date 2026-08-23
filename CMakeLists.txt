@@ -65,7 +65,10 @@ set(ASTROGENESIS_CORE_SOURCES
     src/ui/UIManager.cpp
     src/ui/DataManagerUI.cpp
     src/ui/ValidationUI.cpp
+    src/ui/SystemWorkspaceUI.cpp
+    src/ui/ObjectWorkspaceUI.cpp
 )
+
 
 # ── Platform-Specific Dependencies ─────────────────────────────────────────────
 if (WIN32)

@@ -710,39 +710,62 @@ void ObjectRepository::hydrateCelestialBodyFields(CelestialBody& body,
 
 std::vector<CelestialBody> ObjectRepository::getSystemBodies(const std::string& systemCategory) {
     std::vector<CelestialBody> bodies;
-    std::vector<ObjectRecord> objects;
 
-    if (systemCategory == "Solar System" || systemCategory.empty()) {
-        objects = getAllObjects("Solar System", false, "");
-        auto asts = getAllObjects("Asteroid Belt", false, "");
-        for (const auto& ast : asts) {
-            bool exists = false;
-            for (const auto& o : objects) { if (o.id == ast.id) { exists = true; break; } }
-            if (!exists) objects.push_back(ast);
+    // 1. Try to find a registered system in the `systems` table
+    auto sysOpt = getSystemByName(systemCategory);
+    if (sysOpt.has_value()) {
+        int64_t sysId = sysOpt.value().id;
+        auto links = getSystemObjectLinks(sysId);
+        if (!links.empty()) {
+            // Map old parent IDs to hydrated bodies
+            for (const auto& link : links) {
+                auto bodyOpt = getHydratedBody(link.objectId);
+                if (bodyOpt.has_value()) {
+                    auto b = bodyOpt.value();
+                    b.parentObjectId = link.parentObjectId;
+                    b.category = sysOpt.value().name;
+                    bodies.push_back(b);
+                }
+            }
         }
-    } else if (systemCategory == "Asteroid Belt") {
-        auto solObj = getObjectBySlug("sol");
-        if (solObj.has_value()) objects.push_back(solObj.value());
-        auto asts = getAllObjects("Asteroid Belt", false, "");
-        for (const auto& ast : asts) {
-            if (ast.slug != "sol") objects.push_back(ast);
-        }
-    } else if (systemCategory == "Exoplanet System") {
-        objects = getAllObjects("TRAPPIST-1 System", false, "");
-        if (objects.empty()) objects = getAllObjects("Exoplanet System", false, "");
-    } else {
-        objects = getAllObjects(systemCategory, false, "");
     }
 
-    for (const auto& obj : objects) {
-        auto phys = getPhysicalProperties(obj.id);
-        auto orb  = getOrbitalElements(obj.id);
-        auto state = getStateVector(obj.id);
-        auto comp = getComposition(obj.id);
+    // 2. Fallback to category-based query if not found via systems table or if links empty
+    if (bodies.empty()) {
+        std::vector<ObjectRecord> objects;
 
-        CelestialBody body;
-        hydrateCelestialBodyFields(body, obj, phys, orb, state, comp);
-        bodies.push_back(body);
+        if (systemCategory == "Solar System" || systemCategory.empty()) {
+            objects = getAllObjects("Solar System", false, "");
+            auto asts = getAllObjects("Asteroid Belt", false, "");
+            for (const auto& ast : asts) {
+                bool exists = false;
+                for (const auto& o : objects) { if (o.id == ast.id) { exists = true; break; } }
+                if (!exists) objects.push_back(ast);
+            }
+        } else if (systemCategory == "Asteroid Belt") {
+            auto solObj = getObjectBySlug("sol");
+            if (solObj.has_value()) objects.push_back(solObj.value());
+            auto asts = getAllObjects("Asteroid Belt", false, "");
+            for (const auto& ast : asts) {
+                if (ast.slug != "sol") objects.push_back(ast);
+            }
+        } else if (systemCategory == "Exoplanet System") {
+            objects = getAllObjects("TRAPPIST-1 System", false, "");
+            if (objects.empty()) objects = getAllObjects("Exoplanet System", false, "");
+        } else {
+            objects = getAllObjects(systemCategory, false, "");
+        }
+
+        for (const auto& obj : objects) {
+            auto phys = getPhysicalProperties(obj.id);
+            auto orb  = getOrbitalElements(obj.id);
+            auto state = getStateVector(obj.id);
+            auto comp = getComposition(obj.id);
+
+            CelestialBody body;
+            hydrateCelestialBodyFields(body, obj, phys, orb, state, comp);
+            bodies.push_back(body);
+        }
     }
 
     // Calculate moon counts for host planets
@@ -843,4 +866,384 @@ int ObjectRepository::getObjectCount(const std::string& category) {
     return count;
 }
 
+// ── Systems Management Implementations ───────────────────────────────────────
+
+bool ObjectRepository::createSystem(const SystemRecord& sys, int64_t* outId) {
+    std::string sql = "INSERT OR REPLACE INTO systems (name, type, source, description, created_at, updated_at) "
+                      "VALUES (?, ?, ?, ?, datetime('now'), datetime('now'));";
+    sqlite3_stmt* stmt = m_db.prepare(sql);
+    if (!stmt) return false;
+
+    sqlite3_bind_text(stmt, 1, sys.name.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, sys.type.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, sys.source.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, sys.description.c_str(), -1, SQLITE_TRANSIENT);
+
+    bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    if (ok && outId) {
+        *outId = m_db.getLastInsertId();
+    }
+    m_db.finalize(stmt);
+    return ok;
+}
+
+bool ObjectRepository::updateSystem(const SystemRecord& sys) {
+    std::string sql = "UPDATE systems SET name = ?, type = ?, source = ?, description = ?, updated_at = datetime('now') WHERE id = ?;";
+    sqlite3_stmt* stmt = m_db.prepare(sql);
+    if (!stmt) return false;
+
+    sqlite3_bind_text(stmt, 1, sys.name.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, sys.type.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, sys.source.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, sys.description.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 5, sys.id);
+
+    bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    m_db.finalize(stmt);
+    return ok;
+}
+
+bool ObjectRepository::deleteSystem(int64_t systemId) {
+    std::string sql = "DELETE FROM systems WHERE id = ?;";
+    sqlite3_stmt* stmt = m_db.prepare(sql);
+    if (!stmt) return false;
+
+    sqlite3_bind_int64(stmt, 1, systemId);
+    bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    m_db.finalize(stmt);
+    return ok;
+}
+
+bool ObjectRepository::deleteSystemByName(const std::string& name) {
+    std::string sql = "DELETE FROM systems WHERE name = ?;";
+    sqlite3_stmt* stmt = m_db.prepare(sql);
+    if (!stmt) return false;
+
+    sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
+    bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    m_db.finalize(stmt);
+    return ok;
+}
+
+std::vector<SystemRecord> ObjectRepository::getAllSystems() {
+    std::vector<SystemRecord> list;
+    std::string sql = "SELECT s.id, s.name, s.type, s.source, s.description, s.created_at, s.updated_at, "
+                      "(SELECT COUNT(*) FROM system_objects so WHERE so.system_id = s.id) AS obj_count "
+                      "FROM systems s ORDER BY s.updated_at DESC, s.id DESC;";
+    sqlite3_stmt* stmt = m_db.prepare(sql);
+    if (!stmt) return list;
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        SystemRecord s;
+        s.id = sqlite3_column_int64(stmt, 0);
+        s.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        s.type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        s.source = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        const unsigned char* desc = sqlite3_column_text(stmt, 4);
+        if (desc) s.description = reinterpret_cast<const char*>(desc);
+        s.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+        s.updatedAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
+        s.objectCount = sqlite3_column_int(stmt, 7);
+        list.push_back(s);
+    }
+    m_db.finalize(stmt);
+    return list;
+}
+
+std::optional<SystemRecord> ObjectRepository::getSystemById(int64_t id) {
+    std::string sql = "SELECT s.id, s.name, s.type, s.source, s.description, s.created_at, s.updated_at, "
+                      "(SELECT COUNT(*) FROM system_objects so WHERE so.system_id = s.id) AS obj_count "
+                      "FROM systems s WHERE s.id = ?;";
+    sqlite3_stmt* stmt = m_db.prepare(sql);
+    if (!stmt) return std::nullopt;
+
+    sqlite3_bind_int64(stmt, 1, id);
+    std::optional<SystemRecord> res;
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        SystemRecord s;
+        s.id = sqlite3_column_int64(stmt, 0);
+        s.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        s.type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        s.source = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        const unsigned char* desc = sqlite3_column_text(stmt, 4);
+        if (desc) s.description = reinterpret_cast<const char*>(desc);
+        s.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+        s.updatedAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
+        s.objectCount = sqlite3_column_int(stmt, 7);
+        res = s;
+    }
+    m_db.finalize(stmt);
+    return res;
+}
+
+std::optional<SystemRecord> ObjectRepository::getSystemByName(const std::string& name) {
+    std::string sql = "SELECT s.id, s.name, s.type, s.source, s.description, s.created_at, s.updated_at, "
+                      "(SELECT COUNT(*) FROM system_objects so WHERE so.system_id = s.id) AS obj_count "
+                      "FROM systems s WHERE s.name = ?;";
+    sqlite3_stmt* stmt = m_db.prepare(sql);
+    if (!stmt) return std::nullopt;
+
+    sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
+    std::optional<SystemRecord> res;
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        SystemRecord s;
+        s.id = sqlite3_column_int64(stmt, 0);
+        s.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        s.type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        s.source = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        const unsigned char* desc = sqlite3_column_text(stmt, 4);
+        if (desc) s.description = reinterpret_cast<const char*>(desc);
+        s.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+        s.updatedAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
+        s.objectCount = sqlite3_column_int(stmt, 7);
+        res = s;
+    }
+    m_db.finalize(stmt);
+    return res;
+}
+
+bool ObjectRepository::addSystemObject(int64_t systemId, int64_t objectId, std::optional<int64_t> parentObjectId, int orbitalOrder) {
+    std::string sql = "INSERT OR REPLACE INTO system_objects (system_id, object_id, parent_object_id, orbital_order) "
+                      "VALUES (?, ?, ?, ?);";
+    sqlite3_stmt* stmt = m_db.prepare(sql);
+    if (!stmt) return false;
+
+    sqlite3_bind_int64(stmt, 1, systemId);
+    sqlite3_bind_int64(stmt, 2, objectId);
+    if (parentObjectId.has_value()) sqlite3_bind_int64(stmt, 3, parentObjectId.value());
+    else sqlite3_bind_null(stmt, 3);
+    sqlite3_bind_int(stmt, 4, orbitalOrder);
+
+    bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    m_db.finalize(stmt);
+    return ok;
+}
+
+bool ObjectRepository::removeSystemObject(int64_t systemId, int64_t objectId) {
+    std::string sql = "DELETE FROM system_objects WHERE system_id = ? AND object_id = ?;";
+    sqlite3_stmt* stmt = m_db.prepare(sql);
+    if (!stmt) return false;
+
+    sqlite3_bind_int64(stmt, 1, systemId);
+    sqlite3_bind_int64(stmt, 2, objectId);
+
+    bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    m_db.finalize(stmt);
+    return ok;
+}
+
+std::vector<SystemObjectRecord> ObjectRepository::getSystemObjectLinks(int64_t systemId) {
+    std::vector<SystemObjectRecord> list;
+    std::string sql = "SELECT id, system_id, object_id, parent_object_id, orbital_order FROM system_objects "
+                      "WHERE system_id = ? ORDER BY orbital_order ASC, id ASC;";
+    sqlite3_stmt* stmt = m_db.prepare(sql);
+    if (!stmt) return list;
+
+    sqlite3_bind_int64(stmt, 1, systemId);
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        SystemObjectRecord r;
+        r.id = sqlite3_column_int64(stmt, 0);
+        r.systemId = sqlite3_column_int64(stmt, 1);
+        r.objectId = sqlite3_column_int64(stmt, 2);
+        if (sqlite3_column_type(stmt, 3) != SQLITE_NULL) r.parentObjectId = sqlite3_column_int64(stmt, 3);
+        r.orbitalOrder = sqlite3_column_int(stmt, 4);
+        list.push_back(r);
+    }
+    m_db.finalize(stmt);
+    return list;
+}
+
+bool ObjectRepository::saveCustomSystem(const SystemRecord& sys, const std::vector<CelestialBody>& bodies, int64_t* outSystemId) {
+    DatabaseManager::ScopedTransaction tx(m_db);
+
+    int64_t systemId = sys.id;
+    if (systemId <= 0) {
+        auto existing = getSystemByName(sys.name);
+        if (existing.has_value()) {
+            systemId = existing.value().id;
+        }
+    }
+
+    if (systemId > 0) {
+        SystemRecord updatedSys = sys;
+        updatedSys.id = systemId;
+        if (!updateSystem(updatedSys)) return false;
+    } else {
+        if (!createSystem(sys, &systemId)) return false;
+    }
+
+    if (outSystemId) *outSystemId = systemId;
+
+    // Clear old links for this system
+    std::string clearLinks = "DELETE FROM system_objects WHERE system_id = ?;";
+    sqlite3_stmt* stmt = m_db.prepare(clearLinks);
+    if (stmt) {
+        sqlite3_bind_int64(stmt, 1, systemId);
+        sqlite3_step(stmt);
+        m_db.finalize(stmt);
+    }
+
+    // Save each body and create links
+    std::map<int64_t, int64_t> oldToNewIdMap;
+    std::vector<std::pair<int64_t, std::optional<int64_t>>> savedObjParentPairs;
+
+    for (const auto& b : bodies) {
+        CelestialBody copyBody = b;
+        copyBody.category = sys.name;
+        copyBody.parentObjectId = std::nullopt; // clear during base object insert to avoid foreign key errors on uninserted parents
+        int64_t newObjId = 0;
+
+        if (!saveCelestialBody(copyBody, &newObjId)) {
+            return false;
+        }
+
+        if (b.dbId > 0) {
+            oldToNewIdMap[b.dbId] = newObjId;
+        } else {
+            oldToNewIdMap[newObjId] = newObjId;
+        }
+
+        savedObjParentPairs.push_back({ newObjId, b.parentObjectId });
+    }
+
+    // Pass 2: Link hierarchy in system_objects and update parent_object_id in objects table
+    int order = 0;
+    for (const auto& pair : savedObjParentPairs) {
+        int64_t objId = pair.first;
+        std::optional<int64_t> origParent = pair.second;
+        std::optional<int64_t> mappedParent = std::nullopt;
+
+        if (origParent.has_value()) {
+            int64_t op = origParent.value();
+            if (oldToNewIdMap.find(op) != oldToNewIdMap.end()) {
+                mappedParent = oldToNewIdMap[op];
+            } else if (getObjectById(op).has_value()) {
+                mappedParent = op;
+            }
+        }
+
+        if (mappedParent.has_value()) {
+            std::string updateParentSql = "UPDATE objects SET parent_object_id = ? WHERE id = ?;";
+            sqlite3_stmt* pStmt = m_db.prepare(updateParentSql);
+            if (pStmt) {
+                sqlite3_bind_int64(pStmt, 1, mappedParent.value());
+                sqlite3_bind_int64(pStmt, 2, objId);
+                sqlite3_step(pStmt);
+                m_db.finalize(pStmt);
+            }
+        }
+
+        if (!addSystemObject(systemId, objId, mappedParent, order++)) {
+            return false;
+        }
+    }
+
+    tx.commit();
+    return true;
+}
+
+
+bool ObjectRepository::duplicateSystem(int64_t sourceSystemId, const std::string& newName, int64_t* outNewId) {
+    auto srcSysOpt = getSystemById(sourceSystemId);
+    if (!srcSysOpt.has_value()) return false;
+
+    const auto& srcSys = srcSysOpt.value();
+    auto srcBodies = getSystemBodies(srcSys.name);
+
+    SystemRecord newSys;
+    newSys.name = newName;
+    newSys.type = "Custom";
+    newSys.source = "Duplicated from " + srcSys.name;
+    newSys.description = "Duplicated copy of " + srcSys.name + " (" + srcSys.description + ")";
+
+    // Give each body a unique slug suffix to prevent slug collisions
+    int64_t timeSuffix = (int64_t)time(nullptr);
+    for (auto& b : srcBodies) {
+        b.id = b.id + "_copy_" + std::to_string(timeSuffix % 100000);
+        b.category = newName;
+        b.dbId = 0; // force new insert
+    }
+
+    return saveCustomSystem(newSys, srcBodies, outNewId);
+}
+
+std::vector<SystemValidationWarning> ObjectRepository::validateSystem(const std::vector<CelestialBody>& bodies) {
+    std::vector<SystemValidationWarning> warnings;
+
+    if (bodies.empty()) {
+        warnings.push_back({
+            SystemValidationWarning::Severity::Error,
+            "Empty System",
+            "At least one celestial body is required to run a simulation.",
+            "", ""
+        });
+        return warnings;
+    }
+
+    bool hasAnchor = false;
+    for (const auto& b : bodies) {
+        if (b.type.find("Star") != std::string::npos || b.type.find("Black Hole") != std::string::npos || b.massKg > 1e28) {
+            hasAnchor = true;
+            break;
+        }
+    }
+
+    if (!hasAnchor && bodies.size() > 1) {
+        warnings.push_back({
+            SystemValidationWarning::Severity::Info,
+            "No Massive Anchor Body",
+            "System does not contain a primary star or black hole. All bodies will orbit their mutual barycenter.",
+            "", ""
+        });
+    }
+
+    // Physical radius vs orbital distance check
+    for (const auto& b : bodies) {
+        if (b.semiMajorAxisAU > 0.0) {
+            double smaM = b.semiMajorAxisAU * UnitConverter::AU_TO_METERS;
+            if (b.radiusM >= smaM * 0.9) {
+                warnings.push_back({
+                    SystemValidationWarning::Severity::Warning,
+                    "Radius Exceeds Orbital Distance",
+                    "Physical radius of " + b.name + " (" + UnitConverter::formatDistance(b.radiusM) + ") exceeds or is close to its semi-major axis.",
+                    b.name, ""
+                });
+            }
+        }
+    }
+
+    // Proximity / Collision detection check
+    for (size_t i = 0; i < bodies.size(); ++i) {
+        for (size_t j = i + 1; j < bodies.size(); ++j) {
+            const auto& b1 = bodies[i];
+            const auto& b2 = bodies[j];
+
+            double distM = glm::length(b1.positionM - b2.positionM);
+            double minDist = (b1.radiusM + b2.radiusM);
+
+            if (distM < minDist && minDist > 0.0) {
+                warnings.push_back({
+                    SystemValidationWarning::Severity::Warning,
+                    "Immediate Collision Detected",
+                    "Bodies '" + b1.name + "' and '" + b2.name + "' overlap in 3D space (Distance: " + 
+                    UnitConverter::formatDistance(distM) + " < Sum of Radii: " + UnitConverter::formatDistance(minDist) + ").",
+                    b1.name, b2.name
+                });
+            } else if (distM < 1000000.0 && distM > 0.0) {
+                warnings.push_back({
+                    SystemValidationWarning::Severity::Info,
+                    "Close Proximity",
+                    "Bodies '" + b1.name + "' and '" + b2.name + "' are within 1,000 km of each other.",
+                    b1.name, b2.name
+                });
+            }
+        }
+    }
+
+    return warnings;
+}
+
 } // namespace AstroGenesis
+

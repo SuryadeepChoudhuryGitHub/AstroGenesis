@@ -31,6 +31,8 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/simulation/ValidationEngine.cpp" "CMakeFiles/test_data_system.dir/src/simulation/ValidationEngine.cpp.obj" "gcc" "CMakeFiles/test_data_system.dir/src/simulation/ValidationEngine.cpp.obj.d"
   "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/test_data_system.cpp" "CMakeFiles/test_data_system.dir/src/test_data_system.cpp.obj" "gcc" "CMakeFiles/test_data_system.dir/src/test_data_system.cpp.obj.d"
   "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/ui/DataManagerUI.cpp" "CMakeFiles/test_data_system.dir/src/ui/DataManagerUI.cpp.obj" "gcc" "CMakeFiles/test_data_system.dir/src/ui/DataManagerUI.cpp.obj.d"
+  "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/ui/ObjectWorkspaceUI.cpp" "CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.obj" "gcc" "CMakeFiles/test_data_system.dir/src/ui/ObjectWorkspaceUI.cpp.obj.d"
+  "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/ui/SystemWorkspaceUI.cpp" "CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.obj" "gcc" "CMakeFiles/test_data_system.dir/src/ui/SystemWorkspaceUI.cpp.obj.d"
   "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/ui/UIManager.cpp" "CMakeFiles/test_data_system.dir/src/ui/UIManager.cpp.obj" "gcc" "CMakeFiles/test_data_system.dir/src/ui/UIManager.cpp.obj.d"
   "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/ui/ValidationUI.cpp" "CMakeFiles/test_data_system.dir/src/ui/ValidationUI.cpp.obj" "gcc" "CMakeFiles/test_data_system.dir/src/ui/ValidationUI.cpp.obj.d"
   )

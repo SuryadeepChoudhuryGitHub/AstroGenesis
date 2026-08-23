@@ -173,4 +173,40 @@ struct CelestialBodyRecord {
     std::string sourceName = "Bundled Seed Dataset";
 };
 
+// Complete System Record representing an astronomical or custom star system
+struct SystemRecord {
+    int64_t id = 0;
+    std::string name;                          // Display name, e.g. "Solar System", "TRAPPIST-1 System", "My Binary System"
+    std::string type = "Custom";               // "Preset", "Imported", "Custom"
+    std::string source = "User";               // "NASA Exoplanet Archive", "JPL Horizons", "Bundled Seed Dataset", "User"
+    std::string description;
+    std::string createdAt;
+    std::string updatedAt;
+    int objectCount = 0;
+};
+
+// Association between a system and its celestial objects with hierarchical relationship
+struct SystemObjectRecord {
+    int64_t id = 0;
+    int64_t systemId = 0;
+    int64_t objectId = 0;
+    std::optional<int64_t> parentObjectId;
+    int orbitalOrder = 0;
+};
+
+// Physical plausibility and collision warning during custom system pre-flight checks
+struct SystemValidationWarning {
+    enum class Severity {
+        Info,
+        Warning,
+        Error
+    };
+    Severity severity = Severity::Warning;
+    std::string title;
+    std::string message;
+    std::string objectNameA;
+    std::string objectNameB;
+};
+
 } // namespace AstroGenesis
+

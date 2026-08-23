@@ -72,6 +72,8 @@ private:
     std::string m_dbPath;
     mutable std::mutex m_mutex;
     mutable std::string m_lastError;
+    int m_transactionDepth = 0;
 };
 
 } // namespace AstroGenesis
+

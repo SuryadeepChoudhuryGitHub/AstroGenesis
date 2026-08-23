@@ -399,6 +399,8 @@ CMakeFiles/AstroGenesis.dir/src/main.cpp.obj: \
  C:/msys64/ucrt64/include/sec_api/string_s.h \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/DataManagerUI.hpp \
  D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/ValidationUI.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/SystemWorkspaceUI.hpp \
+ D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/src/ui/ObjectWorkspaceUI.hpp \
  C:/msys64/ucrt64/include/windows.h C:/msys64/ucrt64/include/sdkddkver.h \
  C:/msys64/ucrt64/include/excpt.h C:/msys64/ucrt64/include/windef.h \
  C:/msys64/ucrt64/include/winapifamily.h \

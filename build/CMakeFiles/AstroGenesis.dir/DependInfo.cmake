@@ -32,6 +32,8 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/simulation/PhysicsEngine.cpp" "CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj" "gcc" "CMakeFiles/AstroGenesis.dir/src/simulation/PhysicsEngine.cpp.obj.d"
   "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/simulation/ValidationEngine.cpp" "CMakeFiles/AstroGenesis.dir/src/simulation/ValidationEngine.cpp.obj" "gcc" "CMakeFiles/AstroGenesis.dir/src/simulation/ValidationEngine.cpp.obj.d"
   "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/ui/DataManagerUI.cpp" "CMakeFiles/AstroGenesis.dir/src/ui/DataManagerUI.cpp.obj" "gcc" "CMakeFiles/AstroGenesis.dir/src/ui/DataManagerUI.cpp.obj.d"
+  "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/ui/ObjectWorkspaceUI.cpp" "CMakeFiles/AstroGenesis.dir/src/ui/ObjectWorkspaceUI.cpp.obj" "gcc" "CMakeFiles/AstroGenesis.dir/src/ui/ObjectWorkspaceUI.cpp.obj.d"
+  "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/ui/SystemWorkspaceUI.cpp" "CMakeFiles/AstroGenesis.dir/src/ui/SystemWorkspaceUI.cpp.obj" "gcc" "CMakeFiles/AstroGenesis.dir/src/ui/SystemWorkspaceUI.cpp.obj.d"
   "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/ui/UIManager.cpp" "CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj" "gcc" "CMakeFiles/AstroGenesis.dir/src/ui/UIManager.cpp.obj.d"
   "D:/# My Folder/My Work/Visual Studio script/C++/AstroGenesis/src/ui/ValidationUI.cpp" "CMakeFiles/AstroGenesis.dir/src/ui/ValidationUI.cpp.obj" "gcc" "CMakeFiles/AstroGenesis.dir/src/ui/ValidationUI.cpp.obj.d"
   )

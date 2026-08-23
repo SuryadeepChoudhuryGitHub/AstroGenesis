@@ -8,6 +8,8 @@
 #include "data/repositories/ObjectRepository.hpp"
 #include "ui/DataManagerUI.hpp"
 #include "ui/ValidationUI.hpp"
+#include "ui/SystemWorkspaceUI.hpp"
+#include "ui/ObjectWorkspaceUI.hpp"
 
 namespace AstroGenesis {
 
@@ -36,12 +38,14 @@ public:
 
     void openDataManager() { m_showDataManager = true; }
     void openValidationDashboard() { m_showValidationDashboard = true; }
+    void setActiveTopTab(int tab) { m_activeTopTab = tab; }
+    int getActiveTopTab() const { return m_activeTopTab; }
 
 private:
     void drawTopBar(float width, PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo);
     void drawLeftPanel(PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo, float topBarH, float statusBarH, float winH);
     void drawInfoOverlay(const CelestialBody& body, float x, float y);
-    void drawRightPanel(PhysicsEngine& physics, const CelestialBody& body, DataManager& dataManager, float topBarH, float winW, float winH, float statusBarH);
+    void drawRightPanel(PhysicsEngine& physics, CelestialBody& body, DataManager& dataManager, ObjectRepository& objRepo, float topBarH, float winW, float winH, float statusBarH);
     void drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vpX, float vpY, float vpW, float vpH);
     void drawTimeControls(PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo, float x, float y, float w, float h);
     void drawSimMetrics(PhysicsEngine& physics, float fps, float x, float y, float w, float h);
@@ -50,13 +54,18 @@ private:
     void drawAsteroidBeltDiagnostics(PhysicsEngine& physics, ObjectRepository& objRepo, float winW, float winH);
     void drawMatterLab(PhysicsEngine& physics, float winW, float winH);
 
+    // Extra Workspaces
+    void drawExploreWorkspace(ObjectRepository& objRepo, PhysicsEngine& physics, Camera& camera, float winW, float winH);
+    void drawSimulationWorkspace(PhysicsEngine& physics, Camera& camera, ValidationEngine& valEngine, ObjectRepository& objRepo, float winW, float winH);
+    void drawAIAssistantWorkspace(PhysicsEngine& physics, ObjectRepository& objRepo, float winW, float winH);
+
     bool m_viewportHovered = false;
     int m_hoveredBodyIndex = -1;
     bool m_showAsteroidBeltDiagnostics = false;
     bool m_showMatterLab = false;
     bool m_showDataManager = false;
     bool m_showValidationDashboard = false;
-    int m_activeTopTab = 1; // 0: UNIVERSE, 1: SYSTEM, 2: OBJECTS, 3: EXPLORE, 4: SIMULATION, 5: AI ASSISTANT
+    int m_activeTopTab = 0; // 0: UNIVERSE, 1: SYSTEM, 2: OBJECTS, 3: EXPLORE, 4: SIMULATION, 5: AI ASSISTANT
     char m_searchQuery[64] = "";
 
     float m_viewportX = 210.0f;
@@ -68,6 +77,9 @@ private:
     std::vector<EventLogEntry> m_eventLogs;
     DataManagerUI m_dataManagerUI;
     ValidationUI m_validationUI;
+    SystemWorkspaceUI m_systemWorkspaceUI;
+    ObjectWorkspaceUI m_objectWorkspaceUI;
 };
 
 } // namespace AstroGenesis
+

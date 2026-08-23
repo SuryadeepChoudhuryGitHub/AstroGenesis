@@ -109,16 +109,42 @@ std::string DatabaseManager::getLastError() const {
 }
 
 bool DatabaseManager::beginTransaction() {
-    return execute("BEGIN IMMEDIATE TRANSACTION;");
+    if (m_transactionDepth == 0) {
+        bool ok = execute("BEGIN IMMEDIATE TRANSACTION;");
+        if (ok) m_transactionDepth++;
+        return ok;
+    } else {
+        std::string sp = "SAVEPOINT sp_" + std::to_string(m_transactionDepth) + ";";
+        bool ok = execute(sp);
+        if (ok) m_transactionDepth++;
+        return ok;
+    }
 }
 
 bool DatabaseManager::commit() {
-    return execute("COMMIT;");
+    if (m_transactionDepth <= 0) return false;
+    if (m_transactionDepth == 1) {
+        m_transactionDepth = 0;
+        return execute("COMMIT;");
+    } else {
+        m_transactionDepth--;
+        std::string sp = "RELEASE SAVEPOINT sp_" + std::to_string(m_transactionDepth) + ";";
+        return execute(sp);
+    }
 }
 
 bool DatabaseManager::rollback() {
-    return execute("ROLLBACK;");
+    if (m_transactionDepth <= 0) return false;
+    if (m_transactionDepth == 1) {
+        m_transactionDepth = 0;
+        return execute("ROLLBACK;");
+    } else {
+        m_transactionDepth--;
+        std::string sp = "ROLLBACK TO SAVEPOINT sp_" + std::to_string(m_transactionDepth) + ";";
+        return execute(sp);
+    }
 }
+
 
 int DatabaseManager::getCurrentSchemaVersion() {
     if (!m_db) return 0;
@@ -384,7 +410,42 @@ bool DatabaseManager::runMigrations() {
         }
     }
 
+    // Migration 4: Complete Star Systems & Custom Object Hierarchies
+    if (currentVer < 4) {
+        const char* mig4 = R"(
+            -- 12. Systems (Custom, Imported, Presets)
+            CREATE TABLE IF NOT EXISTS systems (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                type TEXT NOT NULL DEFAULT 'Custom',
+                source TEXT NOT NULL DEFAULT 'User',
+                description TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            -- 13. System Objects (Hierarchical parent-child object links within a system)
+            CREATE TABLE IF NOT EXISTS system_objects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                system_id INTEGER NOT NULL REFERENCES systems(id) ON DELETE CASCADE,
+                object_id INTEGER NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
+                parent_object_id INTEGER REFERENCES objects(id) ON DELETE SET NULL,
+                orbital_order INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(system_id, object_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_systems_name ON systems(name);
+            CREATE INDEX IF NOT EXISTS idx_sys_obj_sys ON system_objects(system_id);
+            CREATE INDEX IF NOT EXISTS idx_sys_obj_obj ON system_objects(object_id);
+        )";
+
+        if (!applyMigration(4, "Create systems and system_objects tables", mig4)) {
+            return false;
+        }
+    }
+
     return true;
 }
 
 } // namespace AstroGenesis
+
