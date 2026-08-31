@@ -1,0 +1,62 @@
+# ====================================================================
+# AstroGenesis - .gitignore
+# ====================================================================
+
+# Build and output directories
+build/
+build-*/
+cmake-build-*/
+bin/
+out/
+
+# CMake in-tree clutter
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+Makefile
+compile_commands.json
+CTestTestfile.cmake
+install_manifest.txt
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.VC.opendb
+ipch/
+*.sln.docstates
+
+# VS Code & JetBrains IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+
+# Android / Gradle cache clutter
+.gradle/
+.cxx/
+local.properties
+
+# OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Compiled binaries and debug files
+*.obj
+*.o
+*.pdb
+*.ilk
+*.idb
+*.exp
+*.exe
+*.dll
+*.class
+
+# ImGui log / ini files
+imgui.ini
