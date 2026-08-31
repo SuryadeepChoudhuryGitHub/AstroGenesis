@@ -76,105 +76,105 @@ CMakeFiles/imgui.dir/external/imgui/imgui.cpp.obj: CMakeFiles/imgui.dir/includes
 CMakeFiles/imgui.dir/external/imgui/imgui.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imgui.cpp
 CMakeFiles/imgui.dir/external/imgui/imgui.cpp.obj: CMakeFiles/imgui.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/imgui.dir/external/imgui/imgui.cpp.obj"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/imgui.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\imgui.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\imgui.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui.cpp"
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/imgui.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\imgui.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\imgui.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui.cpp"
 
 CMakeFiles/imgui.dir/external/imgui/imgui.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/imgui.dir/external/imgui/imgui.cpp.i"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui.cpp" > CMakeFiles\imgui.dir\external\imgui\imgui.cpp.i
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui.cpp" > CMakeFiles\imgui.dir\external\imgui\imgui.cpp.i
 
 CMakeFiles/imgui.dir/external/imgui/imgui.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/imgui.dir/external/imgui/imgui.cpp.s"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui.cpp" -o CMakeFiles\imgui.dir\external\imgui\imgui.cpp.s
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui.cpp" -o CMakeFiles\imgui.dir\external\imgui\imgui.cpp.s
 
 CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.obj: CMakeFiles/imgui.dir/flags.make
 CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.obj: CMakeFiles/imgui.dir/includes_CXX.rsp
 CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imgui_draw.cpp
 CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.obj: CMakeFiles/imgui.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.obj"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\imgui_draw.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\imgui_draw.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_draw.cpp"
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\imgui_draw.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\imgui_draw.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_draw.cpp"
 
 CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.i"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_draw.cpp" > CMakeFiles\imgui.dir\external\imgui\imgui_draw.cpp.i
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_draw.cpp" > CMakeFiles\imgui.dir\external\imgui\imgui_draw.cpp.i
 
 CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.s"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_draw.cpp" -o CMakeFiles\imgui.dir\external\imgui\imgui_draw.cpp.s
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_draw.cpp" -o CMakeFiles\imgui.dir\external\imgui\imgui_draw.cpp.s
 
 CMakeFiles/imgui.dir/external/imgui/imgui_tables.cpp.obj: CMakeFiles/imgui.dir/flags.make
 CMakeFiles/imgui.dir/external/imgui/imgui_tables.cpp.obj: CMakeFiles/imgui.dir/includes_CXX.rsp
 CMakeFiles/imgui.dir/external/imgui/imgui_tables.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imgui_tables.cpp
 CMakeFiles/imgui.dir/external/imgui/imgui_tables.cpp.obj: CMakeFiles/imgui.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/imgui.dir/external/imgui/imgui_tables.cpp.obj"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/imgui_tables.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\imgui_tables.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\imgui_tables.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_tables.cpp"
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/imgui_tables.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\imgui_tables.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\imgui_tables.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_tables.cpp"
 
 CMakeFiles/imgui.dir/external/imgui/imgui_tables.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/imgui.dir/external/imgui/imgui_tables.cpp.i"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_tables.cpp" > CMakeFiles\imgui.dir\external\imgui\imgui_tables.cpp.i
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_tables.cpp" > CMakeFiles\imgui.dir\external\imgui\imgui_tables.cpp.i
 
 CMakeFiles/imgui.dir/external/imgui/imgui_tables.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/imgui.dir/external/imgui/imgui_tables.cpp.s"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_tables.cpp" -o CMakeFiles\imgui.dir\external\imgui\imgui_tables.cpp.s
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_tables.cpp" -o CMakeFiles\imgui.dir\external\imgui\imgui_tables.cpp.s
 
 CMakeFiles/imgui.dir/external/imgui/imgui_widgets.cpp.obj: CMakeFiles/imgui.dir/flags.make
 CMakeFiles/imgui.dir/external/imgui/imgui_widgets.cpp.obj: CMakeFiles/imgui.dir/includes_CXX.rsp
 CMakeFiles/imgui.dir/external/imgui/imgui_widgets.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imgui_widgets.cpp
 CMakeFiles/imgui.dir/external/imgui/imgui_widgets.cpp.obj: CMakeFiles/imgui.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/imgui.dir/external/imgui/imgui_widgets.cpp.obj"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/imgui_widgets.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\imgui_widgets.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\imgui_widgets.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_widgets.cpp"
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/imgui_widgets.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\imgui_widgets.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\imgui_widgets.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_widgets.cpp"
 
 CMakeFiles/imgui.dir/external/imgui/imgui_widgets.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/imgui.dir/external/imgui/imgui_widgets.cpp.i"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_widgets.cpp" > CMakeFiles\imgui.dir\external\imgui\imgui_widgets.cpp.i
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_widgets.cpp" > CMakeFiles\imgui.dir\external\imgui\imgui_widgets.cpp.i
 
 CMakeFiles/imgui.dir/external/imgui/imgui_widgets.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/imgui.dir/external/imgui/imgui_widgets.cpp.s"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_widgets.cpp" -o CMakeFiles\imgui.dir\external\imgui\imgui_widgets.cpp.s
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_widgets.cpp" -o CMakeFiles\imgui.dir\external\imgui\imgui_widgets.cpp.s
 
 CMakeFiles/imgui.dir/external/imgui/imgui_demo.cpp.obj: CMakeFiles/imgui.dir/flags.make
 CMakeFiles/imgui.dir/external/imgui/imgui_demo.cpp.obj: CMakeFiles/imgui.dir/includes_CXX.rsp
 CMakeFiles/imgui.dir/external/imgui/imgui_demo.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/imgui_demo.cpp
 CMakeFiles/imgui.dir/external/imgui/imgui_demo.cpp.obj: CMakeFiles/imgui.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/imgui.dir/external/imgui/imgui_demo.cpp.obj"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/imgui_demo.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\imgui_demo.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\imgui_demo.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_demo.cpp"
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/imgui_demo.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\imgui_demo.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\imgui_demo.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_demo.cpp"
 
 CMakeFiles/imgui.dir/external/imgui/imgui_demo.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/imgui.dir/external/imgui/imgui_demo.cpp.i"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_demo.cpp" > CMakeFiles\imgui.dir\external\imgui\imgui_demo.cpp.i
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_demo.cpp" > CMakeFiles\imgui.dir\external\imgui\imgui_demo.cpp.i
 
 CMakeFiles/imgui.dir/external/imgui/imgui_demo.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/imgui.dir/external/imgui/imgui_demo.cpp.s"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_demo.cpp" -o CMakeFiles\imgui.dir\external\imgui\imgui_demo.cpp.s
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\imgui_demo.cpp" -o CMakeFiles\imgui.dir\external\imgui\imgui_demo.cpp.s
 
 CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_glfw.cpp.obj: CMakeFiles/imgui.dir/flags.make
 CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_glfw.cpp.obj: CMakeFiles/imgui.dir/includes_CXX.rsp
 CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_glfw.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/backends/imgui_impl_glfw.cpp
 CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_glfw.cpp.obj: CMakeFiles/imgui.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_glfw.cpp.obj"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_glfw.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_glfw.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_glfw.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\backends\imgui_impl_glfw.cpp"
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_glfw.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_glfw.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_glfw.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\backends\imgui_impl_glfw.cpp"
 
 CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_glfw.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_glfw.cpp.i"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\backends\imgui_impl_glfw.cpp" > CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_glfw.cpp.i
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\backends\imgui_impl_glfw.cpp" > CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_glfw.cpp.i
 
 CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_glfw.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_glfw.cpp.s"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\backends\imgui_impl_glfw.cpp" -o CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_glfw.cpp.s
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\backends\imgui_impl_glfw.cpp" -o CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_glfw.cpp.s
 
 CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_opengl3.cpp.obj: CMakeFiles/imgui.dir/flags.make
 CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_opengl3.cpp.obj: CMakeFiles/imgui.dir/includes_CXX.rsp
 CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_opengl3.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/imgui/backends/imgui_impl_opengl3.cpp
 CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_opengl3.cpp.obj: CMakeFiles/imgui.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_opengl3.cpp.obj"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_opengl3.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_opengl3.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_opengl3.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\backends\imgui_impl_opengl3.cpp"
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_opengl3.cpp.obj -MF CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_opengl3.cpp.obj.d -o CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_opengl3.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\backends\imgui_impl_opengl3.cpp"
 
 CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_opengl3.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_opengl3.cpp.i"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\backends\imgui_impl_opengl3.cpp" > CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_opengl3.cpp.i
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\backends\imgui_impl_opengl3.cpp" > CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_opengl3.cpp.i
 
 CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_opengl3.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_opengl3.cpp.s"
-	C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\backends\imgui_impl_opengl3.cpp" -o CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_opengl3.cpp.s
+	C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\imgui\backends\imgui_impl_opengl3.cpp" -o CMakeFiles\imgui.dir\external\imgui\backends\imgui_impl_opengl3.cpp.s
 
 # Object files for target imgui
 imgui_OBJECTS = \

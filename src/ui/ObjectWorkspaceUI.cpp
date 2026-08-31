@@ -1,4 +1,5 @@
 #include "ui/ObjectWorkspaceUI.hpp"
+#include "renderer/VisualStateAdapter.hpp"
 #include "data/UnitConverter.hpp"
 #include <cstdio>
 #include <cmath>
@@ -100,6 +101,9 @@ void ObjectWorkspaceUI::createNewObjectTemplate(const std::string& objectType) {
 }
 
 void ObjectWorkspaceUI::recomputeDerived(CelestialBody& body) {
+    body.realRadiusAU = (body.radiusM > 0.0) ? (body.radiusM / UnitConverter::AU_TO_METERS) : 0.0;
+    body.radius3D = VisualStateAdapter::calculateRenderRadius(body.radiusM, body.realRadiusAU, false, 1.0f, 1.0f);
+
     // 1. Mean Density
     if (body.radiusM > 0.0 && body.massKg > 0.0) {
         double vol = (4.0 / 3.0) * UnitConverter::PI * std::pow(body.radiusM, 3.0);
@@ -132,6 +136,7 @@ void ObjectWorkspaceUI::recomputeDerived(CelestialBody& body) {
     snprintf(tiltBuf, sizeof(tiltBuf), "%.2f°", body.axialTiltDeg);
     body.axialTiltStr = tiltBuf;
 }
+
 
 void ObjectWorkspaceUI::render(ObjectRepository& objRepo, 
                               PhysicsEngine& physics, 

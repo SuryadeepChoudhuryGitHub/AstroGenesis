@@ -29,6 +29,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/test_data_system.dir/src/renderer/ParticleRenderer.cpp.obj.d"
   "CMakeFiles/test_data_system.dir/src/renderer/Renderer.cpp.obj"
   "CMakeFiles/test_data_system.dir/src/renderer/Renderer.cpp.obj.d"
+  "CMakeFiles/test_data_system.dir/src/renderer/VisualStateAdapter.cpp.obj"
+  "CMakeFiles/test_data_system.dir/src/renderer/VisualStateAdapter.cpp.obj.d"
   "CMakeFiles/test_data_system.dir/src/simulation/DeformableBody.cpp.obj"
   "CMakeFiles/test_data_system.dir/src/simulation/DeformableBody.cpp.obj.d"
   "CMakeFiles/test_data_system.dir/src/simulation/MaterialModel.cpp.obj"

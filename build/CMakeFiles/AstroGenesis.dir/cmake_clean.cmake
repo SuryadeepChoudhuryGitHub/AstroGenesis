@@ -36,6 +36,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/AstroGenesis.dir/src/renderer/ParticleRenderer.cpp.obj.d"
   "CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj"
   "CMakeFiles/AstroGenesis.dir/src/renderer/Renderer.cpp.obj.d"
+  "CMakeFiles/AstroGenesis.dir/src/renderer/VisualStateAdapter.cpp.obj"
+  "CMakeFiles/AstroGenesis.dir/src/renderer/VisualStateAdapter.cpp.obj.d"
   "CMakeFiles/AstroGenesis.dir/src/simulation/DeformableBody.cpp.obj"
   "CMakeFiles/AstroGenesis.dir/src/simulation/DeformableBody.cpp.obj.d"
   "CMakeFiles/AstroGenesis.dir/src/simulation/MaterialModel.cpp.obj"

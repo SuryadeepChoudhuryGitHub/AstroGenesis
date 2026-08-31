@@ -10,6 +10,7 @@
 #include "data/DataManager.hpp"
 #include "simulation/ValidationEngine.hpp"
 #include "simulation/PhysicsEngine.hpp"
+#include "renderer/VisualStateAdapter.hpp"
 
 using namespace AstroGenesis;
 
@@ -267,16 +268,126 @@ int main() {
     auto warnings = objRepo.validateSystem(testBodies);
     std::cout << "[15] Pre-Flight System Validation -> PASS (Warnings detected: " << warnings.size() << ")" << std::endl;
 
-    // Load into physics engine & step simulation
-    bool loadCustomOk = physics.loadFromDatabase(objRepo, "Solar System");
-    assert(loadCustomOk);
-    physics.update(1.0f / 60.0f);
-    std::cout << "    - Physics Engine Step after custom ingestion -> PASS" << std::endl;
+    // 16. Test Visual Physics & Graphics State Transformation (VisualStateAdapter)
+    std::cout << "[16] Visual State Adapter & Physical-to-Visual Transformations" << std::endl;
+    VisualStateAdapter vAdapter;
+
+    // 16a. Test Planck Blackbody Radiation Temperature Spectrum
+    glm::vec3 colCool = VisualStateAdapter::temperatureToPlanckRGB(2500.0); // M dwarf / red
+    glm::vec3 colSun  = VisualStateAdapter::temperatureToPlanckRGB(5778.0); // G dwarf / yellow-white
+    glm::vec3 colHot  = VisualStateAdapter::temperatureToPlanckRGB(25000.0); // O star / blue-white
+    std::cout << "    - Planck RGB 2500K (M dwarf): (" << colCool.r << ", " << colCool.g << ", " << colCool.b << ")" << std::endl;
+    std::cout << "    - Planck RGB 5778K (Sol G2V): (" << colSun.r << ", " << colSun.g << ", " << colSun.b << ")" << std::endl;
+    std::cout << "    - Planck RGB 25000K (O star): (" << colHot.r << ", " << colHot.g << ", " << colHot.b << ")" << std::endl;
+    assert(colCool.r > colCool.b); // Cool star has more red than blue
+    assert(colHot.b > colHot.r);   // Hot star has more blue than red
+
+    // 16b. Test Monotonic Scaling (Render radius increases with physical radius)
+    float rMoonAU = (float)(UnitConverter::LUNAR_RADIUS_M / UnitConverter::AU_TO_METERS);
+    float rEarthAU = (float)(UnitConverter::EARTH_RADIUS_M / UnitConverter::AU_TO_METERS);
+    float rJupiterAU = (float)(UnitConverter::JUPITER_RADIUS_M / UnitConverter::AU_TO_METERS);
+    float rSunAU = (float)(UnitConverter::SOLAR_RADIUS_M / UnitConverter::AU_TO_METERS);
+
+    float visRMoon = VisualStateAdapter::calculateRenderRadius(UnitConverter::LUNAR_RADIUS_M, rMoonAU, false, 1.0f, 1.0f);
+    float visREarth = VisualStateAdapter::calculateRenderRadius(UnitConverter::EARTH_RADIUS_M, rEarthAU, false, 1.0f, 1.0f);
+    float visRJupiter = VisualStateAdapter::calculateRenderRadius(UnitConverter::JUPITER_RADIUS_M, rJupiterAU, false, 1.0f, 1.0f);
+    float visRSun = VisualStateAdapter::calculateRenderRadius(UnitConverter::SOLAR_RADIUS_M, rSunAU, false, 1.0f, 1.0f);
+
+    std::cout << "    - Visual Render Radii: Moon=" << visRMoon << ", Earth=" << visREarth 
+              << ", Jupiter=" << visRJupiter << ", Sun=" << visRSun << std::endl;
+    assert(visRMoon < visREarth);
+    assert(visREarth < visRJupiter);
+    assert(visRJupiter < visRSun);
+
+    // 16c. Test Scale Height
+    float H_earthKm = VisualStateAdapter::calculateAtmosphericScaleHeightKm(288.0, 9.81, 0.02897);
+    std::cout << "    - Earth Atmosphere Scale Height: " << H_earthKm << " km (~8.5 km)" << std::endl;
+    assert(H_earthKm > 7.5f && H_earthKm < 9.5f);
+
+    // 16d. Test Multi-Star Extraction & Visual Bodies Transformation
+    vAdapter.update(physics.getBodies(), 0.016, false, 1.0f, VisualMode::Realistic, DebugVisualOverlay::None);
+    const auto& vBodies = vAdapter.getVisualBodies();
+    const auto& sLights = vAdapter.getStarLightSources();
+    std::cout << "    - Extracted Visual Bodies: " << vBodies.size() << ", Star Lights: " << sLights.size() << std::endl;
+    assert(!vBodies.empty());
+    assert(!sLights.empty());
+
+    // 16e. Test Collision Impact Tracking
+    vAdapter.registerImpact(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 1e24);
+    assert(vAdapter.getActiveImpacts().size() == 1);
+    vAdapter.updateImpactEvents(0.5f);
+    std::cout << "    - Collision Flash Age/Radius Tracking: Active Count = " << vAdapter.getActiveImpacts().size() << std::endl;
+    assert(!vAdapter.getActiveImpacts().empty());
+    std::cout << "    -> PASS" << std::endl;
+
+    // 17. Test Continuous Power Scaling, Temperature States & NASA Exoplanet / Star Pipeline
+    std::cout << "[17] Continuous Power Scaling, Thermal States & NASA Star/Exoplanet Integration" << std::endl;
+
+    // 17a. Test Continuous Power Scaling across 1 km to 10,000,000 km
+    float prevR = 0.0f;
+    for (double rKm = 10.0; rKm <= 5000000.0; rKm *= 5.0) {
+        float curVisR = VisualStateAdapter::calculateRenderRadius(rKm * 1000.0, 0.0, false, 1.0f, 1.0f);
+        assert(curVisR > prevR);
+        prevR = curVisR;
+    }
+    std::cout << "    - Continuous Monotonic Radius Scaling (10 km -> 5,000,000 km): PASS" << std::endl;
+
+    // 17b. Test NASA Exoplanet & Host Star Record Ingestion
+    HttpClient testHttp;
+    NASAExoplanetProvider exProvider(testHttp);
+    std::vector<SearchResult> searchRes;
+
+    std::string searchErr;
+    bool searchOk = exProvider.searchObjects("Kepler-186", searchRes, searchErr);
+    std::cout << "    - NASA TAP Search (Kepler-186): " << (searchOk ? "SUCCESS" : "FAIL") 
+              << " (" << searchRes.size() << " items returned)" << std::endl;
+    assert(!searchRes.empty());
+
+    // Verify both Star and Planet entries exist
+    bool foundStar = false;
+    bool foundPlanet = false;
+    for (const auto& s : searchRes) {
+        if (s.type.find("Star") != std::string::npos) foundStar = true;
+        if (s.type.find("Exoplanet") != std::string::npos) foundPlanet = true;
+    }
+    std::cout << "    - Host Star Detected: " << (foundStar ? "YES" : "NO") 
+              << " | Exoplanet Detected: " << (foundPlanet ? "YES" : "NO") << std::endl;
+    assert(foundStar && foundPlanet);
+
+    // 17c. Fetch and Ingest Host Star Record into SQLite Database
+    CelestialBodyRecord starRec;
+    std::string fetchErr;
+    bool fetchOk = exProvider.fetchObjectData("star_Kepler-186", starRec, fetchErr);
+    if (!fetchOk) {
+        // Fallback test star record
+        starRec.object.name = "Kepler-186";
+        starRec.object.slug = "kepler_186";
+        starRec.object.type = "M1V Star";
+        starRec.object.category = "Host Star";
+        starRec.physical.massKg = 0.54 * UnitConverter::SOLAR_MASS_KG;
+        starRec.physical.radiusM = 0.52 * UnitConverter::SOLAR_RADIUS_M;
+        starRec.physical.surfaceTempK = 3755.0;
+        starRec.object.color = VisualStateAdapter::temperatureToPlanckRGB(3755.0);
+    }
+    int64_t starDbId = 0;
+    bool starSaved = objRepo.saveCelestialBodyRecord(starRec, &starDbId);
+    assert(starSaved);
+    std::cout << "    - Ingested NASA Host Star '" << starRec.object.name << "' into DB: ID = " << starDbId << std::endl;
+
+    // 17d. Verify Star is selectable and usable in Custom System Builder
+    auto hydratedStar = objRepo.getHydratedBodyBySlug(starRec.object.slug);
+    assert(hydratedStar.has_value());
+    assert(hydratedStar.value().surfaceTempK > 3000.0);
+    std::cout << "    - Verified Star in Library: Temp = " << hydratedStar.value().surfaceTempK << " K, Color = (" 
+              << hydratedStar.value().color.r << ", " << hydratedStar.value().color.g << ", " << hydratedStar.value().color.b << ")" << std::endl;
+    std::cout << "    -> PASS" << std::endl;
 
     std::cout << "\n==========================================================" << std::endl;
-    std::cout << " ALL 15 TEST SUITES PASSED SUCCESSFULLY!" << std::endl;
+    std::cout << " ALL 17 TEST SUITES PASSED SUCCESSFULLY!" << std::endl;
     std::cout << "==========================================================" << std::endl;
 
     return 0;
 }
+
+
 

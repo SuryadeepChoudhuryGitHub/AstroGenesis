@@ -76,15 +76,15 @@ CMakeFiles/glad.dir/external/glad/src/gl.c.obj: CMakeFiles/glad.dir/includes_C.r
 CMakeFiles/glad.dir/external/glad/src/gl.c.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glad/src/gl.c
 CMakeFiles/glad.dir/external/glad/src/gl.c.obj: CMakeFiles/glad.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building C object CMakeFiles/glad.dir/external/glad/src/gl.c.obj"
-	C:\msys64\ucrt64\bin\cc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/glad.dir/external/glad/src/gl.c.obj -MF CMakeFiles\glad.dir\external\glad\src\gl.c.obj.d -o CMakeFiles\glad.dir\external\glad\src\gl.c.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glad\src\gl.c"
+	C:\msys64\ucrt64\bin\gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/glad.dir/external/glad/src/gl.c.obj -MF CMakeFiles\glad.dir\external\glad\src\gl.c.obj.d -o CMakeFiles\glad.dir\external\glad\src\gl.c.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glad\src\gl.c"
 
 CMakeFiles/glad.dir/external/glad/src/gl.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/glad.dir/external/glad/src/gl.c.i"
-	C:\msys64\ucrt64\bin\cc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glad\src\gl.c" > CMakeFiles\glad.dir\external\glad\src\gl.c.i
+	C:\msys64\ucrt64\bin\gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glad\src\gl.c" > CMakeFiles\glad.dir\external\glad\src\gl.c.i
 
 CMakeFiles/glad.dir/external/glad/src/gl.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/glad.dir/external/glad/src/gl.c.s"
-	C:\msys64\ucrt64\bin\cc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glad\src\gl.c" -o CMakeFiles\glad.dir\external\glad\src\gl.c.s
+	C:\msys64\ucrt64\bin\gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glad\src\gl.c" -o CMakeFiles\glad.dir\external\glad\src\gl.c.s
 
 # Object files for target glad
 glad_OBJECTS = \

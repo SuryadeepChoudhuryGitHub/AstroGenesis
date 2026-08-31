@@ -888,6 +888,33 @@ src/renderer/Renderer.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_data_system.dir\build.make CMakeFiles/test_data_system.dir/src/renderer/Renderer.cpp.s
 .PHONY : src/renderer/Renderer.cpp.s
 
+src/renderer/VisualStateAdapter.obj: src/renderer/VisualStateAdapter.cpp.obj
+.PHONY : src/renderer/VisualStateAdapter.obj
+
+# target to build an object file
+src/renderer/VisualStateAdapter.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/VisualStateAdapter.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_data_system.dir\build.make CMakeFiles/test_data_system.dir/src/renderer/VisualStateAdapter.cpp.obj
+.PHONY : src/renderer/VisualStateAdapter.cpp.obj
+
+src/renderer/VisualStateAdapter.i: src/renderer/VisualStateAdapter.cpp.i
+.PHONY : src/renderer/VisualStateAdapter.i
+
+# target to preprocess a source file
+src/renderer/VisualStateAdapter.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/VisualStateAdapter.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_data_system.dir\build.make CMakeFiles/test_data_system.dir/src/renderer/VisualStateAdapter.cpp.i
+.PHONY : src/renderer/VisualStateAdapter.cpp.i
+
+src/renderer/VisualStateAdapter.s: src/renderer/VisualStateAdapter.cpp.s
+.PHONY : src/renderer/VisualStateAdapter.s
+
+# target to generate assembly for a file
+src/renderer/VisualStateAdapter.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\AstroGenesis.dir\build.make CMakeFiles/AstroGenesis.dir/src/renderer/VisualStateAdapter.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_data_system.dir\build.make CMakeFiles/test_data_system.dir/src/renderer/VisualStateAdapter.cpp.s
+.PHONY : src/renderer/VisualStateAdapter.cpp.s
+
 src/simulation/DeformableBody.obj: src/simulation/DeformableBody.cpp.obj
 .PHONY : src/simulation/DeformableBody.obj
 
@@ -1303,6 +1330,9 @@ help:
 	@echo ... src/renderer/Renderer.obj
 	@echo ... src/renderer/Renderer.i
 	@echo ... src/renderer/Renderer.s
+	@echo ... src/renderer/VisualStateAdapter.obj
+	@echo ... src/renderer/VisualStateAdapter.i
+	@echo ... src/renderer/VisualStateAdapter.s
 	@echo ... src/simulation/DeformableBody.obj
 	@echo ... src/simulation/DeformableBody.i
 	@echo ... src/simulation/DeformableBody.s

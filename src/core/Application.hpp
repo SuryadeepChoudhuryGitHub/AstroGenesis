@@ -5,6 +5,7 @@
 
 #include "renderer/Camera.hpp"
 #include "renderer/Renderer.hpp"
+#include "renderer/VisualStateAdapter.hpp"
 #include "simulation/PhysicsEngine.hpp"
 #include "simulation/ValidationEngine.hpp"
 #include "data/DatabaseManager.hpp"
@@ -34,6 +35,7 @@ private:
 
     Camera m_camera;
     Renderer m_renderer;
+    VisualStateAdapter m_visualAdapter;
 
     // Database and Data Access Layer
     DatabaseManager& m_db;

@@ -76,15 +76,15 @@ CMakeFiles/sqlite3.dir/external/sqlite/sqlite3.c.obj: CMakeFiles/sqlite3.dir/inc
 CMakeFiles/sqlite3.dir/external/sqlite/sqlite3.c.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/sqlite/sqlite3.c
 CMakeFiles/sqlite3.dir/external/sqlite/sqlite3.c.obj: CMakeFiles/sqlite3.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building C object CMakeFiles/sqlite3.dir/external/sqlite/sqlite3.c.obj"
-	C:\msys64\ucrt64\bin\cc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/sqlite3.dir/external/sqlite/sqlite3.c.obj -MF CMakeFiles\sqlite3.dir\external\sqlite\sqlite3.c.obj.d -o CMakeFiles\sqlite3.dir\external\sqlite\sqlite3.c.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\sqlite\sqlite3.c"
+	C:\msys64\ucrt64\bin\gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/sqlite3.dir/external/sqlite/sqlite3.c.obj -MF CMakeFiles\sqlite3.dir\external\sqlite\sqlite3.c.obj.d -o CMakeFiles\sqlite3.dir\external\sqlite\sqlite3.c.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\sqlite\sqlite3.c"
 
 CMakeFiles/sqlite3.dir/external/sqlite/sqlite3.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/sqlite3.dir/external/sqlite/sqlite3.c.i"
-	C:\msys64\ucrt64\bin\cc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\sqlite\sqlite3.c" > CMakeFiles\sqlite3.dir\external\sqlite\sqlite3.c.i
+	C:\msys64\ucrt64\bin\gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\sqlite\sqlite3.c" > CMakeFiles\sqlite3.dir\external\sqlite\sqlite3.c.i
 
 CMakeFiles/sqlite3.dir/external/sqlite/sqlite3.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/sqlite3.dir/external/sqlite/sqlite3.c.s"
-	C:\msys64\ucrt64\bin\cc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\sqlite\sqlite3.c" -o CMakeFiles\sqlite3.dir\external\sqlite\sqlite3.c.s
+	C:\msys64\ucrt64\bin\gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\sqlite\sqlite3.c" -o CMakeFiles\sqlite3.dir\external\sqlite\sqlite3.c.s
 
 # Object files for target sqlite3
 sqlite3_OBJECTS = \

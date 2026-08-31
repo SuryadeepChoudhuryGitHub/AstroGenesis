@@ -76,15 +76,15 @@ external/glm/glm/CMakeFiles/glm.dir/detail/glm.cpp.obj: external/glm/glm/CMakeFi
 external/glm/glm/CMakeFiles/glm.dir/detail/glm.cpp.obj: D:/\#\ My\ Folder/My\ Work/Visual\ Studio\ script/C++/AstroGenesis/external/glm/glm/detail/glm.cpp
 external/glm/glm/CMakeFiles/glm.dir/detail/glm.cpp.obj: external/glm/glm/CMakeFiles/glm.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object external/glm/glm/CMakeFiles/glm.dir/detail/glm.cpp.obj"
-	cd /d "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\external\glm\glm" && C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT external/glm/glm/CMakeFiles/glm.dir/detail/glm.cpp.obj -MF CMakeFiles\glm.dir\detail\glm.cpp.obj.d -o CMakeFiles\glm.dir\detail\glm.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glm\glm\detail\glm.cpp"
+	cd /d "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\external\glm\glm" && C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT external/glm/glm/CMakeFiles/glm.dir/detail/glm.cpp.obj -MF CMakeFiles\glm.dir\detail\glm.cpp.obj.d -o CMakeFiles\glm.dir\detail\glm.cpp.obj -c "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glm\glm\detail\glm.cpp"
 
 external/glm/glm/CMakeFiles/glm.dir/detail/glm.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/glm.dir/detail/glm.cpp.i"
-	cd /d "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\external\glm\glm" && C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glm\glm\detail\glm.cpp" > CMakeFiles\glm.dir\detail\glm.cpp.i
+	cd /d "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\external\glm\glm" && C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glm\glm\detail\glm.cpp" > CMakeFiles\glm.dir\detail\glm.cpp.i
 
 external/glm/glm/CMakeFiles/glm.dir/detail/glm.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/glm.dir/detail/glm.cpp.s"
-	cd /d "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\external\glm\glm" && C:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glm\glm\detail\glm.cpp" -o CMakeFiles\glm.dir\detail\glm.cpp.s
+	cd /d "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\build\external\glm\glm" && C:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\# My Folder\My Work\Visual Studio script\C++\AstroGenesis\external\glm\glm\detail\glm.cpp" -o CMakeFiles\glm.dir\detail\glm.cpp.s
 
 # Object files for target glm
 glm_OBJECTS = \

@@ -60,6 +60,7 @@ set(ASTROGENESIS_CORE_SOURCES
     src/simulation/ValidationEngine.cpp
     src/renderer/Camera.cpp
     src/renderer/Renderer.cpp
+    src/renderer/VisualStateAdapter.cpp
     src/renderer/ParticleRenderer.cpp
     src/renderer/DeformableRenderer.cpp
     src/ui/UIManager.cpp

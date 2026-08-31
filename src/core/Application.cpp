@@ -212,16 +212,28 @@ void Application::run() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // Render UI with dynamic database, data manager and validation engine access
-        m_uiManager.renderUI(m_physics, m_camera, m_objRepo, m_dataManager, m_valEngine, (float)m_windowWidth, (float)m_windowHeight, fps);
-
-        // Process mouse & keyboard interactions
-        processInput(deltaTime);
-
-        // Advance simulation dynamics
+        // Advance simulation dynamics (Authoritative Physics)
         m_physics.update(deltaTime);
         m_camera.setTargetPosition(m_physics.getSelectedBody().position);
         m_camera.update(deltaTime);
+
+        // Update Visual State Adapter (Physics State -> Visual State)
+        double simDeltaTime = m_physics.isPaused() ? 0.0 : ((double)deltaTime * (double)m_physics.getTimeScale());
+        m_visualAdapter.update(
+            m_physics.getBodies(),
+            simDeltaTime,
+            m_physics.isTrueScaleMode(),
+            m_physics.getSizeMultiplier(),
+            m_visualAdapter.getVisualMode(),
+            m_visualAdapter.getDebugOverlay()
+        );
+        m_visualAdapter.updateImpactEvents(deltaTime);
+
+        // Render UI with dynamic database, data manager, validation engine, and visual state adapter
+        m_uiManager.renderUI(m_physics, m_camera, m_objRepo, m_dataManager, m_valEngine, m_visualAdapter, (float)m_windowWidth, (float)m_windowHeight, fps);
+
+        // Process mouse & keyboard interactions
+        processInput(deltaTime);
 
         // Get 3D viewport bounds
         float vpX, vpY, vpW, vpH;
@@ -233,35 +245,37 @@ void Application::run() {
         glViewport((int)vpX, (int)(fbH - vpY - vpH), (int)vpW, (int)vpH);
         float aspect = vpW / std::max(vpH, 1.0f);
 
-        // Skybox
+        // 1. Skybox background
         m_renderer.renderSkybox(m_camera, aspect);
 
-        glm::vec3 solPos{0.0f};
-        for (const auto& body : m_physics.getBodies()) {
-            if (body.id == "sol" || body.type.find("Star") != std::string::npos) {
-                solPos = body.position;
-                break;
-            }
-        }
-
         glm::vec3 camTarget = m_camera.getTargetPosition();
+        const auto& starLights = m_visualAdapter.getStarLightSources();
+        glm::vec3 primarySunPos = starLights.empty() ? glm::vec3(0.0f) : starLights[0].positionAU;
+        float simTime = (float)m_physics.getSimulatedTimeSeconds();
 
-        // Dynamic 3D motion trails
+        // 2. Dynamic 3D motion trails & Keplerian osculating curves
         m_renderer.renderTrails(m_camera, aspect, m_physics.getBodies(), camTarget, m_physics.getSelectedBodyIndex());
 
-        // Asteroid belt / particle field
-        m_renderer.renderParticleField(m_camera, aspect, m_physics.getAsteroidBelt(), solPos, camTarget, m_physics.getSimulatedTimeSeconds());
+        // 3. Asteroid belt / granular particle swarm
+        m_renderer.renderParticleField(m_camera, aspect, m_physics.getAsteroidBelt(), primarySunPos, camTarget, m_physics.getSimulatedTimeSeconds());
 
-        // Celestial body spheres
-        for (const auto& body : m_physics.getBodies()) {
-            m_renderer.renderSphere(m_camera, aspect, body, solPos, camTarget);
+        // 4. Physical-to-Visual Celestial Bodies (Multi-Star Lighting, Atmospheres, Clouds, Black Holes)
+        const auto& visualBodies = m_visualAdapter.getVisualBodies();
+        const auto& physicsBodies = m_physics.getBodies();
+        for (size_t i = 0; i < visualBodies.size(); ++i) {
+            const auto& vb = visualBodies[i];
+            std::string texPath = (i < physicsBodies.size()) ? physicsBodies[i].texturePath : "";
+            m_renderer.renderCelestialBody(m_camera, aspect, vb, starLights, camTarget, texPath, m_visualAdapter.getVisualMode(), m_visualAdapter.getDebugOverlay(), simTime);
         }
 
-        // Planetary rings
-        m_renderer.renderRings(m_camera, aspect, m_physics.getBodies(), solPos, camTarget);
+        // 5. Planetary rings with multi-shadow occlusions
+        m_renderer.renderRings(m_camera, aspect, m_physics.getBodies(), starLights, camTarget);
 
-        // Deformable matter bodies
-        m_renderer.renderDeformableBodies(m_camera, aspect, m_physics.getMatterSystem(), solPos, camTarget);
+        // 6. Collision & Impact Shockwave FX
+        m_renderer.renderImpactFX(m_camera, aspect, m_visualAdapter.getActiveImpacts(), camTarget);
+
+        // 7. Deformable matter bodies (XPBD strain, stress, fracture cracks)
+        m_renderer.renderDeformableBodies(m_camera, aspect, m_physics.getMatterSystem(), starLights, camTarget, m_physics.getMatterSystem().getVisualizationMode());
 
         m_renderer.endViewport(fbW, fbH);
 

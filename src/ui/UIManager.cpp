@@ -130,6 +130,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
                          ObjectRepository& objRepo,
                          DataManager& dataManager,
                          ValidationEngine& valEngine,
+                         VisualStateAdapter& visualAdapter,
                          float windowWidth, float windowHeight, float fps) {
     float topBarH    = 48.0f;
     float statusBarH = 28.0f;
@@ -154,7 +155,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
     if (m_activeTopTab == 0) {
         // ── UNIVERSE WORKSPACE (Primary Live Simulation & Controls) ────────────
         drawLeftPanel(physics, camera, objRepo, topBarH, statusBarH, windowHeight);
-        drawViewportHUD(physics, camera, m_viewportX, m_viewportY, m_viewportW, m_viewportH);
+        drawViewportHUD(physics, camera, visualAdapter, m_viewportX, m_viewportY, m_viewportW, m_viewportH);
 
         float bottomY = windowHeight - statusBarH - bottomH;
         float bpW = m_viewportW / 3.0f;
@@ -167,7 +168,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
         if (selIdx >= 0 && selIdx < (int)currentBodies.size()) {
             CelestialBody currentBody = currentBodies[selIdx];
             drawInfoOverlay(currentBody, m_viewportX, m_viewportY);
-            drawRightPanel(physics, currentBody, dataManager, objRepo, topBarH, windowWidth, windowHeight, statusBarH);
+            drawRightPanel(physics, currentBody, dataManager, objRepo, visualAdapter, topBarH, windowWidth, windowHeight, statusBarH);
         }
 
         drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
@@ -189,7 +190,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
     } 
     else if (m_activeTopTab == 4) {
         // ── SIMULATION WORKSPACE (Physics Config, Integrator, Validation) ──────
-        drawSimulationWorkspace(physics, camera, valEngine, objRepo, windowWidth, windowHeight);
+        drawSimulationWorkspace(physics, camera, valEngine, objRepo, visualAdapter, windowWidth, windowHeight);
         drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
     } 
     else if (m_activeTopTab == 5) {
@@ -197,6 +198,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
         drawAIAssistantWorkspace(physics, objRepo, windowWidth, windowHeight);
         drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
     }
+
 
     // Modals / Overlay Windows
     if (m_showAsteroidBeltDiagnostics) {
@@ -478,7 +480,7 @@ void UIManager::drawInfoOverlay(const CelestialBody& body, float x, float y) {
     ImGui::End();
 }
 
-void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, DataManager& dataManager, ObjectRepository& objRepo, float topBarH, float winW, float winH, float statusBarH) {
+void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, DataManager& dataManager, ObjectRepository& objRepo, VisualStateAdapter& visualAdapter, float topBarH, float winW, float winH, float statusBarH) {
     float panelW = 310.0f;
     float panelH = winH - topBarH - statusBarH;
     ImGui::SetNextWindowPos(ImVec2(winW - panelW, topBarH));
@@ -486,6 +488,57 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, Data
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
 
     ImGui::Begin("##RightPanel", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+
+    // ── VISUAL & PHYSICAL STATE INSPECTOR ──────────────────────────────────────
+    if (SectionHeader("VISUAL & PHYSICAL STATE")) {
+        const VisualBodyState* vBody = visualAdapter.getVisualBody(body.id);
+        if (!vBody) vBody = visualAdapter.getVisualBody(body.dbId);
+
+        float halfW = (panelW - 40) / 2.0f;
+        char rBuf[32];
+        if (vBody) snprintf(rBuf, sizeof(rBuf), "%.4f AU", vBody->renderRadius);
+        else snprintf(rBuf, sizeof(rBuf), "%.4f AU", body.radius3D);
+
+        ImGui::BeginGroup();
+        StatItem("📐", "Render Scale", rBuf);
+        ImGui::SameLine(halfW);
+        StatItem("📏", "Physical Radius", body.radiusStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("🌡", "Blackbody Temp", body.tempStr.c_str());
+        ImGui::SameLine(halfW);
+        std::string phaseStr = "Solid Rock/Ice";
+        if (vBody) {
+            if (vBody->phase == MaterialPhase::VaporGas) phaseStr = vBody->isStar ? "Stellar Plasma" : "Vapor / Gas";
+            else if (vBody->phase == MaterialPhase::LiquidMolten) phaseStr = "Molten Magma";
+            else if (vBody->phase == MaterialPhase::SoftenedPlastic) phaseStr = "Softened Plastic";
+            else if (vBody->phase == MaterialPhase::Solid) phaseStr = "Solid Rock/Ice";
+        }
+        StatItem("⬡", "Material Phase", phaseStr.c_str());
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("☁", "Atmosphere", (vBody && vBody->hasAtmosphere) ? "Scattering Active" : "None/Thin");
+        ImGui::SameLine(halfW);
+        StatItem("💨", "Cloud Cover", (vBody && vBody->hasClouds) ? "Dynamic Clouds" : "Clear");
+        ImGui::EndGroup();
+
+        ImGui::BeginGroup();
+        StatItem("🔄", "Rotation Speed", body.rotationPeriodStr.c_str());
+        ImGui::SameLine(halfW);
+        StatItem("📐", "Axial Tilt", body.axialTiltStr.c_str());
+        ImGui::EndGroup();
+
+        if (vBody && vBody->isBlackHole) {
+            ImGui::Spacing();
+            ImGui::TextColored(Col::Yellow, "Relativistic Singular Event Horizon:");
+            ImGui::Text("  • Schwarzschild: %.5f AU", vBody->schwarzschildRadiusAU);
+            ImGui::Text("  • Photon Ring:    %.5f AU", vBody->photonSphereRadiusAU);
+        }
+    }
+
+    ImGui::Separator();
 
     if (SectionHeader("PHYSICAL OVERVIEW")) {
         float halfW = (panelW - 40) / 2.0f;
@@ -520,35 +573,102 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, Data
         int selIdx = physics.getSelectedBodyIndex();
         if (selIdx >= 0 && selIdx < (int)physics.getBodies().size()) {
             CelestialBody& mutBody = physics.getBodies()[selIdx];
-            if (physics.isPaused()) {
-                ImGui::TextColored(Col::Green, "⏸ Simulation Paused (Live Editing Active)");
-                double curM = mutBody.massKg;
-                if (mutBody.type.find("Star") != std::string::npos || mutBody.type.find("Black Hole") != std::string::npos) {
-                    float mSun = (float)(curM / UnitConverter::SOLAR_MASS_KG);
-                    if (ImGui::DragFloat("Mass (M☉)##LiveEditM", &mSun, 0.05f, 0.01f, 500.0f, "%.3f M☉")) {
-                        mutBody.massKg = (double)mSun * UnitConverter::SOLAR_MASS_KG;
-                        mutBody.massStr = UnitConverter::formatMass(mutBody.massKg);
-                    }
-                } else {
-                    float mEarth = (float)(curM / UnitConverter::EARTH_MASS_KG);
-                    if (ImGui::DragFloat("Mass (M⊕)##LiveEditM", &mEarth, 0.05f, 0.001f, 5000.0f, "%.3f M⊕")) {
-                        mutBody.massKg = (double)mEarth * UnitConverter::EARTH_MASS_KG;
-                        mutBody.massStr = UnitConverter::formatMass(mutBody.massKg);
-                    }
-                }
+            bool isStar = (mutBody.type.find("Star") != std::string::npos || mutBody.type.find("Dwarf") != std::string::npos || mutBody.id == "sol");
+            bool isBlackHole = (mutBody.type.find("Black Hole") != std::string::npos);
 
-                float rKm = (float)(mutBody.radiusM / 1000.0);
-                if (ImGui::DragFloat("Radius (km)##LiveEditR", &rKm, 10.0f, 10.0f, 1000000.0f, "%.1f km")) {
-                    mutBody.radiusM = (double)rKm * 1000.0;
+            ImGui::TextColored(physics.isPaused() ? Col::Yellow : Col::Green, 
+                               physics.isPaused() ? "⏸ Paused (Live Real-Time Tuning Active)" : "▶ Running (Live Real-Time Tuning Active)");
+
+            // 1. Physical Radius Slider (km, Earth Radii, Solar Radii)
+            if (isStar) {
+                float rSun = (float)(mutBody.radiusM / UnitConverter::SOLAR_RADIUS_M);
+                if (ImGui::DragFloat("Radius (R☉)##LiveEditR", &rSun, 0.02f, 0.01f, 1500.0f, "%.3f R☉")) {
+                    mutBody.radiusM = (double)rSun * UnitConverter::SOLAR_RADIUS_M;
+                    mutBody.realRadiusAU = mutBody.radiusM / UnitConverter::AU_TO_METERS;
                     char rBuf[64];
                     snprintf(rBuf, sizeof(rBuf), "%'.1f km", mutBody.radiusM / 1000.0);
                     mutBody.radiusStr = rBuf;
+                    physics.updateBodyScales();
                 }
             } else {
-                ImGui::TextColored(Col::TextSecondary, "Pause simulation to live-tune active object parameters.");
-                if (ImGui::Button("⏸ Pause Simulation to Live Edit", ImVec2(panelW - 20, 24))) {
-                    physics.setPaused(true);
+                float rEarth = (float)(mutBody.radiusM / UnitConverter::EARTH_RADIUS_M);
+                if (ImGui::DragFloat("Radius (R⊕)##LiveEditR", &rEarth, 0.02f, 0.005f, 250.0f, "%.3f R⊕")) {
+                    mutBody.radiusM = (double)rEarth * UnitConverter::EARTH_RADIUS_M;
+                    mutBody.realRadiusAU = mutBody.radiusM / UnitConverter::AU_TO_METERS;
+                    char rBuf[64];
+                    snprintf(rBuf, sizeof(rBuf), "%'.1f km", mutBody.radiusM / 1000.0);
+                    mutBody.radiusStr = rBuf;
+                    physics.updateBodyScales();
                 }
+            }
+
+            float rKm = (float)(mutBody.radiusM / 1000.0);
+            if (ImGui::DragFloat("Radius (km)##LiveEditRkm", &rKm, 10.0f, 10.0f, 5000000.0f, "%.1f km")) {
+                mutBody.radiusM = (double)rKm * 1000.0;
+                mutBody.realRadiusAU = mutBody.radiusM / UnitConverter::AU_TO_METERS;
+                char rBuf[64];
+                snprintf(rBuf, sizeof(rBuf), "%'.1f km", mutBody.radiusM / 1000.0);
+                mutBody.radiusStr = rBuf;
+                physics.updateBodyScales();
+            }
+
+            // 2. Physical Mass Slider
+            double curM = mutBody.massKg;
+            if (isStar || isBlackHole) {
+                float mSun = (float)(curM / UnitConverter::SOLAR_MASS_KG);
+                if (ImGui::DragFloat("Mass (M☉)##LiveEditM", &mSun, 0.05f, 0.01f, 50000.0f, "%.3f M☉")) {
+                    mutBody.massKg = (double)mSun * UnitConverter::SOLAR_MASS_KG;
+                    mutBody.massStr = UnitConverter::formatMass(mutBody.massKg);
+                }
+            } else {
+                float mEarth = (float)(curM / UnitConverter::EARTH_MASS_KG);
+                if (ImGui::DragFloat("Mass (M⊕)##LiveEditM", &mEarth, 0.05f, 0.001f, 10000.0f, "%.3f M⊕")) {
+                    mutBody.massKg = (double)mEarth * UnitConverter::EARTH_MASS_KG;
+                    mutBody.massStr = UnitConverter::formatMass(mutBody.massKg);
+                }
+            }
+
+            // 3. Surface Temperature Slider (Triggers Magma / Incandescence / Star visuals)
+            float tempK = (float)mutBody.surfaceTempK;
+            if (ImGui::DragFloat("Surface Temp (K)##LiveEditT", &tempK, 15.0f, 10.0f, 50000.0f, "%.0f K")) {
+                mutBody.surfaceTempK = tempK;
+                char tBuf[64];
+                snprintf(tBuf, sizeof(tBuf), "%.0f K (%.1f °C)", mutBody.surfaceTempK, mutBody.surfaceTempK - 273.15);
+                mutBody.tempStr = tBuf;
+            }
+
+            // 4. Color Tint & Albedo
+            float col[3] = { mutBody.color.r, mutBody.color.g, mutBody.color.b };
+            if (ImGui::ColorEdit3("Albedo Tint##LiveEditCol", col)) {
+                mutBody.color = glm::vec3(col[0], col[1], col[2]);
+            }
+
+            // 5. Axial Tilt & Rotation
+            float tilt = mutBody.axialTiltDeg;
+            if (ImGui::SliderFloat("Axial Tilt (°)##LiveEditTilt", &tilt, 0.0f, 180.0f, "%.1f°")) {
+                mutBody.axialTiltDeg = tilt;
+                char tiltBuf[32];
+                snprintf(tiltBuf, sizeof(tiltBuf), "%.2f°", mutBody.axialTiltDeg);
+                mutBody.axialTiltStr = tiltBuf;
+            }
+
+            // Update derived physical quantities
+            if (mutBody.radiusM > 0.0 && mutBody.massKg > 0.0) {
+                mutBody.surfaceGravityMps2 = (UnitConverter::G_CONST * mutBody.massKg) / (mutBody.radiusM * mutBody.radiusM);
+                char gravBuf[64];
+                snprintf(gravBuf, sizeof(gravBuf), "%.2f m/s² (%.2f g)", mutBody.surfaceGravityMps2, mutBody.surfaceGravityMps2 / 9.80665);
+                mutBody.gravityStr = gravBuf;
+
+                double vol = (4.0 / 3.0) * UnitConverter::PI * std::pow(mutBody.radiusM, 3.0);
+                mutBody.meanDensityKgM3 = mutBody.massKg / vol;
+                char densBuf[64];
+                snprintf(densBuf, sizeof(densBuf), "%'.1f kg/m³", mutBody.meanDensityKgM3);
+                mutBody.densityStr = densBuf;
+
+                mutBody.escapeVelocityKmpS = std::sqrt(2.0 * UnitConverter::G_CONST * mutBody.massKg / mutBody.radiusM) / 1000.0;
+                char escBuf[64];
+                snprintf(escBuf, sizeof(escBuf), "%.2f km/s", mutBody.escapeVelocityKmpS);
+                mutBody.escapeVelocityStr = escBuf;
             }
 
             ImGui::Spacing();
@@ -558,6 +678,7 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, Data
             }
         }
     }
+
 
     ImGui::Separator();
 
@@ -752,7 +873,7 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, Data
 // ------------------------------------------------------------------------------------------------
 // SELECTION PLACE 2: DIRECT HOVER & CLICK IN 3D VIEWPORT (HUD Screen Projection)
 // ------------------------------------------------------------------------------------------------
-void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vpX, float vpY, float vpW, float vpH) {
+void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, VisualStateAdapter& visualAdapter, float vpX, float vpY, float vpW, float vpH) {
     if (vpW <= 0.0f || vpH <= 0.0f) return;
 
     ImVec2 mousePos = ImGui::GetMousePos();
@@ -856,7 +977,83 @@ void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, float vp
     }
 
     fg->PopClipRect();
+
+    // ── FLOATING VIEW / VISUALIZATION HUD CONTROLS ────────────────────────────
+    ImVec2 visBtnPos(vpX + vpW - 180.0f, vpY + 10.0f);
+    ImGui::SetCursorScreenPos(visBtnPos);
+    static bool showVisPopup = false;
+    if (ImGui::Button("⚙ VISUALIZATION", ImVec2(170, 26))) {
+        showVisPopup = !showVisPopup;
+    }
+
+    if (showVisPopup) {
+        ImGui::SetNextWindowPos(ImVec2(visBtnPos.x - 140.0f, visBtnPos.y + 32.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(320.0f, 380.0f));
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.03f, 0.045f, 0.085f, 0.98f));
+        ImGui::PushStyleColor(ImGuiCol_Border, Col::Accent);
+        if (ImGui::Begin("##VisPopup", &showVisPopup, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
+            ImGui::TextColored(Col::Accent, "VISUALIZATION PIPELINE");
+            ImGui::Separator();
+
+            int vMode = (int)visualAdapter.getVisualMode();
+            const char* vModes[] = { "Realistic (PBR Photometry)", "Scientific (High-Contrast)", "Cinematic (Bloom & Flare)", "Debug (Physical Overlays)" };
+            ImGui::Text("Visual Mode:");
+            if (ImGui::Combo("##VModeCombo", &vMode, vModes, 4)) {
+                visualAdapter.setVisualMode((VisualMode)vMode);
+            }
+
+            int dOverlay = (int)visualAdapter.getDebugOverlay();
+            const char* dOverlays[] = { "None", "Von Mises Stress (Pa)", "Plastic Strain", "Damage / Fracture", "Surface Temperature (K)", "Velocity Vectors", "Gravitational Field", "Material Phase" };
+            ImGui::Text("Debug Physical Field:");
+            if (ImGui::Combo("##DOverlayCombo", &dOverlay, dOverlays, 8)) {
+                visualAdapter.setDebugOverlay((DebugVisualOverlay)dOverlay);
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::TextColored(Col::Accent, "RENDERING FEATURES");
+
+            bool atmo = visualAdapter.areAtmospheresEnabled();
+            if (ImGui::Checkbox("Atmospheric Rim Scattering", &atmo)) {
+                visualAdapter.setAtmospheresEnabled(atmo);
+            }
+
+            bool clouds = visualAdapter.areCloudsEnabled();
+            if (ImGui::Checkbox("Dynamic Rotating Clouds", &clouds)) {
+                visualAdapter.setCloudsEnabled(clouds);
+            }
+
+            bool multiLight = visualAdapter.isMultiStarLightingEnabled();
+            if (ImGui::Checkbox("Multi-Star Planetary Lighting", &multiLight)) {
+                visualAdapter.setMultiStarLightingEnabled(multiLight);
+            }
+
+            bool impacts = visualAdapter.areImpactFXEnabled();
+            if (ImGui::Checkbox("Collision Shockwave Ejecta", &impacts)) {
+                visualAdapter.setImpactFXEnabled(impacts);
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::TextColored(Col::Accent, "SCALE CONTROLS");
+
+            bool isTrueScale = physics.isTrueScaleMode();
+            if (ImGui::Checkbox("True 1:1 Scale", &isTrueScale)) {
+                physics.setTrueScaleMode(isTrueScale);
+            }
+            if (!isTrueScale) {
+                float mult = physics.getSizeMultiplier();
+                if (ImGui::SliderFloat("Visual Scale", &mult, 0.2f, 5.0f, "%.1fx")) {
+                    physics.setSizeMultiplier(mult);
+                }
+            }
+
+            ImGui::End();
+        }
+        ImGui::PopStyleColor(2);
+    }
 }
+
 
 void UIManager::drawTimeControls(PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo, float x, float y, float w, float h) {
     ImGui::SetNextWindowPos(ImVec2(x, y));
@@ -1037,21 +1234,28 @@ void UIManager::drawOrbitVis(PhysicsEngine& physics, Camera& camera, float x, fl
 
         if (body.dynamicOrbitCurve.size() >= 2) {
             for (size_t s = 0; s < body.dynamicOrbitCurve.size() - 1; ++s) {
-                ImVec2 pt1(center.x + body.dynamicOrbitCurve[s].x * scale,
-                           center.y + body.dynamicOrbitCurve[s].z * scale);
-                ImVec2 pt2(center.x + body.dynamicOrbitCurve[s + 1].x * scale,
-                           center.y + body.dynamicOrbitCurve[s + 1].z * scale);
-                dl->AddLine(pt1, pt2, orbitLineCol, 1.2f);
+                const auto& pA = body.dynamicOrbitCurve[s];
+                const auto& pB = body.dynamicOrbitCurve[s + 1];
+                if (std::isnan(pA.x) || std::isnan(pA.z) || std::isnan(pB.x) || std::isnan(pB.z)) continue;
+                if (glm::distance(pA, pB) > 50.0f) continue; // Don't draw across jump discontinuities
+
+                ImVec2 pt1(center.x + pA.x * scale, center.y + pA.z * scale);
+                ImVec2 pt2(center.x + pB.x * scale, center.y + pB.z * scale);
+                if (std::abs(pt1.x - center.x) < halfSize * 3.0f && std::abs(pt1.y - center.y) < halfSize * 3.0f &&
+                    std::abs(pt2.x - center.x) < halfSize * 3.0f && std::abs(pt2.y - center.y) < halfSize * 3.0f) {
+                    dl->AddLine(pt1, pt2, orbitLineCol, 1.2f);
+                }
             }
         } else {
             double orbitRadiusAU = (body.realOrbitRadiusAU > 0.0) ? body.realOrbitRadiusAU : (body.semiMajorAxisAU > 0.0 ? body.semiMajorAxisAU : (double)glm::length(body.position));
-            if (orbitRadiusAU > 0.00001) {
+            if (orbitRadiusAU > 0.00001 && orbitRadiusAU < 500.0) {
                 float ringRadius = (float)orbitRadiusAU * scale;
                 if (ringRadius >= 2.0f && ringRadius <= halfSize * 3.5f) {
                     dl->AddCircle(center, ringRadius, orbitLineCol, 64, 1.0f);
                 }
             }
         }
+
     }
 
     struct BodyScreenInfo { int index; float px, py, dotR; bool visible; };
@@ -1566,10 +1770,7 @@ void UIManager::drawExploreWorkspace(ObjectRepository& objRepo, PhysicsEngine& p
     ImGui::PopStyleVar(2);
 }
 
-// ------------------------------------------------------------------------------------------------
-// TOP-LEVEL WORKSPACE: SIMULATION (Physics Config, Integrators, Diagnostics)
-// ------------------------------------------------------------------------------------------------
-void UIManager::drawSimulationWorkspace(PhysicsEngine& physics, Camera& camera, ValidationEngine& valEngine, ObjectRepository& objRepo, float winW, float winH) {
+void UIManager::drawSimulationWorkspace(PhysicsEngine& physics, Camera& camera, ValidationEngine& valEngine, ObjectRepository& objRepo, VisualStateAdapter& visualAdapter, float winW, float winH) {
     float topBarH = 48.0f;
     float statusBarH = 28.0f;
     float contentW = winW;
@@ -1640,7 +1841,7 @@ void UIManager::drawSimulationWorkspace(PhysicsEngine& physics, Camera& camera, 
 
     ImGui::SameLine();
 
-    // Right Column: System Conservation & Metrics
+    // Right Column: System Conservation & Visualization Pipeline
     ImGui::BeginChild("##SimRightCol", ImVec2(colW, contentH - 50.0f), true);
     ImGui::TextColored(Col::Accent, "GLOBAL SYSTEM CONSERVATION DIAGNOSTICS");
     ImGui::Separator();
@@ -1666,6 +1867,47 @@ void UIManager::drawSimulationWorkspace(PhysicsEngine& physics, Camera& camera, 
     ImGui::Separator();
     ImGui::Spacing();
 
+    ImGui::TextColored(Col::Accent, "GRAPHICS & VISUALIZATION PIPELINE");
+    ImGui::Separator();
+
+    int vMode = (int)visualAdapter.getVisualMode();
+    const char* vModes[] = { "Realistic (PBR Photometry)", "Scientific (High-Contrast)", "Cinematic (Bloom & Flare)", "Debug (Physical Overlays)" };
+    ImGui::Text("Visual Mode:");
+    if (ImGui::Combo("##SimVModeCombo", &vMode, vModes, 4)) {
+        visualAdapter.setVisualMode((VisualMode)vMode);
+    }
+
+    int dOverlay = (int)visualAdapter.getDebugOverlay();
+    const char* dOverlays[] = { "None", "Von Mises Stress (Pa)", "Plastic Strain", "Damage / Fracture", "Surface Temperature (K)", "Velocity Vectors", "Gravitational Field", "Material Phase" };
+    ImGui::Text("Debug Physical Field:");
+    if (ImGui::Combo("##SimDOverlayCombo", &dOverlay, dOverlays, 8)) {
+        visualAdapter.setDebugOverlay((DebugVisualOverlay)dOverlay);
+    }
+
+    bool atmo = visualAdapter.areAtmospheresEnabled();
+    if (ImGui::Checkbox("Atmospheric Rim Scattering", &atmo)) {
+        visualAdapter.setAtmospheresEnabled(atmo);
+    }
+
+    bool clouds = visualAdapter.areCloudsEnabled();
+    if (ImGui::Checkbox("Dynamic Rotating Clouds", &clouds)) {
+        visualAdapter.setCloudsEnabled(clouds);
+    }
+
+    bool multiLight = visualAdapter.isMultiStarLightingEnabled();
+    if (ImGui::Checkbox("Multi-Star Lighting", &multiLight)) {
+        visualAdapter.setMultiStarLightingEnabled(multiLight);
+    }
+
+    bool impacts = visualAdapter.areImpactFXEnabled();
+    if (ImGui::Checkbox("Collision Shockwave Particles", &impacts)) {
+        visualAdapter.setImpactFXEnabled(impacts);
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
     if (ImGui::Button("🚀 Return to UNIVERSE View", ImVec2(-1, 32))) {
         m_activeTopTab = 0;
     }
@@ -1676,6 +1918,7 @@ void UIManager::drawSimulationWorkspace(PhysicsEngine& physics, Camera& camera, 
     ImGui::PopStyleColor();
     ImGui::PopStyleVar(2);
 }
+
 
 // ------------------------------------------------------------------------------------------------
 // TOP-LEVEL WORKSPACE: AI ASSISTANT (Astrophysics & Orbital Calculator)

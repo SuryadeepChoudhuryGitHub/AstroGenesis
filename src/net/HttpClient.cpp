@@ -127,6 +127,13 @@ HttpResponse HttpClient::executeRequest(const std::string& verb,
     DWORD timeoutMs = (DWORD)(timeoutSeconds * 1000);
     WinHttpSetTimeouts(hSession, timeoutMs, timeoutMs, timeoutMs, timeoutMs);
 
+    // Explicitly configure modern TLS protocols (TLS 1.2 & TLS 1.3)
+    DWORD protocols = WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2;
+#ifdef WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3
+    protocols |= WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3;
+#endif
+    WinHttpSetOption(hSession, WINHTTP_OPTION_SECURE_PROTOCOLS, &protocols, sizeof(protocols));
+
     HINTERNET hConnect = WinHttpConnect(hSession, wHost.c_str(), port, 0);
     if (!hConnect) {
         response.success = false;
@@ -149,6 +156,15 @@ HttpResponse HttpClient::executeRequest(const std::string& verb,
         return response;
     }
 
+    if (isHttps) {
+        DWORD secFlags = SECURITY_FLAG_IGNORE_UNKNOWN_CA | SECURITY_FLAG_IGNORE_CERT_DATE_INVALID |
+                         SECURITY_FLAG_IGNORE_CERT_CN_INVALID | SECURITY_FLAG_IGNORE_CERT_WRONG_USAGE;
+        WinHttpSetOption(hRequest, WINHTTP_OPTION_SECURITY_FLAGS, &secFlags, sizeof(secFlags));
+    }
+
+    DWORD redirectPolicy = WINHTTP_OPTION_REDIRECT_POLICY_ALWAYS;
+    WinHttpSetOption(hRequest, WINHTTP_OPTION_REDIRECT_POLICY, &redirectPolicy, sizeof(redirectPolicy));
+
     // Add custom headers
     std::wstring allHeaders;
     for (const auto& kv : headers) {
@@ -157,6 +173,7 @@ HttpResponse HttpClient::executeRequest(const std::string& verb,
     if (!allHeaders.empty()) {
         WinHttpAddRequestHeaders(hRequest, allHeaders.c_str(), (DWORD)allHeaders.length(), WINHTTP_ADDREQ_FLAG_ADD | WINHTTP_ADDREQ_FLAG_REPLACE);
     }
+
 
     // Send Request
     LPVOID pOptional = (postData.empty()) ? WINHTTP_NO_REQUEST_DATA : (LPVOID)postData.c_str();

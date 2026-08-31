@@ -171,10 +171,22 @@ void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepos
             ImGui::TableNextRow();
             
             ImGui::TableSetColumnIndex(0);
-            ImGui::TextColored(UICol::TextPrimary, "%s", item.name.c_str());
+            if (item.type.find("Star") != std::string::npos) {
+                ImGui::TextColored(ImVec4(0.98f, 0.82f, 0.25f, 1.0f), "⭐ %s", item.name.c_str());
+            } else if (item.type.find("Exoplanet") != std::string::npos || item.type.find("Planet") != std::string::npos) {
+                ImGui::TextColored(ImVec4(0.25f, 0.85f, 0.95f, 1.0f), "🪐 %s", item.name.c_str());
+            } else {
+                ImGui::TextColored(UICol::TextPrimary, "%s", item.name.c_str());
+            }
 
             ImGui::TableSetColumnIndex(1);
-            ImGui::TextColored(UICol::TextSecondary, "%s", item.type.c_str());
+            if (item.type.find("Star") != std::string::npos) {
+                ImGui::TextColored(ImVec4(0.98f, 0.78f, 0.20f, 1.0f), "%s", item.type.c_str());
+            } else if (item.type.find("Exoplanet") != std::string::npos) {
+                ImGui::TextColored(ImVec4(0.40f, 0.75f, 0.95f, 1.0f), "%s", item.type.c_str());
+            } else {
+                ImGui::TextColored(UICol::TextSecondary, "%s", item.type.c_str());
+            }
 
             ImGui::TableSetColumnIndex(2);
             ImGui::Text("%s", item.sourceId.c_str());
@@ -184,22 +196,24 @@ void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepos
 
             ImGui::TableSetColumnIndex(4);
             ImGui::PushID((int)i);
+            std::string targetCat = (m_selectedProviderIdx == 1) ? "Asteroid Belt" : (m_selectedProviderIdx == 2 ? ((item.type.find("Star") != std::string::npos) ? "Host Star" : "Exoplanet System") : "Solar System");
             if (item.alreadyInDatabase) {
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.25f, 0.18f, 0.85f));
                 if (ImGui::Button("✔ In DB (Update)", ImVec2(120, 22))) {
                     ProviderType pType = (ProviderType)m_selectedProviderIdx;
-                    dataManager.importObjectAsync(pType, item.sourceId, (m_selectedProviderIdx == 1) ? "Asteroid Belt" : (m_selectedProviderIdx == 2 ? "Exoplanet System" : "Solar System"));
+                    dataManager.importObjectAsync(pType, item.sourceId, targetCat);
                 }
                 ImGui::PopStyleColor();
             } else {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.35f, 0.55f, 0.85f));
+                ImGui::PushStyleColor(ImGuiCol_Button, (item.type.find("Star") != std::string::npos) ? ImVec4(0.45f, 0.35f, 0.08f, 0.9f) : ImVec4(0.08f, 0.35f, 0.55f, 0.85f));
                 if (ImGui::Button("↓ Import to DB", ImVec2(120, 22))) {
                     ProviderType pType = (ProviderType)m_selectedProviderIdx;
-                    dataManager.importObjectAsync(pType, item.sourceId, (m_selectedProviderIdx == 1) ? "Asteroid Belt" : (m_selectedProviderIdx == 2 ? "Exoplanet System" : "Solar System"));
+                    dataManager.importObjectAsync(pType, item.sourceId, targetCat);
                 }
                 ImGui::PopStyleColor();
             }
             ImGui::PopID();
+
         }
 
         ImGui::EndTable();

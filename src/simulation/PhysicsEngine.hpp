@@ -90,12 +90,13 @@ public:
     double getEnergyConservationDriftPct() const { return m_energyConservationDriftPct; }
     double getSimulatedTimeSeconds() const { return m_simulatedTimeSeconds; }
     double getRealTimeElapsedSeconds() const { return m_realTimeElapsedSeconds; }
+    void updateBodyScales();
 
 private:
-    void updateBodyScales();
     void computeAccelerations(const std::vector<glm::dvec3>& positions,
                               const std::vector<glm::dvec3>& velocities,
                               std::vector<glm::dvec3>& outAccelerations);
+
     void integrateNBody(double deltaSeconds);
     void updatePhysicalQuantities();
     void updateRingHydrodynamics(double deltaSeconds);

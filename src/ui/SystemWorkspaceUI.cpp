@@ -635,6 +635,44 @@ void SystemWorkspaceUI::drawBuilderSystemTree(ObjectRepository& objRepo, float p
     ImGui::SameLine();
     if (ImGui::SmallButton("+ Black Hole")) createNewDefaultObject("Black Hole");
 
+    // Add Object From Database Library (Imported Stars & Exoplanets)
+    static int selDbObjIdx = 0;
+    auto allDbObjs = objRepo.getAllObjects("", false, "");
+    if (!allDbObjs.empty()) {
+        ImGui::Spacing();
+        ImGui::TextColored(Col::Accent, "Import from Library into System:");
+        std::string previewName = (selDbObjIdx >= 0 && selDbObjIdx < (int)allDbObjs.size()) ? allDbObjs[selDbObjIdx].name : "Select Library Object...";
+        ImGui::PushItemWidth(panelW - 110.0f);
+        if (ImGui::BeginCombo("##AddFromDbCombo", previewName.c_str())) {
+            for (size_t d = 0; d < allDbObjs.size(); ++d) {
+                bool isSel = (selDbObjIdx == (int)d);
+                std::string itemLabel = allDbObjs[d].name + " (" + allDbObjs[d].type + " | " + allDbObjs[d].category + ")";
+                if (ImGui::Selectable(itemLabel.c_str(), isSel)) {
+                    selDbObjIdx = (int)d;
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::PopItemWidth();
+        ImGui::SameLine();
+        if (ImGui::Button("+ Add##FromDb", ImVec2(90, 22))) {
+            if (selDbObjIdx >= 0 && selDbObjIdx < (int)allDbObjs.size()) {
+                auto bOpt = objRepo.getHydratedBodyBySlug(allDbObjs[selDbObjIdx].slug);
+                if (bOpt.has_value()) {
+                    CelestialBody added = bOpt.value();
+                    added.dbId = (int64_t)(m_builderBodies.size() + 1);
+                    added.category = m_systemNameBuf;
+                    if (added.type.find("Star") == std::string::npos && !m_builderBodies.empty()) {
+                        added.parentObjectId = m_builderBodies[0].dbId;
+                    }
+                    m_builderBodies.push_back(added);
+                    m_selectedNodeIndex = (int)m_builderBodies.size() - 1;
+                }
+            }
+        }
+    }
+
+
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
