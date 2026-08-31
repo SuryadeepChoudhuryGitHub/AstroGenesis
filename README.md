@@ -4,6 +4,29 @@
 
 ---
 
+## 📸 Screenshots & Engine Interface
+
+### 1. Real-Time 3D N-Body Simulation & Telemetry Dashboard
+> *Interactive 3D viewport simulating multi-body orbital trajectories with live Einstein 1PN Post-Newtonian relativistic corrections, high-precision Keplerian orbital telemetry, time dilation tracking, and dynamic parameter tuning.*
+
+![3D N-Body Orbit Simulation and Telemetry Dashboard](assets/images/Screenshot%200.png)
+
+---
+
+### 2. Astronomical Explorer & NASA/JPL Catalog Discovery
+> *Integrated catalog explorer querying the local SQLite database populated with real-world astronomical data from NASA JPL Horizons, JPL Small-Body Database (SBDB), and NASA Exoplanet Archive across solar, asteroid, and multi-star exoplanetary systems.*
+
+![Astronomical Explorer and Catalog Discovery](assets/images/Screenshot%201.png)
+
+---
+
+### 3. Celestial Object Workspace & Physical Property Editor
+> *Interactive celestial body inspector and parameter editor allowing real-time creation and tuning of planetary geophysics, orbital parameters, chemical compositions, and immediate testing in the live simulation.*
+
+![Celestial Object Workspace and Physical Property Editor](assets/images/Screenshot%202.png)
+
+---
+
 ## 🌌 Project Overview & Objective
 
 The goal of AstroGenesis is to bridge real-time interactivity with astrophysical rigor—drawing inspiration from platforms like *SpaceEngine*, *Universe Sandbox*, and *Kerbal Space Program*, but with an increased focus on deep physical and astrophysical simulation.
