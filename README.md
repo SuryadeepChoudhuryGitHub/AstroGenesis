@@ -134,6 +134,31 @@ If you are modifying `.cpp` or `.hpp` files frequently, you can run the included
 ```
 This script monitors the `src/` folder and automatically re-compiles the binary whenever changes are saved.
 
+### Option D: macOS (Apple Silicon / Intel)
+
+1. Install the Xcode Command Line Tools if needed:
+   ```bash
+   xcode-select --install
+   ```
+2. Configure the project with CMake:
+   ```bash
+   cmake -S . -B build
+   ```
+3. Build the executable:
+   ```bash
+   cmake --build build -- -j4
+   ```
+4. Run the program:
+   ```bash
+   ./build/AstroGenesis
+   ```
+
+You can also generate an Xcode project if you prefer working in Xcode:
+
+```bash
+cmake -S . -B build-xcode -G Xcode
+```
+
 ---
 
 ## 🚀 Running the Engine
