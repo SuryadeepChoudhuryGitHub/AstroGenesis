@@ -191,6 +191,49 @@ void Application::processInput(float deltaTime) {
             m_camera.resetOverview(glm::vec3(0.0f), 6.0f);
             m_uiManager.addEventLog("Simulation workspace reset to fresh start (Hotkey: R)");
         }
+        // Number keys 1-6 switch top-level workspaces
+        if (ImGui::IsKeyPressed(ImGuiKey_1, false)) m_uiManager.setActiveTopTab(0);
+        if (ImGui::IsKeyPressed(ImGuiKey_2, false)) m_uiManager.setActiveTopTab(1);
+        if (ImGui::IsKeyPressed(ImGuiKey_3, false)) m_uiManager.setActiveTopTab(2);
+        if (ImGui::IsKeyPressed(ImGuiKey_4, false)) m_uiManager.setActiveTopTab(3);
+        if (ImGui::IsKeyPressed(ImGuiKey_5, false)) m_uiManager.setActiveTopTab(4);
+        if (ImGui::IsKeyPressed(ImGuiKey_6, false)) m_uiManager.setActiveTopTab(5);
+
+        // F: Focus camera on selected object
+        if (ImGui::IsKeyPressed(ImGuiKey_F, false)) {
+            const auto& sel = m_physics.getSelectedBody();
+            m_camera.focusOnBody(sel.position, sel.radius3D, 0.85f);
+            m_uiManager.addEventLog("Camera focused on " + sel.name + " (Hotkey: F)");
+        }
+        // C: Clear orbital trails
+        if (ImGui::IsKeyPressed(ImGuiKey_C, false)) {
+            m_physics.clearTrails();
+            m_uiManager.addEventLog("Cleared all orbital trails (Hotkey: C)");
+        }
+        // G: Toggle General Relativity
+        if (ImGui::IsKeyPressed(ImGuiKey_G, false)) {
+            m_physics.toggleGeneralRelativity();
+            m_uiManager.addEventLog(m_physics.isGeneralRelativityEnabled() ? "Einstein 1PN GR enabled (Hotkey: G)" : "Newtonian gravity active (Hotkey: G)");
+        }
+        // T: Toggle True Scale
+        if (ImGui::IsKeyPressed(ImGuiKey_T, false)) {
+            m_physics.setTrueScaleMode(!m_physics.isTrueScaleMode());
+            m_uiManager.addEventLog(m_physics.isTrueScaleMode() ? "True 1:1 Scale enabled (Hotkey: T)" : "Visibility Scaled mode (Hotkey: T)");
+        }
+        // O: Toggle Keplerian Orbit Lines
+        if (ImGui::IsKeyPressed(ImGuiKey_O, false)) {
+            m_visualAdapter.setOrbitLinesEnabled(!m_visualAdapter.areOrbitLinesEnabled());
+            m_uiManager.addEventLog(m_visualAdapter.areOrbitLinesEnabled() ? "Orbit lines visible (Hotkey: O)" : "Orbit lines hidden (Hotkey: O)");
+        }
+        // [ and ]: Time warp speed
+        if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket, false)) {
+            float newScale = std::max(1.0f, m_physics.getTimeScale() * 0.5f);
+            m_physics.setTimeScale(newScale);
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_RightBracket, false)) {
+            float newScale = std::min(31536000.0f * 100.0f, m_physics.getTimeScale() * 2.0f);
+            m_physics.setTimeScale(newScale);
+        }
     }
 }
 
@@ -217,6 +260,14 @@ void Application::run() {
 
         // Advance simulation dynamics (Authoritative Physics)
         m_physics.update(deltaTime);
+
+        // Process physical collision events
+        for (const auto& colEv : m_physics.getRecentCollisions()) {
+            m_visualAdapter.registerImpact(colEv.positionAU, colEv.normal, colEv.impactEnergyJoules);
+            m_uiManager.addEventLog(colEv.description);
+        }
+        m_physics.clearRecentCollisions();
+
         m_aiManager.update(m_physics, deltaTime);
         m_camera.setTargetPosition(m_physics.getSelectedBody().position);
         m_camera.update(deltaTime);
@@ -258,7 +309,7 @@ void Application::run() {
         float simTime = (float)m_physics.getSimulatedTimeSeconds();
 
         // 2. Dynamic 3D motion trails & Keplerian osculating curves
-        m_renderer.renderTrails(m_camera, aspect, m_physics.getBodies(), camTarget, m_physics.getSelectedBodyIndex());
+        m_renderer.renderTrails(m_camera, aspect, m_physics.getBodies(), camTarget, m_physics.getSelectedBodyIndex(), m_visualAdapter.areOrbitLinesEnabled(), m_visualAdapter.areMotionTrailsEnabled());
 
         // 3. Asteroid belt / granular particle swarm
         m_renderer.renderParticleField(m_camera, aspect, m_physics.getAsteroidBelt(), primarySunPos, camTarget, m_physics.getSimulatedTimeSeconds());

@@ -92,12 +92,44 @@ public:
     double getRealTimeElapsedSeconds() const { return m_realTimeElapsedSeconds; }
     void updateBodyScales();
 
+    // Interactive Physical Manipulation & Universe Sandbox Controls
+    void setBodyVelocity(int bodyIdx, const glm::dvec3& velMps);
+    void scaleBodyVelocity(int bodyIdx, double factor);
+    void applyProgradeDeltaV(int bodyIdx, double deltaVMps);
+    void applyNormalDeltaV(int bodyIdx, double deltaVMps);
+    void circularizeOrbit(int bodyIdx);
+    void setBodyOrbitRadiusAU(int bodyIdx, double newRadiusAU);
+    void setBodyEccentricity(int bodyIdx, double newEccentricity);
+
+    // Thermal, Radiative & Atmospheric Controls
+    void setBodyCustomTemperature(int bodyIdx, double tempK);
+    void resetBodyToThermalEquilibrium(int bodyIdx);
+    void setStarLuminositySolar(int bodyIdx, double solarLuminosities);
+    void recalculateStellarLuminosity(int bodyIdx);
+    void setBodyGreenhouseDeltaK(int bodyIdx, float greenhouseDeltaK);
+    void setBodyAtmosphere(int bodyIdx, bool enabled);
+    void forceUpdatePhysicalQuantities();
+
+    // Collision Detection & Events
+    struct CelestialCollisionEvent {
+        std::string survivorName;
+        std::string absorbedName;
+        glm::vec3 positionAU{0.0f};
+        glm::vec3 normal{0.0f, 1.0f, 0.0f};
+        double impactEnergyJoules = 0.0;
+        float thermalTempK = 0.0f;
+        std::string description;
+    };
+    const std::vector<CelestialCollisionEvent>& getRecentCollisions() const { return m_recentCollisions; }
+    void clearRecentCollisions() { m_recentCollisions.clear(); }
+
 private:
     void computeAccelerations(const std::vector<glm::dvec3>& positions,
                               const std::vector<glm::dvec3>& velocities,
                               std::vector<glm::dvec3>& outAccelerations);
 
     void integrateNBody(double deltaSeconds);
+    void checkAndResolveCollisions();
     void updatePhysicalQuantities();
     void updateRingHydrodynamics(double deltaSeconds);
     void computeSystemConservationStats();
@@ -105,6 +137,7 @@ private:
     void generateOrbitalTrails();
 
     std::vector<CelestialBody> m_bodies;
+    std::vector<CelestialCollisionEvent> m_recentCollisions;
     int m_selectedBodyIndex = 0;
     std::string m_currentCategory = "Solar System";
 

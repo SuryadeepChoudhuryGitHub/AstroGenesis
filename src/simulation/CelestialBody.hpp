@@ -112,6 +112,9 @@ struct CelestialBody {
     double albedo = 0.3;             // Bond / Geometric Albedo
     double greenhouseK = 0.0;        // Atmospheric greenhouse warming in Kelvin
     double luminosityW = 0.0;        // Stellar luminosity in Watts (Sol = 3.828e26 W)
+    bool hasCustomTemp = false;      // True if user manually tuned surface temperature (prevents radiative equilibrium overwrite)
+    bool hasAtmosphereCustom = false;// True if user explicitly enabled/disabled atmosphere
+    bool hasAtmosphere = true;       // Per-body atmosphere state
 
     // Dynamic Live Physical Metrics
     double distanceAU = 0.0;         // Instantaneous distance to Sol in AU

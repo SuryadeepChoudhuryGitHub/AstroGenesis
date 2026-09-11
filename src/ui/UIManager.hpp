@@ -59,7 +59,7 @@ private:
     void drawOrbitVis(PhysicsEngine& physics, Camera& camera, float x, float y, float w, float h);
     void drawStatusBar(const PhysicsEngine& physics, const Camera& camera, float winW, float winH, float barH);
     void drawAsteroidBeltDiagnostics(PhysicsEngine& physics, ObjectRepository& objRepo, float winW, float winH);
-    void drawMatterLab(PhysicsEngine& physics, float winW, float winH);
+    void drawMatterLab(PhysicsEngine& physics, Camera& camera, float winW, float winH);
 
     // Extra Workspaces
     void drawExploreWorkspace(ObjectRepository& objRepo, PhysicsEngine& physics, Camera& camera, float winW, float winH);

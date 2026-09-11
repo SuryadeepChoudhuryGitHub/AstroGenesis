@@ -291,7 +291,11 @@ void PhysicsEngine::updatePhysicalQuantities() {
 
     const auto& sol = m_bodies[solIdx];
     double solMass = (sol.massKg > 0.0) ? sol.massKg : 1.9885e30;
+    // Stefan-Boltzmann stellar luminosity coupling: L = 4 * pi * R^2 * sigma * T^4
     double solLum = (sol.luminosityW > 0.0) ? sol.luminosityW : L_SUN;
+    if (sol.radiusM > 0.0 && sol.surfaceTempK > 500.0) {
+        solLum = 4.0 * PI_DBL * sol.radiusM * sol.radiusM * SIGMA_SB * std::pow(sol.surfaceTempK, 4.0);
+    }
 
     for (size_t i = 0; i < m_bodies.size(); ++i) {
         auto& b = m_bodies[i];
@@ -303,6 +307,7 @@ void PhysicsEngine::updatePhysicalQuantities() {
             char spdBuf[64];
             snprintf(spdBuf, sizeof(spdBuf), "%.2f km/s", b.orbitalSpeedKmpS);
             b.orbitalSpeedStr = spdBuf;
+            b.luminosityW = solLum;
             continue;
         }
 
@@ -367,7 +372,9 @@ void PhysicsEngine::updatePhysicalQuantities() {
 
         // Thermal Equilibrium Temperature: T_eq = ( (F * (1 - A)) / (4 * sigma) )^(1/4) + T_greenhouse
         double tEffectiveK = std::pow((b.solarRadiationFlux * (1.0 - b.albedo)) / (4.0 * SIGMA_SB), 0.25);
-        b.surfaceTempK = tEffectiveK + b.greenhouseK;
+        if (!b.hasCustomTemp) {
+            b.surfaceTempK = tEffectiveK + b.greenhouseK;
+        }
         char tempBuf[64];
         snprintf(tempBuf, sizeof(tempBuf), "%d K (%.1f °C)", (int)std::round(b.surfaceTempK), b.surfaceTempK - 273.15);
         b.tempStr = tempBuf;
@@ -602,6 +609,7 @@ void PhysicsEngine::update(float deltaTime) {
 
     for (int s = 0; s < substeps; ++s) {
         integrateNBody(stepSize);
+        checkAndResolveCollisions();
     }
 
     // Dynamic physical stats & conservation
@@ -755,6 +763,282 @@ std::string PhysicsEngine::getTotalAngularMomentumStr() const {
     char buf[64];
     snprintf(buf, sizeof(buf), "%.3e kg·m²/s", m_totalSystemAngularMomentum);
     return std::string(buf);
+}
+
+void PhysicsEngine::checkAndResolveCollisions() {
+    if (m_bodies.size() <= 1) return;
+
+    for (size_t i = 0; i < m_bodies.size(); ++i) {
+        for (size_t j = i + 1; j < m_bodies.size(); ++j) {
+            double distM = glm::distance(m_bodies[i].positionM, m_bodies[j].positionM);
+            double sumRadiusM = m_bodies[i].radiusM + m_bodies[j].radiusM;
+
+            // Inelastic collision condition: physical core contact
+            if (distM <= sumRadiusM && sumRadiusM > 0.0) {
+                size_t survivorIdx = (m_bodies[i].massKg >= m_bodies[j].massKg) ? i : j;
+                size_t absorbedIdx = (survivorIdx == i) ? j : i;
+
+                auto& survivor = m_bodies[survivorIdx];
+                const auto& absorbed = m_bodies[absorbedIdx];
+
+                double m1 = survivor.massKg;
+                double m2 = absorbed.massKg;
+                double mTotal = m1 + m2;
+                if (mTotal <= 0.0) continue;
+
+                // Inelastic collision: momentum conservation
+                glm::dvec3 newVelMps = (m1 * survivor.velocityMps + m2 * absorbed.velocityMps) / mTotal;
+                glm::dvec3 newPosM = (m1 * survivor.positionM + m2 * absorbed.positionM) / mTotal;
+
+                // Impact kinetic energy converted to heat
+                glm::dvec3 relVel = survivor.velocityMps - absorbed.velocityMps;
+                double relVelSq = glm::dot(relVel, relVel);
+                double reducedMass = (m1 * m2) / mTotal;
+                double impactEnergyJ = 0.5 * reducedMass * relVelSq;
+
+                // Combined volume & new radius
+                double vol1 = (4.0 / 3.0) * PI_DBL * std::pow(survivor.radiusM, 3.0);
+                double vol2 = (4.0 / 3.0) * PI_DBL * std::pow(absorbed.radiusM, 3.0);
+                double newRadiusM = std::cbrt((vol1 + vol2) / ((4.0 / 3.0) * PI_DBL));
+
+                // Thermal flash heating at impact site
+                double specificHeat = (survivor.type.find("Gas") != std::string::npos) ? 3500.0 : 900.0;
+                double deltaTK = impactEnergyJ / (mTotal * specificHeat);
+                deltaTK = std::clamp(deltaTK, 0.0, 5000.0);
+                survivor.surfaceTempK = std::max(survivor.surfaceTempK, survivor.surfaceTempK + deltaTK);
+                survivor.hasCustomTemp = true;
+
+                // Update survivor physical attributes
+                survivor.massKg = mTotal;
+                survivor.radiusM = newRadiusM;
+                survivor.realRadiusAU = newRadiusM / AU_METERS;
+                survivor.positionM = newPosM;
+                survivor.velocityMps = newVelMps;
+                survivor.position = glm::vec3((float)(newPosM.x / AU_METERS), (float)(newPosM.y / AU_METERS), (float)(newPosM.z / AU_METERS));
+                survivor.velocity = glm::vec3((float)(newVelMps.x / AU_METERS), (float)(newVelMps.y / AU_METERS), (float)(newVelMps.z / AU_METERS));
+
+                // Record collision event for visual shockwave FX and notification log
+                CelestialCollisionEvent ev;
+                ev.survivorName = survivor.name;
+                ev.absorbedName = absorbed.name;
+                ev.positionAU = survivor.position;
+                glm::dvec3 n = glm::normalize(absorbed.positionM - survivor.positionM);
+                if (glm::length(n) < 0.1 || std::isnan(n.x)) n = glm::dvec3(0.0, 1.0, 0.0);
+                ev.normal = glm::vec3((float)n.x, (float)n.y, (float)n.z);
+                ev.impactEnergyJoules = impactEnergyJ;
+                ev.thermalTempK = (float)survivor.surfaceTempK;
+
+                char eBuf[64];
+                snprintf(eBuf, sizeof(eBuf), "%.2e J", impactEnergyJ);
+                ev.description = "COLLISION: " + absorbed.name + " merged into " + survivor.name + " (Energy: " + eBuf + ")";
+                m_recentCollisions.push_back(ev);
+
+                // Update selection tracking
+                if (m_selectedBodyIndex == (int)absorbedIdx) {
+                    m_selectedBodyIndex = (int)survivorIdx;
+                } else if (m_selectedBodyIndex > (int)absorbedIdx) {
+                    m_selectedBodyIndex--;
+                }
+
+                // Erase absorbed body
+                m_bodies.erase(m_bodies.begin() + absorbedIdx);
+
+                updateBodyScales();
+                updatePhysicalQuantities();
+                return; // Resolve one collision per substep to maintain iterator safety
+            }
+        }
+    }
+}
+
+void PhysicsEngine::setBodyVelocity(int bodyIdx, const glm::dvec3& velMps) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    m_bodies[bodyIdx].velocityMps = velMps;
+    m_bodies[bodyIdx].velocity = glm::vec3((float)(velMps.x / AU_METERS), (float)(velMps.y / AU_METERS), (float)(velMps.z / AU_METERS));
+    m_bodies[bodyIdx].trailHistory.clear();
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::scaleBodyVelocity(int bodyIdx, double factor) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    m_bodies[bodyIdx].velocityMps *= factor;
+    m_bodies[bodyIdx].velocity = glm::vec3((float)(m_bodies[bodyIdx].velocityMps.x / AU_METERS),
+                                           (float)(m_bodies[bodyIdx].velocityMps.y / AU_METERS),
+                                           (float)(m_bodies[bodyIdx].velocityMps.z / AU_METERS));
+    m_bodies[bodyIdx].trailHistory.clear();
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::applyProgradeDeltaV(int bodyIdx, double deltaVMps) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    double speed = glm::length(m_bodies[bodyIdx].velocityMps);
+    if (speed < 1.0) return;
+    glm::dvec3 tangent = m_bodies[bodyIdx].velocityMps / speed;
+    m_bodies[bodyIdx].velocityMps += deltaVMps * tangent;
+    m_bodies[bodyIdx].velocity = glm::vec3((float)(m_bodies[bodyIdx].velocityMps.x / AU_METERS),
+                                           (float)(m_bodies[bodyIdx].velocityMps.y / AU_METERS),
+                                           (float)(m_bodies[bodyIdx].velocityMps.z / AU_METERS));
+    m_bodies[bodyIdx].trailHistory.clear();
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::applyNormalDeltaV(int bodyIdx, double deltaVMps) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    m_bodies[bodyIdx].velocityMps.y += deltaVMps;
+    m_bodies[bodyIdx].velocity = glm::vec3((float)(m_bodies[bodyIdx].velocityMps.x / AU_METERS),
+                                           (float)(m_bodies[bodyIdx].velocityMps.y / AU_METERS),
+                                           (float)(m_bodies[bodyIdx].velocityMps.z / AU_METERS));
+    m_bodies[bodyIdx].trailHistory.clear();
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::circularizeOrbit(int bodyIdx) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    if (bodyIdx == 0 && (m_bodies[0].id == "sol" || m_bodies[0].type.find("Star") != std::string::npos)) return;
+
+    size_t attractorIdx = 0;
+    if (m_bodies[bodyIdx].parentObjectId.has_value()) {
+        for (size_t p = 0; p < m_bodies.size(); ++p) {
+            if (m_bodies[p].dbId == m_bodies[bodyIdx].parentObjectId.value()) {
+                attractorIdx = p;
+                break;
+            }
+        }
+    }
+    const auto& attractor = m_bodies[attractorIdx];
+    glm::dvec3 rVec = m_bodies[bodyIdx].positionM - attractor.positionM;
+    double rM = glm::length(rVec);
+    if (rM < 1000.0) return;
+
+    double muTotal = G_CONST * (attractor.massKg + m_bodies[bodyIdx].massKg);
+    double vCirc = std::sqrt(muTotal / rM);
+
+    glm::dvec3 hVec = glm::cross(rVec, m_bodies[bodyIdx].velocityMps - attractor.velocityMps);
+    glm::dvec3 tangent(0.0);
+    if (glm::length(hVec) > 1e-3) {
+        tangent = glm::normalize(glm::cross(hVec, rVec));
+    } else {
+        tangent = glm::normalize(glm::dvec3(-rVec.z, 0.0, rVec.x));
+    }
+
+    m_bodies[bodyIdx].velocityMps = attractor.velocityMps + vCirc * tangent;
+    m_bodies[bodyIdx].velocity = glm::vec3((float)(m_bodies[bodyIdx].velocityMps.x / AU_METERS),
+                                           (float)(m_bodies[bodyIdx].velocityMps.y / AU_METERS),
+                                           (float)(m_bodies[bodyIdx].velocityMps.z / AU_METERS));
+    m_bodies[bodyIdx].trailHistory.clear();
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::setBodyOrbitRadiusAU(int bodyIdx, double newRadiusAU) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    if (bodyIdx == 0 && (m_bodies[0].id == "sol" || m_bodies[0].type.find("Star") != std::string::npos)) return;
+
+    size_t attractorIdx = 0;
+    if (m_bodies[bodyIdx].parentObjectId.has_value()) {
+        for (size_t p = 0; p < m_bodies.size(); ++p) {
+            if (m_bodies[p].dbId == m_bodies[bodyIdx].parentObjectId.value()) {
+                attractorIdx = p;
+                break;
+            }
+        }
+    }
+    const auto& attractor = m_bodies[attractorIdx];
+    glm::dvec3 rVec = m_bodies[bodyIdx].positionM - attractor.positionM;
+    double curR = glm::length(rVec);
+    glm::dvec3 rDir = (curR > 1.0) ? (rVec / curR) : glm::dvec3(1.0, 0.0, 0.0);
+
+    double newRM = std::max(1000.0, newRadiusAU * AU_METERS);
+    m_bodies[bodyIdx].positionM = attractor.positionM + rDir * newRM;
+    m_bodies[bodyIdx].position = glm::vec3((float)(m_bodies[bodyIdx].positionM.x / AU_METERS),
+                                           (float)(m_bodies[bodyIdx].positionM.y / AU_METERS),
+                                           (float)(m_bodies[bodyIdx].positionM.z / AU_METERS));
+
+    circularizeOrbit(bodyIdx);
+}
+
+void PhysicsEngine::setBodyEccentricity(int bodyIdx, double newEccentricity) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    newEccentricity = std::clamp(newEccentricity, 0.0, 0.95);
+
+    size_t attractorIdx = 0;
+    if (m_bodies[bodyIdx].parentObjectId.has_value()) {
+        for (size_t p = 0; p < m_bodies.size(); ++p) {
+            if (m_bodies[p].dbId == m_bodies[bodyIdx].parentObjectId.value()) {
+                attractorIdx = p;
+                break;
+            }
+        }
+    }
+    const auto& attractor = m_bodies[attractorIdx];
+    glm::dvec3 rVec = m_bodies[bodyIdx].positionM - attractor.positionM;
+    double rM = glm::length(rVec);
+    if (rM < 1000.0) return;
+
+    double muTotal = G_CONST * (attractor.massKg + m_bodies[bodyIdx].massKg);
+    double aM = (m_bodies[bodyIdx].semiMajorAxisM > 0.0) ? m_bodies[bodyIdx].semiMajorAxisM : rM;
+    
+    // Vis-Viva velocity adjustment at current radius
+    double vTarget = std::sqrt(std::max(0.0, muTotal * (2.0 / rM - 1.0 / aM)));
+    double curV = glm::length(m_bodies[bodyIdx].velocityMps - attractor.velocityMps);
+    if (curV > 1.0) {
+        glm::dvec3 vDir = (m_bodies[bodyIdx].velocityMps - attractor.velocityMps) / curV;
+        m_bodies[bodyIdx].velocityMps = attractor.velocityMps + vTarget * vDir;
+        m_bodies[bodyIdx].velocity = glm::vec3((float)(m_bodies[bodyIdx].velocityMps.x / AU_METERS),
+                                               (float)(m_bodies[bodyIdx].velocityMps.y / AU_METERS),
+                                               (float)(m_bodies[bodyIdx].velocityMps.z / AU_METERS));
+    }
+    m_bodies[bodyIdx].trailHistory.clear();
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::setBodyCustomTemperature(int bodyIdx, double tempK) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    m_bodies[bodyIdx].surfaceTempK = std::clamp(tempK, 1.0, 100000.0);
+    m_bodies[bodyIdx].hasCustomTemp = true;
+    char tBuf[64];
+    snprintf(tBuf, sizeof(tBuf), "%.0f K (%.1f °C)", m_bodies[bodyIdx].surfaceTempK, m_bodies[bodyIdx].surfaceTempK - 273.15);
+    m_bodies[bodyIdx].tempStr = tBuf;
+    if (m_bodies[bodyIdx].id == "sol" || m_bodies[bodyIdx].type.find("Star") != std::string::npos) {
+        recalculateStellarLuminosity(bodyIdx);
+    }
+}
+
+void PhysicsEngine::resetBodyToThermalEquilibrium(int bodyIdx) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    m_bodies[bodyIdx].hasCustomTemp = false;
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::setStarLuminositySolar(int bodyIdx, double solarLuminosities) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    m_bodies[bodyIdx].luminosityW = std::clamp(solarLuminosities, 0.001, 100000.0) * L_SUN;
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::recalculateStellarLuminosity(int bodyIdx) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    auto& b = m_bodies[bodyIdx];
+    if (b.radiusM > 0.0 && b.surfaceTempK > 0.0) {
+        b.luminosityW = 4.0 * PI_DBL * b.radiusM * b.radiusM * SIGMA_SB * std::pow(b.surfaceTempK, 4.0);
+    }
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::setBodyGreenhouseDeltaK(int bodyIdx, float greenhouseDeltaK) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    m_bodies[bodyIdx].greenhouseK = (double)greenhouseDeltaK;
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::setBodyAtmosphere(int bodyIdx, bool enabled) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    m_bodies[bodyIdx].hasAtmosphere = enabled;
+    m_bodies[bodyIdx].hasAtmosphereCustom = true;
+}
+
+void PhysicsEngine::forceUpdatePhysicalQuantities() {
+    updatePhysicalQuantities();
+    updateBodyScales();
 }
 
 } // namespace AstroGenesis

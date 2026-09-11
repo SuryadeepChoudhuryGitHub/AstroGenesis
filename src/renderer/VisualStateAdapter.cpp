@@ -233,7 +233,8 @@ void VisualStateAdapter::update(
         bool isGasGiant = (b.type.find("Gas Giant") != std::string::npos || b.type.find("Ice Giant") != std::string::npos || b.id == "jupiter" || b.id == "saturn" || b.id == "uranus" || b.id == "neptune");
         bool hasAtmoData = (!b.atmosphereStr.empty() && b.atmosphereStr != "None" && b.atmosphereStr != "Trace");
         
-        if ((hasAtmoData || isGasGiant || b.greenhouseK > 1.0) && m_enableAtmospheres) {
+        bool wantsAtmo = b.hasAtmosphereCustom ? b.hasAtmosphere : (hasAtmoData || isGasGiant || b.greenhouseK > 1.0);
+        if (wantsAtmo && m_enableAtmospheres) {
             vs.hasAtmosphere = true;
             vs.scaleHeightKm = calculateAtmosphericScaleHeightKm(b.surfaceTempK, b.surfaceGravityMps2);
             

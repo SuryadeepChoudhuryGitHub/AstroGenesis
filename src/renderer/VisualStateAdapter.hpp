@@ -167,6 +167,12 @@ public:
     bool areImpactFXEnabled() const { return m_enableImpactFX; }
     void setImpactFXEnabled(bool val) { m_enableImpactFX = val; }
 
+    bool areOrbitLinesEnabled() const { return m_showOrbitLines; }
+    void setOrbitLinesEnabled(bool val) { m_showOrbitLines = val; }
+
+    bool areMotionTrailsEnabled() const { return m_showMotionTrails; }
+    void setMotionTrailsEnabled(bool val) { m_showMotionTrails = val; }
+
 private:
     VisualMode m_visualMode = VisualMode::Realistic;
     DebugVisualOverlay m_debugOverlay = DebugVisualOverlay::None;
@@ -177,6 +183,8 @@ private:
     bool m_enableMultiStarLighting = true;
     bool m_enableShadows = true;
     bool m_enableImpactFX = true;
+    bool m_showOrbitLines = true;
+    bool m_showMotionTrails = true;
 
     std::vector<VisualBodyState> m_visualBodies;
     std::vector<StarLightSource> m_starLights;

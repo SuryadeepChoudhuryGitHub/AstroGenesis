@@ -1375,8 +1375,9 @@ void Renderer::renderSkybox(const Camera& camera, float aspect) {
     glEnable(GL_DEPTH_TEST);
 }
 
-void Renderer::renderTrails(const Camera& camera, float aspect, const std::vector<CelestialBody>& bodies, const glm::vec3& cameraTarget, int selectedIndex) {
+void Renderer::renderTrails(const Camera& camera, float aspect, const std::vector<CelestialBody>& bodies, const glm::vec3& cameraTarget, int selectedIndex, bool showOrbitLines, bool showMotionTrails) {
     if (bodies.empty() || m_trailProgram == 0 || m_trailVAO == 0) return;
+    if (!showOrbitLines && !showMotionTrails) return;
     if (selectedIndex < 0 || selectedIndex >= (int)bodies.size()) selectedIndex = 0;
 
     glm::mat4 proj = camera.getProjectionMatrix(aspect);
@@ -1401,93 +1402,96 @@ void Renderer::renderTrails(const Camera& camera, float aspect, const std::vecto
     }
 
     // 1. Render dynamic 3D Keplerian osculating orbit curve
-    for (int i = 0; i < (int)bodies.size(); ++i) {
-        const auto& body = bodies[i];
-        if (body.id == "sol" || body.type.find("Star") != std::string::npos) continue;
+    if (showOrbitLines) {
+        for (int i = 0; i < (int)bodies.size(); ++i) {
+            const auto& body = bodies[i];
+            if (body.id == "sol" || body.type.find("Star") != std::string::npos) continue;
 
-        bool isSelected = (i == selectedIndex);
-        float guideAlpha = isSelected ? 0.48f : 0.24f;
-        glm::vec3 ringColor = body.color * (isSelected ? 1.30f : 0.88f);
+            bool isSelected = (i == selectedIndex);
+            float guideAlpha = isSelected ? 0.48f : 0.24f;
+            glm::vec3 ringColor = body.color * (isSelected ? 1.30f : 0.88f);
 
-        glm::vec3 centerPos = starPos;
-        if (body.parentObjectId.has_value()) {
-            for (const auto& p : bodies) {
-                if (p.dbId == body.parentObjectId.value()) {
-                    centerPos = p.position;
-                    break;
-                }
-            }
-        } else {
-            bool isMoon = (body.type.find("Moon") != std::string::npos || body.type.find("Satellite") != std::string::npos ||
-                           body.id == "moon" || body.id == "ganymede" || body.id == "europa" || body.id == "io" || body.id == "callisto" || body.id == "titan" ||
-                           body.id == "phobos" || body.id == "deimos" || body.id == "enceladus" || body.id == "triton" || body.id == "charon");
-
-            if (isMoon) {
+            glm::vec3 centerPos = starPos;
+            if (body.parentObjectId.has_value()) {
                 for (const auto& p : bodies) {
-                    if ((body.id == "moon" && p.id == "earth") ||
-                        ((body.id == "ganymede" || body.id == "europa" || body.id == "io" || body.id == "callisto") && p.id == "jupiter") ||
-                        ((body.id == "titan" || body.id == "enceladus" || body.id == "mimas") && p.id == "saturn") ||
-                        ((body.id == "phobos" || body.id == "deimos") && p.id == "mars") ||
-                        ((body.id == "triton" || body.id == "proteus") && p.id == "neptune") ||
-                        (body.id == "charon" && p.id == "pluto")) {
+                    if (p.dbId == body.parentObjectId.value()) {
                         centerPos = p.position;
                         break;
                     }
                 }
-            }
-        }
-        glm::vec3 relCenterPos = centerPos - cameraTarget;
+            } else {
+                bool isMoon = (body.type.find("Moon") != std::string::npos || body.type.find("Satellite") != std::string::npos ||
+                               body.id == "moon" || body.id == "ganymede" || body.id == "europa" || body.id == "io" || body.id == "callisto" || body.id == "titan" ||
+                               body.id == "phobos" || body.id == "deimos" || body.id == "enceladus" || body.id == "triton" || body.id == "charon");
 
-        std::vector<TrailVertex> orbitVerts;
-        if (body.dynamicOrbitCurve.size() >= 2) {
-            orbitVerts.reserve(body.dynamicOrbitCurve.size());
-            for (size_t s = 0; s < body.dynamicOrbitCurve.size(); ++s) {
-                const auto& pt = body.dynamicOrbitCurve[s];
-                if (!std::isnan(pt.x) && !std::isnan(pt.y) && !std::isnan(pt.z) &&
-                    !std::isinf(pt.x) && !std::isinf(pt.y) && !std::isinf(pt.z) &&
-                    glm::length(pt) < 500.0f) {
-                    glm::vec3 p = relCenterPos + pt;
-                    orbitVerts.push_back({ p, glm::vec4(ringColor, guideAlpha) });
+                if (isMoon) {
+                    for (const auto& p : bodies) {
+                        if ((body.id == "moon" && p.id == "earth") ||
+                            ((body.id == "ganymede" || body.id == "europa" || body.id == "io" || body.id == "callisto") && p.id == "jupiter") ||
+                            ((body.id == "titan" || body.id == "enceladus" || body.id == "mimas") && p.id == "saturn") ||
+                            ((body.id == "phobos" || body.id == "deimos") && p.id == "mars") ||
+                            ((body.id == "triton" || body.id == "proteus") && p.id == "neptune") ||
+                            (body.id == "charon" && p.id == "pluto")) {
+                            centerPos = p.position;
+                            break;
+                        }
+                    }
                 }
             }
-        } else {
-            double orbitRadiusAU = (body.realOrbitRadiusAU > 0.0) ? body.realOrbitRadiusAU : (body.semiMajorAxisAU > 0.0 ? body.semiMajorAxisAU : (double)glm::length(body.position - centerPos));
-            if (orbitRadiusAU > 0.00005 && orbitRadiusAU < 500.0) {
-                const int circleSegments = 256;
-                orbitVerts.reserve(circleSegments + 1);
-                for (int s = 0; s <= circleSegments; ++s) {
-                    float theta = 2.0f * PI * (float)s / (float)circleSegments;
-                    glm::vec3 p = centerPos + glm::vec3((float)(orbitRadiusAU * std::cos(theta)), 0.0f, (float)(orbitRadiusAU * std::sin(theta))) - cameraTarget;
-                    orbitVerts.push_back({ p, glm::vec4(ringColor, guideAlpha) });
+            glm::vec3 relCenterPos = centerPos - cameraTarget;
+
+            std::vector<TrailVertex> orbitVerts;
+            if (body.dynamicOrbitCurve.size() >= 2) {
+                orbitVerts.reserve(body.dynamicOrbitCurve.size());
+                for (size_t s = 0; s < body.dynamicOrbitCurve.size(); ++s) {
+                    const auto& pt = body.dynamicOrbitCurve[s];
+                    if (!std::isnan(pt.x) && !std::isnan(pt.y) && !std::isnan(pt.z) &&
+                        !std::isinf(pt.x) && !std::isinf(pt.y) && !std::isinf(pt.z) &&
+                        glm::length(pt) < 500.0f) {
+                        glm::vec3 p = relCenterPos + pt;
+                        orbitVerts.push_back({ p, glm::vec4(ringColor, guideAlpha) });
+                    }
+                }
+            } else {
+                double orbitRadiusAU = (body.realOrbitRadiusAU > 0.0) ? body.realOrbitRadiusAU : (body.semiMajorAxisAU > 0.0 ? body.semiMajorAxisAU : (double)glm::length(body.position - centerPos));
+                if (orbitRadiusAU > 0.00005 && orbitRadiusAU < 500.0) {
+                    const int circleSegments = 256;
+                    orbitVerts.reserve(circleSegments + 1);
+                    for (int s = 0; s <= circleSegments; ++s) {
+                        float theta = 2.0f * PI * (float)s / (float)circleSegments;
+                        glm::vec3 p = centerPos + glm::vec3((float)(orbitRadiusAU * std::cos(theta)), 0.0f, (float)(orbitRadiusAU * std::sin(theta))) - cameraTarget;
+                        orbitVerts.push_back({ p, glm::vec4(ringColor, guideAlpha) });
+                    }
                 }
             }
-        }
 
-        if (!orbitVerts.empty()) {
-            glBindVertexArray(m_trailVAO);
-            glBindBuffer(GL_ARRAY_BUFFER, m_trailVBO);
-            glBufferData(GL_ARRAY_BUFFER, orbitVerts.size() * sizeof(TrailVertex), orbitVerts.data(), GL_DYNAMIC_DRAW);
-            glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)orbitVerts.size());
+            if (!orbitVerts.empty()) {
+                glBindVertexArray(m_trailVAO);
+                glBindBuffer(GL_ARRAY_BUFFER, m_trailVBO);
+                glBufferData(GL_ARRAY_BUFFER, orbitVerts.size() * sizeof(TrailVertex), orbitVerts.data(), GL_DYNAMIC_DRAW);
+                glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)orbitVerts.size());
+            }
         }
     }
 
     // 2. Render dynamic fading motion trails
-    auto catmullRom = [](const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, float t) -> glm::vec3 {
-        float t2 = t * t;
-        float t3 = t2 * t;
-        return 0.5f * ((2.0f * p1) +
-                       (-p0 + p2) * t +
-                       (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3) * t2 +
-                       (-p0 + 3.0f * p1 - 3.0f * p2 + p3) * t3);
-    };
+    if (showMotionTrails) {
+        auto catmullRom = [](const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, float t) -> glm::vec3 {
+            float t2 = t * t;
+            float t3 = t2 * t;
+            return 0.5f * ((2.0f * p1) +
+                           (-p0 + p2) * t +
+                           (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3) * t2 +
+                           (-p0 + 3.0f * p1 - 3.0f * p2 + p3) * t3);
+        };
 
-    glm::vec3 camEye = cameraTarget + camera.getEyePosition();
+        glm::vec3 camEye = cameraTarget + camera.getEyePosition();
 
-    for (int i = 0; i < (int)bodies.size(); ++i) {
-        const auto& body = bodies[i];
-        if (body.id == "sol" || body.type.find("Star") != std::string::npos || body.trailHistory.size() < 2) continue;
+        for (int i = 0; i < (int)bodies.size(); ++i) {
+            const auto& body = bodies[i];
+            if (body.id == "sol" || body.type.find("Star") != std::string::npos || body.trailHistory.size() < 2) continue;
 
-        bool isSelected = (i == selectedIndex);
+            bool isSelected = (i == selectedIndex);
 
         std::vector<glm::vec3> pts;
         pts.reserve(body.trailHistory.size() + 1);
@@ -1569,6 +1573,7 @@ void Renderer::renderTrails(const Camera& camera, float aspect, const std::vecto
                 glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)trailVerts.size());
             }
         }
+    }
     }
 
     glBindVertexArray(0);

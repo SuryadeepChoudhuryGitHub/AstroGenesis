@@ -87,7 +87,7 @@ public:
 
     // Baseline & Scene Render Passes
     void renderSphere(const Camera& camera, float aspect, const CelestialBody& body, const glm::vec3& sunPos, const glm::vec3& cameraTarget);
-    void renderTrails(const Camera& camera, float aspect, const std::vector<CelestialBody>& bodies, const glm::vec3& cameraTarget, int selectedIndex);
+    void renderTrails(const Camera& camera, float aspect, const std::vector<CelestialBody>& bodies, const glm::vec3& cameraTarget, int selectedIndex, bool showOrbitLines = true, bool showMotionTrails = true);
     void renderRings(const Camera& camera, float aspect, const std::vector<CelestialBody>& bodies, const std::vector<StarLightSource>& stars, const glm::vec3& cameraTarget);
     void renderParticleField(const Camera& camera, float aspect, ParticleField& field, const glm::vec3& sunPos, const glm::vec3& cameraTarget, double simTime);
     void renderDeformableBodies(const Camera& camera, float aspect, const MatterSystem& matter, const std::vector<StarLightSource>& stars, const glm::vec3& cameraTarget, MatterVisualizationMode visMode);

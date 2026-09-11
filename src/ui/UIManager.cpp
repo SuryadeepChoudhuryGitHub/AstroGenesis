@@ -168,7 +168,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
         const auto& currentBodies = physics.getBodies();
         int selIdx = physics.getSelectedBodyIndex();
         if (selIdx >= 0 && selIdx < (int)currentBodies.size()) {
-            CelestialBody currentBody = currentBodies[selIdx];
+            CelestialBody& currentBody = physics.getBodies()[selIdx];
             drawInfoOverlay(currentBody, m_viewportX, m_viewportY);
             drawRightPanel(physics, currentBody, dataManager, objRepo, visualAdapter, aiManager, topBarH, windowWidth, windowHeight, statusBarH);
         }
@@ -207,7 +207,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
         drawAsteroidBeltDiagnostics(physics, objRepo, windowWidth, windowHeight);
     }
     if (m_showMatterLab) {
-        drawMatterLab(physics, windowWidth, windowHeight);
+        drawMatterLab(physics, camera, windowWidth, windowHeight);
     }
     if (m_showDataManager) {
         m_dataManagerUI.render(m_showDataManager, dataManager, objRepo, physics, windowWidth, windowHeight);
@@ -633,10 +633,35 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, Data
             // 3. Surface Temperature Slider (Triggers Magma / Incandescence / Star visuals)
             float tempK = (float)mutBody.surfaceTempK;
             if (ImGui::DragFloat("Surface Temp (K)##LiveEditT", &tempK, 15.0f, 10.0f, 50000.0f, "%.0f K")) {
-                mutBody.surfaceTempK = tempK;
-                char tBuf[64];
-                snprintf(tBuf, sizeof(tBuf), "%.0f K (%.1f °C)", mutBody.surfaceTempK, mutBody.surfaceTempK - 273.15);
-                mutBody.tempStr = tBuf;
+                physics.setBodyCustomTemperature(selIdx, (double)tempK);
+            }
+            if (mutBody.hasCustomTemp) {
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Reset Eq##ResetEqT")) {
+                    physics.resetBodyToThermalEquilibrium(selIdx);
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("Reset temperature to radiative blackbody equilibrium");
+                }
+            }
+
+            // Atmosphere & Greenhouse (Planets) / Stellar Luminosity (Stars)
+            if (!isStar && !isBlackHole) {
+                bool atmo = mutBody.hasAtmosphere;
+                if (ImGui::Checkbox("Atmosphere Present##LiveAtmo", &atmo)) {
+                    physics.setBodyAtmosphere(selIdx, atmo);
+                }
+                if (atmo) {
+                    float gh = (float)mutBody.greenhouseK;
+                    if (ImGui::DragFloat("Greenhouse (ΔK)##LiveGH", &gh, 1.0f, 0.0f, 600.0f, "+%.0f K")) {
+                        physics.setBodyGreenhouseDeltaK(selIdx, (double)gh);
+                    }
+                }
+            } else if (isStar) {
+                float lum = (float)(mutBody.luminosityW / 3.828e26);
+                if (ImGui::DragFloat("Luminosity (L☉)##LiveLum", &lum, 0.02f, 0.0001f, 100000.0f, "%.3f L☉")) {
+                    physics.setStarLuminositySolar(selIdx, (double)lum);
+                }
             }
 
             // 4. Color Tint & Albedo
@@ -677,6 +702,84 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, Data
             if (ImGui::Button("✏ Open in Object Editor Workspace", ImVec2(panelW - 20, 24))) {
                 m_objectWorkspaceUI.setSelectedObjectBySlug(mutBody.id, objRepo);
                 m_activeTopTab = 2; // OBJECTS workspace
+            }
+        }
+    }
+
+    ImGui::Separator();
+
+    if (SectionHeader("ORBITAL DYNAMICS & VELOCITY TUNING")) {
+        int selIdx = physics.getSelectedBodyIndex();
+        if (selIdx >= 0 && selIdx < (int)physics.getBodies().size()) {
+            CelestialBody& mutBody = physics.getBodies()[selIdx];
+            bool isStar = (mutBody.type.find("Star") != std::string::npos || mutBody.id == "sol");
+
+            if (isStar) {
+                ImGui::TextDisabled("Central gravitational attractor");
+            } else {
+                double vMag = glm::length(mutBody.velocityMps) / 1000.0;
+                ImGui::Text("Orbital Speed: %.2f km/s (%s)", vMag, mutBody.orbitalSpeedStr.c_str());
+
+                // Quick velocity multipliers
+                ImGui::TextColored(Col::TextSecondary, "Scale Orbital Speed:");
+                if (ImGui::Button("0.5x##Vel05", ImVec2(52, 22))) { physics.scaleBodyVelocity(selIdx, 0.5); }
+                ImGui::SameLine();
+                if (ImGui::Button("0.9x##Vel09", ImVec2(52, 22))) { physics.scaleBodyVelocity(selIdx, 0.9); }
+                ImGui::SameLine();
+                if (ImGui::Button("1.1x##Vel11", ImVec2(52, 22))) { physics.scaleBodyVelocity(selIdx, 1.1); }
+                ImGui::SameLine();
+                if (ImGui::Button("1.5x##Vel15", ImVec2(52, 22))) { physics.scaleBodyVelocity(selIdx, 1.5); }
+                ImGui::SameLine();
+                if (ImGui::Button("Reverse##VelRev", ImVec2(64, 22))) { physics.scaleBodyVelocity(selIdx, -1.0); }
+
+                // Prograde / Retrograde Impulse
+                ImGui::Spacing();
+                ImGui::TextColored(Col::TextSecondary, "Impulse Maneuver (Δv):");
+                if (ImGui::Button("-5 km/s##Ret5", ImVec2(70, 22))) { physics.applyProgradeDeltaV(selIdx, -5.0); }
+                ImGui::SameLine();
+                if (ImGui::Button("-1 km/s##Ret1", ImVec2(70, 22))) { physics.applyProgradeDeltaV(selIdx, -1.0); }
+                ImGui::SameLine();
+                if (ImGui::Button("+1 km/s##Pro1", ImVec2(70, 22))) { physics.applyProgradeDeltaV(selIdx, +1.0); }
+                ImGui::SameLine();
+                if (ImGui::Button("+5 km/s##Pro5", ImVec2(70, 22))) { physics.applyProgradeDeltaV(selIdx, +5.0); }
+
+                static float customDv = 0.0f;
+                ImGui::PushItemWidth(panelW - 130.0f);
+                ImGui::DragFloat("##CustomDv", &customDv, 0.1f, -100.0f, 100.0f, "Δv: %+.2f km/s");
+                ImGui::PopItemWidth();
+                ImGui::SameLine();
+                if (ImGui::Button("Apply Δv##ApplyDvBtn", ImVec2(80, 22))) {
+                    physics.applyProgradeDeltaV(selIdx, (double)customDv);
+                    customDv = 0.0f;
+                }
+
+                // Normal (inclination change)
+                static float customNormDv = 0.0f;
+                ImGui::PushItemWidth(panelW - 130.0f);
+                ImGui::DragFloat("##CustomNormDv", &customNormDv, 0.1f, -50.0f, 50.0f, "Norm: %+.2f km/s");
+                ImGui::PopItemWidth();
+                ImGui::SameLine();
+                if (ImGui::Button("Apply Norm##ApplyNormBtn", ImVec2(80, 22))) {
+                    physics.applyNormalDeltaV(selIdx, (double)customNormDv);
+                    customNormDv = 0.0f;
+                }
+
+                // Orbital Shape Modifiers
+                ImGui::Spacing();
+                if (ImGui::Button("🎯 Circularize Orbit at Current Distance", ImVec2(panelW - 20, 24))) {
+                    physics.circularizeOrbit(selIdx);
+                }
+
+                float curA = (float)mutBody.semiMajorAxisAU;
+                if (curA <= 0.0f) curA = (float)glm::length(mutBody.position);
+                if (ImGui::DragFloat("Semi-Major Axis (AU)##LiveSMA", &curA, 0.02f, 0.05f, 150.0f, "%.3f AU")) {
+                    physics.setBodyOrbitRadiusAU(selIdx, (double)curA);
+                }
+
+                float curEcc = (float)mutBody.eccentricity;
+                if (ImGui::SliderFloat("Eccentricity (e)##LiveEcc", &curEcc, 0.0f, 0.95f, "%.3f")) {
+                    physics.setBodyEccentricity(selIdx, (double)curEcc);
+                }
             }
         }
     }
@@ -1057,7 +1160,7 @@ void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, VisualSt
 
     if (showVisPopup) {
         ImGui::SetNextWindowPos(ImVec2(visBtnPos.x - 140.0f, visBtnPos.y + 32.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(320.0f, 380.0f));
+        ImGui::SetNextWindowSize(ImVec2(320.0f, 470.0f));
         ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.03f, 0.045f, 0.085f, 0.98f));
         ImGui::PushStyleColor(ImGuiCol_Border, Col::Accent);
         if (ImGui::Begin("##VisPopup", &showVisPopup, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
@@ -1081,6 +1184,20 @@ void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, VisualSt
             ImGui::Spacing();
             ImGui::Separator();
             ImGui::TextColored(Col::Accent, "RENDERING FEATURES");
+
+            bool showOrbits = visualAdapter.areOrbitLinesEnabled();
+            if (ImGui::Checkbox("Keplerian Orbit Lines", &showOrbits)) {
+                visualAdapter.setOrbitLinesEnabled(showOrbits);
+            }
+
+            bool showTrails = visualAdapter.areMotionTrailsEnabled();
+            if (ImGui::Checkbox("N-Body Motion Trails", &showTrails)) {
+                visualAdapter.setMotionTrailsEnabled(showTrails);
+            }
+
+            if (ImGui::Button("Clear Trails (C)##ClearTrailsBtn", ImVec2(180, 22))) {
+                physics.clearTrails();
+            }
 
             bool atmo = visualAdapter.areAtmospheresEnabled();
             if (ImGui::Checkbox("Atmospheric Rim Scattering", &atmo)) {
@@ -1557,7 +1674,7 @@ void UIManager::drawAsteroidBeltDiagnostics(PhysicsEngine& physics, ObjectReposi
     ImGui::PopStyleVar();
 }
 
-void UIManager::drawMatterLab(PhysicsEngine& physics, float winW, float winH) {
+void UIManager::drawMatterLab(PhysicsEngine& physics, Camera& camera, float winW, float winH) {
     auto& matter = physics.getMatterSystem();
     const auto& diag = matter.getDiagnostics();
     auto& lib = MaterialLibrary::instance();
@@ -1675,7 +1792,8 @@ void UIManager::drawMatterLab(PhysicsEngine& physics, float winW, float winH) {
 
         if (ImGui::Button("\xF0\x9F\x8C\x8C Black Hole Tidal Disruption Laboratory", ImVec2(340, 28))) {
             matter.spawnBlackHoleTidalDisruptionLab();
-            addEventLog("Black Hole Tidal Disruption spawned");
+            camera.resetOverview(glm::vec3(0.0468f, 0.0f, 0.0f), 0.12f);
+            addEventLog("Black Hole Tidal Disruption spawned (Camera centered at 0.047 AU)");
         }
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Spawns a 150 km asteroid on an extreme periapsis trajectory near a massive gravitational attractor. Watch differential gravity stretch, yield, and fragment the object into a tidal debris stream!");
@@ -1684,7 +1802,8 @@ void UIManager::drawMatterLab(PhysicsEngine& physics, float winW, float winH) {
         ImGui::SameLine();
         if (ImGui::Button("\xE2\x98\x84 Hypervelocity Impact & Crater Fracture", ImVec2(340, 28))) {
             matter.spawnHypervelocityCollision();
-            addEventLog("Hypervelocity Collision spawned");
+            camera.resetOverview(glm::vec3(0.0f), 0.00025f);
+            addEventLog("Hypervelocity Collision spawned (Camera focused on impact origin)");
         }
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Collides a high-speed Iron impactor with a Basalt rock target, producing realistic contact stress, plastic deformation, impact heating, and fragmentation!");
@@ -1692,7 +1811,8 @@ void UIManager::drawMatterLab(PhysicsEngine& physics, float winW, float winH) {
 
         if (ImGui::Button("\xE2\x9A\xA1 Tensile Stress & Necking / Ductile Failure", ImVec2(340, 28))) {
             matter.spawnTensileTest();
-            addEventLog("Tensile Test specimen spawned");
+            camera.resetOverview(glm::vec3(0.0f), 0.00010f);
+            addEventLog("Tensile Test specimen spawned (Camera focused on test specimen)");
         }
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Anchors a specimen on one end while applying tensile velocity to the other. Demonstrates linear elasticity, von Mises yielding, necking, and ductile fracture!");
@@ -1701,7 +1821,8 @@ void UIManager::drawMatterLab(PhysicsEngine& physics, float winW, float winH) {
         ImGui::SameLine();
         if (ImGui::Button("\xF0\x9F\x94\xA5 Thermal Heating & Melting Phase Change", ImVec2(340, 28))) {
             matter.spawnThermalMeltingLab();
-            addEventLog("Thermal Melting specimen spawned");
+            camera.resetOverview(glm::vec3(0.0f), 0.00012f);
+            addEventLog("Thermal Melting specimen spawned (Camera focused on melting ice block)");
         }
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Applies intense heat flux to an ice/metal block, demonstrating thermal conduction, thermal softening, melting, and fluid drop relaxation!");
