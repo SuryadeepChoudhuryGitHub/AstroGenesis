@@ -68,6 +68,10 @@ set(ASTROGENESIS_CORE_SOURCES
     src/ui/ValidationUI.cpp
     src/ui/SystemWorkspaceUI.cpp
     src/ui/ObjectWorkspaceUI.cpp
+    src/ai/FeatureExtractor.cpp
+    src/ai/ModelInference.cpp
+    src/ai/OrbitalStabilityPredictor.cpp
+    src/ai/AIManager.cpp
 )
 
 
@@ -125,6 +129,28 @@ target_include_directories(test_data_system PRIVATE
 )
 
 target_link_libraries(test_data_system PRIVATE 
+    imgui 
+    glfw 
+    glad 
+    glm::glm 
+    sqlite3
+    ${PLATFORM_LIBS}
+)
+
+# ── AI Subsystem Test Suite Executable ─────────────────────────────────────────
+add_executable(test_ai_system
+    src/test_ai_system.cpp
+    ${ASTROGENESIS_CORE_SOURCES}
+)
+
+target_include_directories(test_ai_system PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/external
+    ${CMAKE_SOURCE_DIR}/external/sqlite
+    ${CMAKE_SOURCE_DIR}/external/nlohmann
+)
+
+target_link_libraries(test_ai_system PRIVATE 
     imgui 
     glfw 
     glad 

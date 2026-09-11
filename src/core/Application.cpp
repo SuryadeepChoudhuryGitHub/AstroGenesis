@@ -75,6 +75,9 @@ bool Application::initialize(int width, int height, const char* title) {
         std::cerr << "[Application] Failed to load Solar System from database." << std::endl;
     }
 
+    // 5. Initialize Local Machine Learning Orbital Stability Predictor Subsystem
+    m_aiManager.initialize("assets/models/orbital_stability_model.json");
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -214,6 +217,7 @@ void Application::run() {
 
         // Advance simulation dynamics (Authoritative Physics)
         m_physics.update(deltaTime);
+        m_aiManager.update(m_physics, deltaTime);
         m_camera.setTargetPosition(m_physics.getSelectedBody().position);
         m_camera.update(deltaTime);
 
@@ -229,8 +233,8 @@ void Application::run() {
         );
         m_visualAdapter.updateImpactEvents(deltaTime);
 
-        // Render UI with dynamic database, data manager, validation engine, and visual state adapter
-        m_uiManager.renderUI(m_physics, m_camera, m_objRepo, m_dataManager, m_valEngine, m_visualAdapter, (float)m_windowWidth, (float)m_windowHeight, fps);
+        // Render UI with dynamic database, data manager, validation engine, visual state adapter, and AI subsystem
+        m_uiManager.renderUI(m_physics, m_camera, m_objRepo, m_dataManager, m_valEngine, m_visualAdapter, m_aiManager, (float)m_windowWidth, (float)m_windowHeight, fps);
 
         // Process mouse & keyboard interactions
         processInput(deltaTime);

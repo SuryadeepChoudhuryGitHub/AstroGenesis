@@ -1,4 +1,5 @@
 #include "ui/UIManager.hpp"
+#include "ai/AIManager.hpp"
 #include "simulation/MaterialModel.hpp"
 #include "data/UnitConverter.hpp"
 #include <cstdio>
@@ -131,6 +132,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
                          DataManager& dataManager,
                          ValidationEngine& valEngine,
                          VisualStateAdapter& visualAdapter,
+                         ai::AIManager& aiManager,
                          float windowWidth, float windowHeight, float fps) {
     float topBarH    = 48.0f;
     float statusBarH = 28.0f;
@@ -168,7 +170,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
         if (selIdx >= 0 && selIdx < (int)currentBodies.size()) {
             CelestialBody currentBody = currentBodies[selIdx];
             drawInfoOverlay(currentBody, m_viewportX, m_viewportY);
-            drawRightPanel(physics, currentBody, dataManager, objRepo, visualAdapter, topBarH, windowWidth, windowHeight, statusBarH);
+            drawRightPanel(physics, currentBody, dataManager, objRepo, visualAdapter, aiManager, topBarH, windowWidth, windowHeight, statusBarH);
         }
 
         drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
@@ -194,8 +196,8 @@ void UIManager::renderUI(PhysicsEngine& physics,
         drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
     } 
     else if (m_activeTopTab == 5) {
-        // ── AI ASSISTANT WORKSPACE (Astrophysics & Orbital Calculator) ─────────
-        drawAIAssistantWorkspace(physics, objRepo, windowWidth, windowHeight);
+        // ── AI ASSISTANT WORKSPACE (Astrophysics & Orbital Stability Studio) ───
+        drawAIAssistantWorkspace(physics, objRepo, aiManager, windowWidth, windowHeight);
         drawStatusBar(physics, camera, windowWidth, windowHeight, statusBarH);
     }
 
@@ -480,7 +482,7 @@ void UIManager::drawInfoOverlay(const CelestialBody& body, float x, float y) {
     ImGui::End();
 }
 
-void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, DataManager& dataManager, ObjectRepository& objRepo, VisualStateAdapter& visualAdapter, float topBarH, float winW, float winH, float statusBarH) {
+void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, DataManager& dataManager, ObjectRepository& objRepo, VisualStateAdapter& visualAdapter, ai::AIManager& aiManager, float topBarH, float winW, float winH, float statusBarH) {
     float panelW = 310.0f;
     float panelH = winH - topBarH - statusBarH;
     ImGui::SetNextWindowPos(ImVec2(winW - panelW, topBarH));
@@ -707,6 +709,73 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, Data
         ImGui::SameLine(hw);
         StatItem("\xE2\x88\xA0", "True Anomaly", body.trueAnomalyStr.c_str());
         ImGui::EndGroup();
+    }
+
+    ImGui::Separator();
+
+    if (SectionHeader("AI ORBITAL STABILITY")) {
+        const auto& pred = aiManager.getCurrentPrediction();
+        float hw = (panelW - 40) / 2.0f;
+
+        // Prediction Status Badge
+        ImVec4 statusCol = Col::Green;
+        const char* statusPrefix = "[ STABLE ]";
+        if (pred.prediction == "UNSTABLE") {
+            statusCol = Col::Red;
+            statusPrefix = "[ UNSTABLE ]";
+        } else if (pred.prediction == "MARGINAL") {
+            statusCol = Col::Yellow;
+            statusPrefix = "[ MARGINAL ]";
+        } else if (pred.prediction == "UNAVAILABLE") {
+            statusCol = Col::TextSecondary;
+            statusPrefix = "[ UNAVAILABLE ]";
+        }
+
+        ImGui::BeginGroup();
+        ImGui::TextColored(Col::TextSecondary, "Prediction:");
+        ImGui::SameLine();
+        ImGui::TextColored(statusCol, "%s", statusPrefix);
+        ImGui::SameLine(hw + 20);
+        ImGui::TextColored(Col::TextSecondary, "Confidence:");
+        ImGui::SameLine();
+        ImGui::TextColored(pred.confidence == "HIGH" ? Col::Green : (pred.confidence == "MEDIUM" ? Col::Yellow : Col::Orange),
+                           "%s", pred.confidence.c_str());
+        ImGui::EndGroup();
+
+        // Progress bars for probabilities
+        float pStable = pred.stableProbability;
+        float pUnstable = pred.unstableProbability;
+        
+        char stableBuf[32], unstableBuf[32];
+        snprintf(stableBuf, sizeof(stableBuf), "Stable: %.1f%%", pStable * 100.0f);
+        snprintf(unstableBuf, sizeof(unstableBuf), "Unstable: %.1f%%", pUnstable * 100.0f);
+
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, Col::Green);
+        ImGui::ProgressBar(pStable, ImVec2(panelW - 20, 16), stableBuf);
+        ImGui::PopStyleColor();
+
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, Col::Orange);
+        ImGui::ProgressBar(pUnstable, ImVec2(panelW - 20, 16), unstableBuf);
+        ImGui::PopStyleColor();
+
+        ImGui::BeginGroup();
+        StatItem("🪐", "Bodies", std::to_string(pred.analyzedBodyCount).c_str());
+        ImGui::SameLine(hw);
+        char sepBuf[32];
+        snprintf(sepBuf, sizeof(sepBuf), "%.2f R_H", pred.minMutualHillSep);
+        StatItem("📐", "Min Sep", sepBuf);
+        ImGui::EndGroup();
+
+        ImGui::Spacing();
+        ImGui::TextColored(Col::TextSecondary, "Primary Risk Factor:");
+        ImGui::TextWrapped("%s", pred.primaryRiskFactor.c_str());
+
+        ImGui::Spacing();
+        ImGui::TextDisabled("ℹ ML-based estimate of orbital stability.");
+
+        if (ImGui::Button("🤖 Open AI Analysis Studio", ImVec2(panelW - 20, 24))) {
+            m_activeTopTab = 5;
+        }
     }
 
 
@@ -1923,7 +1992,7 @@ void UIManager::drawSimulationWorkspace(PhysicsEngine& physics, Camera& camera, 
 // ------------------------------------------------------------------------------------------------
 // TOP-LEVEL WORKSPACE: AI ASSISTANT (Astrophysics & Orbital Calculator)
 // ------------------------------------------------------------------------------------------------
-void UIManager::drawAIAssistantWorkspace(PhysicsEngine& physics, ObjectRepository& objRepo, float winW, float winH) {
+void UIManager::drawAIAssistantWorkspace(PhysicsEngine& physics, ObjectRepository& objRepo, ai::AIManager& aiManager, float winW, float winH) {
     float topBarH = 48.0f;
     float statusBarH = 28.0f;
     float contentW = winW;
@@ -1937,100 +2006,291 @@ void UIManager::drawAIAssistantWorkspace(PhysicsEngine& physics, ObjectRepositor
 
     ImGui::Begin("##AIAssistantWorkspace", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
-    ImGui::TextColored(Col::Accent, "🤖 ASTROGENESIS ASTROPHYSICS & ORBITAL CALCULATOR");
+    const auto& pred = aiManager.getCurrentPrediction();
+    const auto& feat = aiManager.getCurrentFeatures();
+
+    // ── TOP HEADER & DIAGNOSTICS BAR ──
+    ImGui::TextColored(Col::Accent, "🤖 ASTROGENESIS AI & MACHINE LEARNING STUDIO");
     ImGui::SameLine();
-    ImGui::TextColored(Col::TextSecondary, "| Theoretical Orbital Mechanics & System Stability Analytics");
+    ImGui::TextColored(Col::TextSecondary, "| Local Machine Learning Orbital Stability Predictor");
+    ImGui::SameLine(contentW - 320.0f);
+    if (pred.modelLoaded) {
+        ImGui::TextColored(Col::Green, "● MODEL ACTIVE (Local, No API)");
+    } else {
+        ImGui::TextColored(Col::Orange, "○ MODEL UNAVAILABLE");
+    }
+
     ImGui::Separator();
     ImGui::Spacing();
 
     float colW = (contentW - 48.0f) / 3.0f;
 
-    // Card 1: Roche Limit & Tidal Disruption
-    ImGui::BeginChild("##CalcCard1", ImVec2(colW, contentH - 50.0f), true);
-    ImGui::TextColored(Col::Accent, "1. ROCHE LIMIT & TIDAL RADIUS");
+    // ── COLUMN 1: LIVE STABILITY ANALYZER ──
+    ImGui::BeginChild("##AICol1", ImVec2(colW, contentH - 50.0f), true);
+    ImGui::TextColored(Col::Accent, "1. LIVE ORBITAL STABILITY PREDICTOR");
     ImGui::Separator();
     ImGui::Spacing();
 
-    static float hostM = 1.0f; // M_Sun
-    static float satDens = 5500.0f; // kg/m^3
-    static float hostR = 696340.0f; // km
-    ImGui::DragFloat("Host Mass (M☉)##rm1", &hostM, 0.1f, 0.1f, 100.0f, "%.2f M☉");
-    ImGui::DragFloat("Host Radius (km)##rr1", &hostR, 1000.0f, 1000.0f, 10000000.0f, "%.0f km");
-    ImGui::DragFloat("Satellite Density (kg/m³)##rd1", &satDens, 50.0f, 500.0f, 20000.0f, "%.0f kg/m³");
+    // Large Banner
+    ImVec4 predBadgeCol = Col::Green;
+    const char* predBadgeTitle = "SYSTEM PREDICTED: STABLE";
+    if (pred.prediction == "UNSTABLE") {
+        predBadgeCol = Col::Red;
+        predBadgeTitle = "SYSTEM PREDICTED: UNSTABLE";
+    } else if (pred.prediction == "MARGINAL") {
+        predBadgeCol = Col::Yellow;
+        predBadgeTitle = "SYSTEM PREDICTED: MARGINAL";
+    } else if (pred.prediction == "UNAVAILABLE") {
+        predBadgeCol = Col::TextSecondary;
+        predBadgeTitle = "SYSTEM STATUS: MODEL UNAVAILABLE";
+    }
 
-    double hostVolM3 = (4.0 / 3.0) * UnitConverter::PI * std::pow((double)hostR * 1000.0, 3.0);
-    double hostMassKg = (double)hostM * UnitConverter::SOLAR_MASS_KG;
-    double hostDens = hostMassKg / hostVolM3;
-
-    double rigidRocheKm = (double)hostR * std::cbrt(2.0 * hostDens / satDens);
-    double fluidRocheKm = 2.44 * (double)hostR * std::cbrt(hostDens / satDens);
+    ImGui::PushStyleColor(ImGuiCol_Button, predBadgeCol);
+    ImGui::Button(predBadgeTitle, ImVec2(-1, 32));
+    ImGui::PopStyleColor();
 
     ImGui::Spacing();
-    ImGui::TextColored(Col::Accent, "Rigid Body Roche Limit:");
-    ImGui::TextColored(Col::TextPrimary, "d_rigid = %'.1f km (%.3f AU)", rigidRocheKm, rigidRocheKm / UnitConverter::AU_TO_KM);
+    ImGui::TextColored(Col::TextSecondary, "Model Architecture: ");
+    ImGui::SameLine();
+    ImGui::TextColored(Col::TextPrimary, "%s", pred.modelArchitecture.c_str());
 
-    ImGui::TextColored(Col::Orange, "Fluid Body Roche Limit:");
-    ImGui::TextColored(Col::TextPrimary, "d_fluid = %'.1f km (%.3f AU)", fluidRocheKm, fluidRocheKm / UnitConverter::AU_TO_KM);
+    ImGui::TextColored(Col::TextSecondary, "Prediction Confidence: ");
+    ImGui::SameLine();
+    ImGui::TextColored(pred.confidence == "HIGH" ? Col::Green : (pred.confidence == "MEDIUM" ? Col::Yellow : Col::Orange),
+                       "%s", pred.confidence.c_str());
+
+    ImGui::Spacing();
+    ImGui::Text("Stable Probability:   %.1f%%", pred.stableProbability * 100.0f);
+    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, Col::Green);
+    ImGui::ProgressBar(pred.stableProbability, ImVec2(-1, 16));
+    ImGui::PopStyleColor();
+
+    ImGui::Text("Unstable Probability: %.1f%%", pred.unstableProbability * 100.0f);
+    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, Col::Orange);
+    ImGui::ProgressBar(pred.unstableProbability, ImVec2(-1, 16));
+    ImGui::PopStyleColor();
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::TextColored(Col::Accent, "Extracted Celestial Mechanics Features:");
+    ImGui::Text("  • Primary Host Star Mass: %.3f M☉", feat.starMassKg / 1.9885e30);
+    ImGui::Text("  • Number of Orbiting Bodies: %d", feat.bodyCount);
+    ImGui::Text("  • Min Mutual Hill Separation: %.2f R_Hill", feat.minMutualHillSep);
+    ImGui::Text("  • Max Planetary Eccentricity: %.4f", feat.maxEccentricity);
+    ImGui::Text("  • Angular Momentum Deficit (AMD): %.5f", feat.angularMomentumDeficit);
+    ImGui::Text("  • Planetary Orbit Crossing: %s", feat.hasOrbitCrossing ? "YES (CRITICAL RISK)" : "NO (CLEAR)");
+    ImGui::Text("  • Inference Latency: %.1f µs", pred.inferenceTimeUs);
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::TextColored(Col::Yellow, "Risk Factor Diagnostics:");
+    if (pred.riskFactors.empty()) {
+        ImGui::TextColored(Col::Green, "  ✓ All orbital separation criteria satisfied.");
+    } else {
+        for (const auto& risk : pred.riskFactors) {
+            ImGui::TextColored(Col::Orange, "  ⚠ %s", risk.c_str());
+        }
+    }
+
+    ImGui::Spacing();
+    if (ImGui::Button("🔄 Force Re-Evaluate Simulation State", ImVec2(-1, 26))) {
+        aiManager.forceRecompute(physics);
+    }
+
+    ImGui::Spacing();
+    ImGui::TextDisabled("ℹ Scientific Honesty: ML-based estimate of stability from trained dynamical patterns. Does not replace symplectic physics integrator.");
+
     ImGui::EndChild();
 
     ImGui::SameLine();
 
-    // Card 2: Habitable Zone Boundaries
-    ImGui::BeginChild("##CalcCard2", ImVec2(colW, contentH - 50.0f), true);
-    ImGui::TextColored(Col::Accent, "2. STELLAR HABITABLE ZONE (HZ)");
+    // ── COLUMN 2: MUTUAL HILL SPHERE & ORBITAL DYNAMICS INSPECTOR ──
+    ImGui::BeginChild("##AICol2", ImVec2(colW, contentH - 50.0f), true);
+    ImGui::TextColored(Col::Accent, "2. DYNAMICAL HIERARCHY & HILL SPHERES");
     ImGui::Separator();
     ImGui::Spacing();
 
-    static float starLum = 1.0f; // L_Sun
-    static float starTeff = 5778.0f; // K
-    ImGui::DragFloat("Stellar Luminosity (L☉)##hzLum", &starLum, 0.05f, 0.0001f, 100.0f, "%.4f L☉");
-    ImGui::DragFloat("Effective Temp (K)##hzTeff", &starTeff, 50.0f, 2000.0f, 40000.0f, "%.0f K");
+    ImGui::TextColored(Col::TextSecondary, "Gladman Hill Stability Criterion (Δ > 3.46):");
+    ImGui::Spacing();
 
-    double rInAU = std::sqrt((double)starLum / 1.1);
-    double rOutAU = std::sqrt((double)starLum / 0.53);
+    if (feat.pairMetrics.empty()) {
+        ImGui::TextDisabled("Need at least 2 co-orbiting bodies to evaluate mutual Hill spheres.");
+    } else {
+        if (ImGui::BeginTable("##HillTable", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+            ImGui::TableSetupColumn("Pair");
+            ImGui::TableSetupColumn("Δ (R_H)");
+            ImGui::TableSetupColumn("P_ratio");
+            ImGui::TableSetupColumn("Status");
+            ImGui::TableHeadersRow();
+
+            for (const auto& pair : feat.pairMetrics) {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("%s - %s", pair.innerName.c_str(), pair.outerName.c_str());
+
+                ImGui::TableNextColumn();
+                if (pair.isHillUnstable) {
+                    ImGui::TextColored(Col::Red, "%.2f", pair.deltaHill);
+                } else {
+                    ImGui::TextColored(Col::Green, "%.2f", pair.deltaHill);
+                }
+
+                ImGui::TableNextColumn();
+                ImGui::Text("%.2f:1", pair.periodRatio);
+
+                ImGui::TableNextColumn();
+                if (pair.isOrbitCrossing) {
+                    ImGui::TextColored(Col::Red, "CROSSING");
+                } else if (pair.isHillUnstable) {
+                    ImGui::TextColored(Col::Orange, "CHAOTIC");
+                } else {
+                    ImGui::TextColored(Col::Green, "STABLE");
+                }
+            }
+            ImGui::EndTable();
+        }
+    }
 
     ImGui::Spacing();
-    ImGui::TextColored(Col::Green, "Inner Boundary (Runaway Greenhouse):");
-    ImGui::TextColored(Col::TextPrimary, "r_in = %.3f AU (%'.1fM km)", rInAU, rInAU * UnitConverter::AU_TO_KM / 1e6);
+    ImGui::Separator();
+    ImGui::Spacing();
 
-    ImGui::TextColored(Col::Accent, "Outer Boundary (Maximum Greenhouse):");
-    ImGui::TextColored(Col::TextPrimary, "r_out = %.3f AU (%'.1fM km)", rOutAU, rOutAU * UnitConverter::AU_TO_KM / 1e6);
+    // Habitability Estimator (Step 10)
+    ImGui::TextColored(Col::Accent, "Planetary Habitability Estimator (PHL Model):");
+    ImGui::Spacing();
 
-    ImGui::TextColored(Col::Yellow, "Habitable Zone Width:");
-    ImGui::TextColored(Col::TextPrimary, "Δr = %.3f AU", rOutAU - rInAU);
+    const auto& bodies = physics.getBodies();
+    static int selectedPlanetIdx = 0;
+    if (selectedPlanetIdx >= (int)bodies.size()) selectedPlanetIdx = 0;
+
+    std::vector<const char*> bodyNames;
+    for (const auto& b : bodies) bodyNames.push_back(b.name.c_str());
+
+    if (!bodyNames.empty()) {
+        ImGui::Combo("Select Target Body##HabBody", &selectedPlanetIdx, bodyNames.data(), (int)bodyNames.size());
+        const auto& targetBody = bodies[selectedPlanetIdx];
+
+        auto hab = aiManager.evaluateHabitability(targetBody);
+
+        ImGui::Text("Habitability Score: ");
+        ImGui::SameLine();
+        ImVec4 habCol = (hab.score >= 70.0f) ? Col::Green : (hab.score >= 45.0f ? Col::Yellow : Col::Orange);
+        ImGui::TextColored(habCol, "%.1f / 100", hab.score);
+
+        ImGui::Text("Classification:     ");
+        ImGui::SameLine();
+        ImGui::TextColored(habCol, "%s", hab.classification.c_str());
+
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, habCol);
+        ImGui::ProgressBar(hab.score / 100.0f, ImVec2(-1, 14));
+        ImGui::PopStyleColor();
+
+        ImGui::Text("  • Temp ESI:    %.2f  (T = %s)", hab.temperatureESI, targetBody.tempStr.c_str());
+        ImGui::Text("  • Radius ESI:  %.2f  (R = %s)", hab.radiusESI, targetBody.radiusStr.c_str());
+        ImGui::Text("  • Gravity ESI: %.2f  (g = %s)", hab.gravityESI, targetBody.gravityStr.c_str());
+        ImGui::Text("  • Flux ESI:    %.2f  (F = %s)", hab.fluxESI, targetBody.solarRadiationStr.c_str());
+        ImGui::TextWrapped("Diagnostic: %s", hab.diagnostic.c_str());
+    }
+
     ImGui::EndChild();
 
     ImGui::SameLine();
 
-    // Card 3: Keplerian Period Solver & Hohmann Delta-V
-    ImGui::BeginChild("##CalcCard3", ImVec2(colW, contentH - 50.0f), true);
-    ImGui::TextColored(Col::Accent, "3. KEPLER'S 3RD LAW & ORBIT SOLVER");
+    // ── COLUMN 3: INTERACTIVE WHAT-IF PERTURBATION LAB ──
+    ImGui::BeginChild("##AICol3", ImVec2(colW, contentH - 50.0f), true);
+    ImGui::TextColored(Col::Accent, "3. INTERACTIVE WHAT-IF PERTURBATION LAB");
     ImGui::Separator();
     ImGui::Spacing();
 
-    static float centMassM = 1.0f; // M_Sun
-    static float smaAU = 1.0f; // AU
-    ImGui::DragFloat("Central Mass (M☉)##kCent", &centMassM, 0.05f, 0.01f, 100.0f, "%.2f M☉");
-    ImGui::DragFloat("Semi-Major Axis (AU)##kSma", &smaAU, 0.05f, 0.01f, 100.0f, "%.3f AU");
-
-    double aM = (double)smaAU * UnitConverter::AU_TO_METERS;
-    double mu = UnitConverter::G_CONST * ((double)centMassM * UnitConverter::SOLAR_MASS_KG);
-    double periodSec = 2.0 * UnitConverter::PI * std::sqrt(std::pow(aM, 3.0) / mu);
-    double vOrbMps = std::sqrt(mu / aM);
-
+    ImGui::TextColored(Col::TextSecondary, "Hypothetically perturb parameters to test ML sensitivity:");
     ImGui::Spacing();
-    ImGui::TextColored(Col::Accent, "Orbital Period:");
-    ImGui::TextColored(Col::TextPrimary, "%s", UnitConverter::formatPeriod(periodSec).c_str());
 
-    ImGui::TextColored(Col::Accent, "Mean Orbital Speed:");
-    ImGui::TextColored(Col::TextPrimary, "%.2f km/s", vOrbMps / 1000.0);
+    static int perturbIdx = 0;
+    static float whatIfEcc = 0.05f;
+    static float whatIfSmaAU = 1.0f;
+    static float whatIfMassM = 1.0f;
+    static bool whatIfInitialized = false;
+
+    if (!whatIfInitialized && !bodies.empty()) {
+        for (size_t i = 0; i < bodies.size(); ++i) {
+            if (bodies[i].id != "sol" && bodies[i].type.find("Star") == std::string::npos) {
+                perturbIdx = (int)i;
+                whatIfEcc = (float)bodies[i].eccentricity;
+                whatIfSmaAU = (float)((bodies[i].semiMajorAxisAU > 0.0) ? bodies[i].semiMajorAxisAU : bodies[i].distanceAU);
+                whatIfMassM = (float)(bodies[i].massKg / UnitConverter::EARTH_MASS_KG);
+                whatIfInitialized = true;
+                break;
+            }
+        }
+    }
+
+    if (perturbIdx >= (int)bodies.size()) perturbIdx = 0;
+
+    if (!bodyNames.empty()) {
+        if (ImGui::Combo("Body to Perturb##WhatIfTarget", &perturbIdx, bodyNames.data(), (int)bodyNames.size())) {
+            whatIfEcc = (float)bodies[perturbIdx].eccentricity;
+            whatIfSmaAU = (float)((bodies[perturbIdx].semiMajorAxisAU > 0.0) ? bodies[perturbIdx].semiMajorAxisAU : bodies[perturbIdx].distanceAU);
+            whatIfMassM = (float)(bodies[perturbIdx].massKg / UnitConverter::EARTH_MASS_KG);
+        }
+
+        ImGui::SliderFloat("Hypothetical Eccentricity##WhatIfEcc", &whatIfEcc, 0.0f, 0.85f, "e = %.3f");
+        ImGui::DragFloat("Hypothetical Orbit (AU)##WhatIfSma", &whatIfSmaAU, 0.05f, 0.05f, 50.0f, "%.3f AU");
+        ImGui::DragFloat("Hypothetical Mass (M⊕)##WhatIfMass", &whatIfMassM, 0.1f, 0.01f, 1000.0f, "%.2f M⊕");
+
+        // Clone bodies and apply what-if perturbation
+        std::vector<CelestialBody> whatIfBodies = bodies;
+        if (perturbIdx >= 0 && perturbIdx < (int)whatIfBodies.size()) {
+            whatIfBodies[perturbIdx].eccentricity = (double)whatIfEcc;
+            whatIfBodies[perturbIdx].semiMajorAxisAU = (double)whatIfSmaAU;
+            whatIfBodies[perturbIdx].semiMajorAxisM = (double)whatIfSmaAU * UnitConverter::AU_TO_METERS;
+            whatIfBodies[perturbIdx].massKg = (double)whatIfMassM * UnitConverter::EARTH_MASS_KG;
+        }
+
+        ai::StabilityPrediction whatIfPred = aiManager.evaluateWhatIf(whatIfBodies);
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        ImGui::TextColored(Col::Accent, "What-If Model Prediction:");
+
+        ImVec4 whatIfCol = (whatIfPred.prediction == "STABLE") ? Col::Green : (whatIfPred.prediction == "MARGINAL" ? Col::Yellow : Col::Red);
+        ImGui::TextColored(whatIfCol, "Status: %s (Confidence: %s)", whatIfPred.prediction.c_str(), whatIfPred.confidence.c_str());
+        ImGui::Text("Stable Prob:   %.1f%%", whatIfPred.stableProbability * 100.0f);
+        ImGui::Text("Unstable Prob: %.1f%%", whatIfPred.unstableProbability * 100.0f);
+        ImGui::TextColored(Col::TextSecondary, "Predicted Risk:");
+        ImGui::TextWrapped("%s", whatIfPred.primaryRiskFactor.c_str());
+
+        ImGui::Spacing();
+        if (ImGui::Button("⚡ Apply Perturbation to Live Physics", ImVec2(-1, 26))) {
+            if (perturbIdx >= 0 && perturbIdx < (int)physics.getBodies().size()) {
+                auto& mut = physics.getBodies()[perturbIdx];
+                mut.eccentricity = (double)whatIfEcc;
+                mut.semiMajorAxisAU = (double)whatIfSmaAU;
+                mut.semiMajorAxisM = (double)whatIfSmaAU * UnitConverter::AU_TO_METERS;
+                mut.massKg = (double)whatIfMassM * UnitConverter::EARTH_MASS_KG;
+                aiManager.forceRecompute(physics);
+            }
+        }
+
+        if (ImGui::Button("🔄 Reset Sliders to Live Values", ImVec2(-1, 24))) {
+            whatIfEcc = (float)bodies[perturbIdx].eccentricity;
+            whatIfSmaAU = (float)((bodies[perturbIdx].semiMajorAxisAU > 0.0) ? bodies[perturbIdx].semiMajorAxisAU : bodies[perturbIdx].distanceAU);
+            whatIfMassM = (float)(bodies[perturbIdx].massKg / UnitConverter::EARTH_MASS_KG);
+        }
+    }
 
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
-    if (ImGui::Button("🚀 Return to Simulation", ImVec2(-1, 28))) {
+
+    if (ImGui::Button("🚀 Return to UNIVERSE Simulation", ImVec2(-1, 30))) {
         m_activeTopTab = 0;
     }
+
     ImGui::EndChild();
 
     ImGui::End();

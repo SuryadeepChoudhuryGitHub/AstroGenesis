@@ -14,6 +14,10 @@
 
 namespace AstroGenesis {
 
+namespace ai {
+class AIManager;
+}
+
 struct EventLogEntry {
     std::string timeStr;
     std::string message;
@@ -30,6 +34,7 @@ public:
                   DataManager& dataManager,
                   ValidationEngine& valEngine,
                   VisualStateAdapter& visualAdapter,
+                  ai::AIManager& aiManager,
                   float windowWidth, float windowHeight, float fps);
 
     bool isViewportHovered() const { return m_viewportHovered; }
@@ -47,7 +52,7 @@ private:
     void drawTopBar(float width, PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo);
     void drawLeftPanel(PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo, float topBarH, float statusBarH, float winH);
     void drawInfoOverlay(const CelestialBody& body, float x, float y);
-    void drawRightPanel(PhysicsEngine& physics, CelestialBody& body, DataManager& dataManager, ObjectRepository& objRepo, VisualStateAdapter& visualAdapter, float topBarH, float winW, float winH, float statusBarH);
+    void drawRightPanel(PhysicsEngine& physics, CelestialBody& body, DataManager& dataManager, ObjectRepository& objRepo, VisualStateAdapter& visualAdapter, ai::AIManager& aiManager, float topBarH, float winW, float winH, float statusBarH);
     void drawViewportHUD(PhysicsEngine& physics, Camera& camera, VisualStateAdapter& visualAdapter, float vpX, float vpY, float vpW, float vpH);
     void drawTimeControls(PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo, float x, float y, float w, float h);
     void drawSimMetrics(PhysicsEngine& physics, float fps, float x, float y, float w, float h);
@@ -59,7 +64,7 @@ private:
     // Extra Workspaces
     void drawExploreWorkspace(ObjectRepository& objRepo, PhysicsEngine& physics, Camera& camera, float winW, float winH);
     void drawSimulationWorkspace(PhysicsEngine& physics, Camera& camera, ValidationEngine& valEngine, ObjectRepository& objRepo, VisualStateAdapter& visualAdapter, float winW, float winH);
-    void drawAIAssistantWorkspace(PhysicsEngine& physics, ObjectRepository& objRepo, float winW, float winH);
+    void drawAIAssistantWorkspace(PhysicsEngine& physics, ObjectRepository& objRepo, ai::AIManager& aiManager, float winW, float winH);
 
     bool m_viewportHovered = false;
     int m_hoveredBodyIndex = -1;
