@@ -1185,7 +1185,7 @@ MeshData Renderer::createSphereMesh(float radius, int stacks, int sectors) {
             vertices.push_back(z / radius);
             vertices.push_back(y / radius);
 
-            vertices.push_back((float)j / sectors);
+            vertices.push_back(1.0f - (float)j / sectors);
             vertices.push_back((float)i / stacks);
         }
     }
