@@ -36,6 +36,13 @@ enum class VisualQuality {
     Ultra = 3
 };
 
+enum class VisualPreset {
+    Normal = 0,       // Baseline scientific forward rendering
+    Realistic = 1,    // HDR + ACES Tone Mapping + Physically Driven Atmospheric Scattering & PBR
+    Cinematic = 2,    // Enhanced Luminance Bloom, Solar Corona, Dynamic Glare, Subtle Vignette
+    Ultra = 3         // High-Precision Raymarched Atmospheric Scattering, Extended Bloom Chain
+};
+
 struct StarLightSource {
     glm::vec3 positionAU{0.0f};
     glm::vec3 color{1.0f, 0.95f, 0.88f}; // Blackbody emitted light color
@@ -80,10 +87,30 @@ struct VisualBodyState {
     glm::vec3 atmosphereColor{0.25f, 0.55f, 0.95f}; // Rayleigh scattering wavelength tint
     float atmosphereDensity = 1.0f;      // Surface pressure / optical depth
     double scaleHeightKm = 8.5;          // Atmospheric scale height H = kT / (mu * g)
+    float mieHazeFactor = 0.20f;         // Aerosol & dust forward Mie scattering factor
     bool hasClouds = false;
     float cloudCoverage = 0.0f;          // [0, 1]
     float cloudRotationAngle = 0.0f;
     
+    // Surface Materials & Fluid States (Physically Driven)
+    float waterFraction = 0.0f;          // Liquid ocean coverage [0, 1]
+    float iceFraction = 0.0f;            // Polar caps / ice sheet coverage [0, 1]
+    float surfaceRoughness = 0.70f;      // PBR roughness (0.05 ocean, 0.30 ice, 0.80 rock)
+    
+    // Planetary Rings
+    bool hasRing = false;
+    float ringInnerRadiusAU = 0.0f;
+    float ringOuterRadiusAU = 0.0f;
+    glm::vec3 ringColor{0.8f, 0.75f, 0.65f};
+
+    // Magnetosphere & Aurora
+    bool hasMagneticField = false;
+    float magneticFieldTesla = 0.0f;
+
+    // Cometary Sublimation
+    bool isComet = false;
+    float cometActivity = 0.0f;
+
     // Stellar & Relativistic States
     bool isStar = false;
     bool isBlackHole = false;
@@ -142,9 +169,53 @@ public:
     static float calculateAtmosphericScaleHeightKm(double surfaceTempK, double surfaceGravityMps2, double meanMolarMassKgMol = 0.02897);
     static float calculateRenderRadius(double physicalRadiusM, double realRadiusAU, bool isTrueScale, float scaleMultiplier, float systemReferenceScale);
 
+    // Cinematic & Realistic Mode Configuration
+    bool isCinematicModeEnabled() const { return m_cinematicMode; }
+    void setCinematicMode(bool enabled);
+    void toggleCinematicMode() { setCinematicMode(!m_cinematicMode); }
+
+    VisualPreset getPreset() const { return m_preset; }
+    void applyPreset(VisualPreset preset);
+
+    // Photo Mode & Camera Controls
+    bool isPhotoModeActive() const { return m_photoModeActive; }
+    void setPhotoModeActive(bool active) { m_photoModeActive = active; }
+    void togglePhotoMode() { m_photoModeActive = !m_photoModeActive; }
+
+    bool isUIHidden() const { return m_hideUI; }
+    void setUIHidden(bool hide) { m_hideUI = hide; }
+    void toggleUIHidden() { m_hideUI = !m_hideUI; }
+
+    // Photographic & Post-Processing Parameters
+    float getExposure() const { return m_exposure; }
+    void setExposure(float exp) { m_exposure = glm::clamp(exp, 0.05f, 20.0f); }
+
+    float getBloomIntensity() const { return m_bloomIntensity; }
+    void setBloomIntensity(float bloom) { m_bloomIntensity = glm::clamp(bloom, 0.0f, 5.0f); }
+
+    int getToneMappingMode() const { return m_toneMappingMode; }
+    void setToneMappingMode(int mode) { m_toneMappingMode = glm::clamp(mode, 0, 2); }
+
+    bool isDoFEnabled() const { return m_enableDoF; }
+    void setDoFEnabled(bool dof) { m_enableDoF = dof; }
+
+    float getFocusDistance() const { return m_focusDistance; }
+    void setFocusDistance(float dist) { m_focusDistance = std::max(0.0001f, dist); }
+
+    float getDoFAperture() const { return m_dofAperture; }
+    void setDoFAperture(float ap) { m_dofAperture = glm::clamp(ap, 0.001f, 0.2f); }
+
+    bool isVignetteEnabled() const { return m_enableVignette; }
+    void setVignetteEnabled(bool vig) { m_enableVignette = vig; }
+
+    bool isChromaticAberrationEnabled() const { return m_enableChromaticAberration; }
+    void setChromaticAberrationEnabled(bool ca) { m_enableChromaticAberration = ca; }
+    bool isCAEnabled() const { return m_enableChromaticAberration; }
+    void setCAEnabled(bool ca) { m_enableChromaticAberration = ca; }
+
     // Configuration
     VisualMode getVisualMode() const { return m_visualMode; }
-    void setVisualMode(VisualMode mode) { m_visualMode = mode; }
+    void setVisualMode(VisualMode mode);
 
     DebugVisualOverlay getDebugOverlay() const { return m_debugOverlay; }
     void setDebugOverlay(DebugVisualOverlay overlay) { m_debugOverlay = overlay; }
@@ -168,23 +239,46 @@ public:
     void setImpactFXEnabled(bool val) { m_enableImpactFX = val; }
 
     bool areOrbitLinesEnabled() const { return m_showOrbitLines; }
-    void setOrbitLinesEnabled(bool val) { m_showOrbitLines = val; }
+    void setOrbitLinesEnabled(bool val) { 
+        m_showOrbitLines = val; 
+        if (!m_cinematicMode) m_userOrbitLinesPref = val;
+    }
 
     bool areMotionTrailsEnabled() const { return m_showMotionTrails; }
-    void setMotionTrailsEnabled(bool val) { m_showMotionTrails = val; }
+    void setMotionTrailsEnabled(bool val) { 
+        m_showMotionTrails = val; 
+        if (!m_cinematicMode) m_userMotionTrailsPref = val;
+    }
 
 private:
-    VisualMode m_visualMode = VisualMode::Realistic;
+    VisualMode m_visualMode = VisualMode::Scientific;
     DebugVisualOverlay m_debugOverlay = DebugVisualOverlay::None;
     VisualQuality m_quality = VisualQuality::High;
+    VisualPreset m_preset = VisualPreset::Normal;
+
+    // Cinematic & Post-Processing State
+    bool m_cinematicMode = false;
+    bool m_photoModeActive = false;
+    bool m_hideUI = false;
+
+    float m_exposure = 1.0f;
+    float m_bloomIntensity = 0.40f;
+    int m_toneMappingMode = 0; // 0: ACES Filmic, 1: Reinhard, 2: Filmic (Uncharted 2)
+    bool m_enableDoF = false;
+    float m_focusDistance = 3.5f;
+    float m_dofAperture = 0.035f;
+    bool m_enableVignette = false;
+    bool m_enableChromaticAberration = false;
 
     bool m_enableAtmospheres = true;
-    bool m_enableClouds = true;
+    bool m_enableClouds = false; // Procedural generic clouds disabled by default
     bool m_enableMultiStarLighting = true;
     bool m_enableShadows = true;
     bool m_enableImpactFX = true;
-    bool m_showOrbitLines = true;
+    bool m_showOrbitLines = true; // Enabled by default in Normal/Scientific mode
     bool m_showMotionTrails = true;
+    bool m_userOrbitLinesPref = true; // User toggle preference preserved across mode switches
+    bool m_userMotionTrailsPref = true;
 
     std::vector<VisualBodyState> m_visualBodies;
     std::vector<StarLightSource> m_starLights;

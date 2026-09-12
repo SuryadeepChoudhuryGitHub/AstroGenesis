@@ -94,6 +94,7 @@ void Camera::processMouseZoom(float deltaZoom) {
 void Camera::resetCenter() {
     m_yaw = 0.0f;
     m_pitch = 0.3f;
+    m_roll = 0.0f;
     m_distance = std::max(0.0000001f, m_targetRadius * 3.5f);
 }
 
@@ -103,6 +104,7 @@ void Camera::resetOverview(const glm::vec3& targetPos, float distance) {
     m_startPos = targetPos;
     m_yaw = 0.0f;
     m_pitch = 0.45f;
+    m_roll = 0.0f;
     m_distance = distance;
     m_targetDistance = distance;
     m_isTransitioning = false;
@@ -126,8 +128,20 @@ glm::vec3 Camera::getEyePosition() const {
 
 glm::mat4 Camera::getViewMatrix() const {
     glm::vec3 eye = getEyePosition();
-    // Camera always looks at origin (0,0,0) — the focused body is placed there
-    return glm::lookAt(eye, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    // Camera looks at origin (0,0,0) — the focused body is placed there
+    glm::vec3 up(0.0f, 1.0f, 0.0f);
+    if (std::abs(m_roll) > 0.0001f) {
+        glm::vec3 forward = glm::normalize(glm::vec3(0.0f) - eye);
+        glm::vec3 defaultUp(0.0f, 1.0f, 0.0f);
+        if (std::abs(glm::dot(forward, defaultUp)) > 0.999f) {
+            defaultUp = glm::vec3(0.0f, 0.0f, 1.0f);
+        }
+        glm::vec3 right = glm::normalize(glm::cross(forward, defaultUp));
+        glm::vec3 baseUp = glm::normalize(glm::cross(right, forward));
+        glm::mat4 rollRot = glm::rotate(glm::mat4(1.0f), m_roll, forward);
+        up = glm::normalize(glm::vec3(rollRot * glm::vec4(baseUp, 0.0f)));
+    }
+    return glm::lookAt(eye, glm::vec3(0.0f), up);
 }
 
 glm::mat4 Camera::getProjectionMatrix(float aspectRatio) const {

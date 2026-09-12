@@ -15,6 +15,7 @@ VisualStateAdapter::VisualStateAdapter() {
     m_visualBodies.reserve(64);
     m_starLights.reserve(8);
     m_impactEvents.reserve(32);
+    applyPreset(VisualPreset::Normal);
 }
 
 glm::vec3 VisualStateAdapter::temperatureToPlanckRGB(double kelvin) {
@@ -134,7 +135,19 @@ void VisualStateAdapter::update(
 
     // 2. Discover Star Light Sources (Multi-Star Lighting)
     for (const auto& b : bodies) {
-        bool isStellar = (b.id == "sol" || b.type.find("Star") != std::string::npos || b.type.find("Dwarf") != std::string::npos || b.luminosityW > 1e20 || b.surfaceTempK >= 2000.0);
+        bool isPlanetOrMinor = (b.type.find("Planet") != std::string::npos || 
+                               b.type.find("Moon") != std::string::npos || 
+                               b.type.find("Asteroid") != std::string::npos || 
+                               b.type.find("Comet") != std::string::npos);
+        bool isDwarfStar = (b.type.find("Dwarf") != std::string::npos && !isPlanetOrMinor);
+        bool isStellar = !isPlanetOrMinor && (
+            b.id == "sol" || 
+            b.type.find("Star") != std::string::npos || 
+            isDwarfStar || 
+            b.luminosityW > 1e22 || 
+            b.surfaceTempK >= 2400.0
+        );
+
         if (isStellar && b.type.find("Black Hole") == std::string::npos) {
             StarLightSource light;
             light.positionAU = b.position;
@@ -142,14 +155,14 @@ void VisualStateAdapter::update(
             light.radiusAU = (float)(b.radiusM > 0.0 ? b.radiusM / AU_METERS : b.realRadiusAU);
             
             // Planckian emission color
-            double effTemp = (b.surfaceTempK > 500.0) ? b.surfaceTempK : 5778.0;
+            double effTemp = (b.surfaceTempK >= 1000.0) ? b.surfaceTempK : 5778.0;
             light.color = temperatureToPlanckRGB(effTemp);
             
             // Normalized intensity against Sol
             if (b.luminosityW > 0.0) {
                 light.intensity = (float)std::clamp(b.luminosityW / SOL_LUMINOSITY, 0.05, 50.0);
             } else {
-                light.intensity = (float)std::clamp(std::pow(effTemp / 5778.0, 4.0), 0.1, 10.0);
+                light.intensity = (float)std::clamp(std::pow(effTemp / 5778.0, 4.0), 0.05, 10.0);
             }
             m_starLights.push_back(light);
         }
@@ -191,7 +204,18 @@ void VisualStateAdapter::update(
         vs.rotationMatrix = rot;
 
         // Classification & Stellar / Relativistic Checks
-        vs.isStar = (b.id == "sol" || b.type.find("Star") != std::string::npos || b.luminosityW > 1e22 || b.surfaceTempK >= 2400.0);
+        bool isBodyPlanetOrMinor = (b.type.find("Planet") != std::string::npos || 
+                                   b.type.find("Moon") != std::string::npos || 
+                                   b.type.find("Asteroid") != std::string::npos || 
+                                   b.type.find("Comet") != std::string::npos);
+        bool isBodyDwarfStar = (b.type.find("Dwarf") != std::string::npos && !isBodyPlanetOrMinor);
+        vs.isStar = !isBodyPlanetOrMinor && (
+            b.id == "sol" || 
+            b.type.find("Star") != std::string::npos || 
+            isBodyDwarfStar || 
+            b.luminosityW > 1e22 || 
+            b.surfaceTempK >= 2400.0
+        );
         vs.isBlackHole = (b.type.find("Black Hole") != std::string::npos || b.type.find("Singularity") != std::string::npos);
         vs.surfaceTempK = b.surfaceTempK;
         vs.luminosityWatts = b.luminosityW;
@@ -247,8 +271,65 @@ void VisualStateAdapter::update(
             vs.atmosphereColor = b.rayleighColor;
             vs.atmosphereDensity = (b.atmosphere.visualDensityFactor > 0.0f) ? b.atmosphere.visualDensityFactor : 1.0f;
             vs.cloudCoverage = (float)b.cloudCoverage;
-            vs.hasClouds = m_enableClouds && (vs.cloudCoverage > 0.02f);
+            // Generic procedural clouds disabled by default. Never apply generic cloud layers to gas giants.
+            vs.hasClouds = m_enableClouds && !isGasGiant && (vs.cloudCoverage > 0.02f);
             vs.cloudRotationAngle = b.rotationAngle + m_globalCloudRotationTimer * 0.15f;
+        }
+
+        // Surface Materials & Fluid States (Physically Driven)
+        bool hasWater = (b.id == "earth" || b.name == "Earth" || b.type.find("Ocean") != std::string::npos);
+        for (const auto& ab : b.chemicalInventory) {
+            if (ab.speciesId == "H2O" && ab.percentage > 0.1) {
+                hasWater = true;
+                break;
+            }
+        }
+        if (hasWater && b.surfaceTempK >= 265.0 && b.surfaceTempK <= 380.0) {
+            vs.waterFraction = (b.id == "earth") ? 0.71f : 0.60f;
+        } else {
+            vs.waterFraction = 0.0f;
+        }
+
+        // Ice coverage directly from physical model
+        vs.iceFraction = (float)b.iceCoverage;
+        if (vs.iceFraction <= 0.0f && b.surfaceTempK < 273.15) {
+            float coldFactor = (float)std::clamp((273.15 - b.surfaceTempK) / 100.0, 0.0, 1.0);
+            vs.iceFraction = (b.id == "europa" || b.id == "enceladus") ? 1.0f : std::min(1.0f, 0.15f + 0.85f * coldFactor);
+        }
+
+        // PBR Surface Roughness blending
+        float baseRockRoughness = (b.type.find("Gas") != std::string::npos) ? 0.50f : 0.82f;
+        vs.surfaceRoughness = glm::mix(baseRockRoughness, 0.04f, vs.waterFraction);
+        vs.surfaceRoughness = glm::mix(vs.surfaceRoughness, 0.28f, vs.iceFraction);
+
+        // Atmospheric Mie forward haze factor
+        if (b.id == "mars") {
+            vs.mieHazeFactor = 0.65f; // Martian airborne iron-oxide dust
+        } else if (b.id == "venus") {
+            vs.mieHazeFactor = 0.85f; // Venusian sulfuric acid droplet aerosol haze
+        } else if (b.id == "titan") {
+            vs.mieHazeFactor = 0.90f; // Dense tholin photochemical smog
+        } else {
+            vs.mieHazeFactor = vs.hasAtmosphere ? 0.22f : 0.0f;
+        }
+
+        // Planetary Rings
+        vs.hasRing = b.ring.hasRing;
+        if (b.ring.hasRing) {
+            vs.ringInnerRadiusAU = (b.ring.innerRadius3D > 0.0f) ? b.ring.innerRadius3D : (vs.renderRadius * 1.35f);
+            vs.ringOuterRadiusAU = (b.ring.outerRadius3D > 0.0f) ? b.ring.outerRadius3D : (vs.renderRadius * 2.45f);
+            vs.ringColor = b.ring.baseColor;
+        }
+
+        // Magnetosphere & Aurora
+        vs.hasMagneticField = (!b.magneticFieldStr.empty() && b.magneticFieldStr != "None" && b.magneticFieldStr != "0.0 µT" && b.magneticFieldStr != "Negligible");
+        vs.magneticFieldTesla = vs.hasMagneticField ? 5e-5f : 0.0f;
+
+        // Cometary volatile sublimation
+        vs.isComet = (b.type.find("Comet") != std::string::npos || b.id == "halley");
+        if (vs.isComet) {
+            double distAU = glm::length(b.position);
+            vs.cometActivity = (float)std::clamp(std::pow(2.5 / std::max(0.2, distAU), 2.2), 0.0, 10.0);
         }
 
         // Material Phase State
@@ -342,6 +423,82 @@ void VisualStateAdapter::updateImpactEvents(float deltaRealSeconds) {
         } else {
             ++it;
         }
+    }
+}
+
+void VisualStateAdapter::setCinematicMode(bool enabled) {
+    if (enabled) {
+        if (m_preset == VisualPreset::Normal) {
+            applyPreset(VisualPreset::Realistic);
+        } else {
+            m_cinematicMode = true;
+            m_showOrbitLines = false;
+            m_showMotionTrails = false;
+        }
+    } else {
+        applyPreset(VisualPreset::Normal);
+    }
+}
+
+void VisualStateAdapter::applyPreset(VisualPreset preset) {
+    m_preset = preset;
+    switch (preset) {
+        case VisualPreset::Normal:
+            m_cinematicMode = false;
+            m_visualMode = VisualMode::Scientific;
+            m_quality = VisualQuality::Medium;
+            m_bloomIntensity = 0.0f;
+            m_enableVignette = false;
+            m_enableChromaticAberration = false;
+            m_showOrbitLines = m_userOrbitLinesPref;
+            m_showMotionTrails = m_userMotionTrailsPref;
+            break;
+        case VisualPreset::Realistic:
+            m_cinematicMode = true;
+            m_visualMode = VisualMode::Realistic;
+            m_quality = VisualQuality::High;
+            m_exposure = 1.0f;
+            m_bloomIntensity = 0.35f;
+            m_toneMappingMode = 0; // ACES
+            m_enableVignette = false;
+            m_enableChromaticAberration = false;
+            m_showOrbitLines = false;
+            m_showMotionTrails = false;
+            break;
+        case VisualPreset::Cinematic:
+            m_cinematicMode = true;
+            m_visualMode = VisualMode::Cinematic;
+            m_quality = VisualQuality::High;
+            m_exposure = 1.0f;
+            m_bloomIntensity = 0.45f;
+            m_toneMappingMode = 0; // ACES
+            m_enableVignette = false;
+            m_enableChromaticAberration = false;
+            m_showOrbitLines = false;
+            m_showMotionTrails = false;
+            break;
+        case VisualPreset::Ultra:
+            m_cinematicMode = true;
+            m_visualMode = VisualMode::Cinematic;
+            m_quality = VisualQuality::Ultra;
+            m_exposure = 1.05f;
+            m_bloomIntensity = 0.55f;
+            m_toneMappingMode = 0; // ACES
+            m_enableVignette = true;
+            m_enableChromaticAberration = false;
+            m_showOrbitLines = false;
+            m_showMotionTrails = false;
+            break;
+    }
+}
+
+void VisualStateAdapter::setVisualMode(VisualMode mode) {
+    if (mode == VisualMode::Cinematic) {
+        applyPreset(VisualPreset::Cinematic);
+    } else if (mode == VisualMode::Realistic) {
+        applyPreset(VisualPreset::Realistic);
+    } else if (mode == VisualMode::Scientific) {
+        applyPreset(VisualPreset::Normal);
     }
 }
 

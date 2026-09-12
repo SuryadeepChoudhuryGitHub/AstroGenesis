@@ -452,7 +452,12 @@ AtmosphereModel ChemicalSystem::evaluateAtmosphericState(
     initialize();
     AtmosphereModel model;
 
-    bool isStar = (bodyType.find("Star") != std::string::npos || bodyType.find("Dwarf") != std::string::npos);
+    bool isPlanetOrMinor = (bodyType.find("Planet") != std::string::npos || 
+                           bodyType.find("Moon") != std::string::npos || 
+                           bodyType.find("Asteroid") != std::string::npos || 
+                           bodyType.find("Comet") != std::string::npos);
+    bool isDwarfStar = (bodyType.find("Dwarf") != std::string::npos && !isPlanetOrMinor);
+    bool isStar = !isPlanetOrMinor && (bodyType.find("Star") != std::string::npos || isDwarfStar);
     bool isGasGiant = (bodyType.find("Gas Giant") != std::string::npos || bodyType.find("Ice Giant") != std::string::npos);
     bool isMoonOrAsteroid = (bodyType.find("Moon") != std::string::npos || bodyType.find("Asteroid") != std::string::npos || bodyType.find("Comet") != std::string::npos);
 

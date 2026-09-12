@@ -160,6 +160,28 @@ target_link_libraries(test_ai_system PRIVATE
     ${PLATFORM_LIBS}
 )
 
+# ── Cinematic Mode & Photo Mode Test Suite Executable ────────────────────────
+add_executable(test_cinematic_mode
+    src/test_cinematic_mode.cpp
+    ${ASTROGENESIS_CORE_SOURCES}
+)
+
+target_include_directories(test_cinematic_mode PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/external
+    ${CMAKE_SOURCE_DIR}/external/sqlite
+    ${CMAKE_SOURCE_DIR}/external/nlohmann
+)
+
+target_link_libraries(test_cinematic_mode PRIVATE 
+    imgui 
+    glfw 
+    glad 
+    glm::glm 
+    sqlite3
+    ${PLATFORM_LIBS}
+)
+
 # ── Assets Sync ────────────────────────────────────────────────────────────────
 add_custom_command(TARGET AstroGenesis POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory

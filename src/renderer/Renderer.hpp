@@ -33,6 +33,22 @@ public:
     void beginViewport(int x, int y, int width, int height, const glm::vec4& clearColor);
     void endViewport(int windowWidth, int windowHeight);
 
+    // Cinematic & Realistic Post-Processing Configuration
+    void setCinematicParameters(
+        bool enabled,
+        float exposure = 1.0f,
+        float bloomIntensity = 0.85f,
+        int toneMappingMode = 0,
+        bool enableDoF = false,
+        float focusDistance = 3.5f,
+        float dofAperture = 0.035f,
+        bool enableVignette = true,
+        bool enableChromaticAberration = true,
+        float nearPlane = 0.001f,
+        float farPlane = 500.0f
+    );
+    bool isCinematicModeEnabled() const { return m_cinematicEnabled; }
+
     // Advanced Physical-to-Visual Celestial Body Rendering
     void renderCelestialBody(
         const Camera& camera,
@@ -100,6 +116,61 @@ private:
     MeshData createRingMesh(int radialSegments);
     MeshData createQuadMesh();
 
+    // HDR Framebuffer & Bloom Post-Processing Pipeline
+    bool initHDRFramebuffers(int width, int height);
+    void destroyHDRFramebuffers();
+    void renderPostProcessingPass();
+
+    bool m_cinematicEnabled = false;
+    float m_cinematicExposure = 1.0f;
+    float m_cinematicBloomIntensity = 0.85f;
+    int m_cinematicToneMappingMode = 0;
+    bool m_cinematicEnableDoF = false;
+    float m_cinematicFocusDistance = 3.5f;
+    float m_cinematicDoFAperture = 0.035f;
+    bool m_cinematicEnableVignette = true;
+    bool m_cinematicEnableCA = true;
+    float m_cinematicNearPlane = 0.001f;
+    float m_cinematicFarPlane = 500.0f;
+
+    int m_lastVpX = 0;
+    int m_lastVpY = 0;
+    int m_lastVpW = 0;
+    int m_lastVpH = 0;
+
+    GLuint m_hdrFBO = 0;
+    GLuint m_hdrColorTex = 0;
+    GLuint m_hdrBrightTex = 0;
+    GLuint m_hdrDepthTex = 0;
+    int m_hdrWidth = 0;
+    int m_hdrHeight = 0;
+
+    GLuint m_bloomFBO[2] = {0, 0};
+    GLuint m_bloomTex[2] = {0, 0};
+    int m_bloomWidth = 0;
+    int m_bloomHeight = 0;
+
+    // Bloom Separable Gaussian Blur Shader
+    GLuint m_bloomBlurProgram = 0;
+    GLint m_uBloomBlurImageLoc = -1;
+    GLint m_uBloomBlurHorizLoc = -1;
+
+    // Cinematic Post-Processing Shader (ACES Tone Mapping, Bloom Composite, DoF, Vignette, CA)
+    GLuint m_postProcessProgram = 0;
+    GLint m_uPostSceneTexLoc = -1;
+    GLint m_uPostBloomTexLoc = -1;
+    GLint m_uPostDepthTexLoc = -1;
+    GLint m_uPostExposureLoc = -1;
+    GLint m_uPostBloomIntensityLoc = -1;
+    GLint m_uPostToneMapModeLoc = -1;
+    GLint m_uPostEnableDoFLoc = -1;
+    GLint m_uPostFocusDistLoc = -1;
+    GLint m_uPostDoFApertureLoc = -1;
+    GLint m_uPostNearPlaneLoc = -1;
+    GLint m_uPostFarPlaneLoc = -1;
+    GLint m_uPostEnableVignetteLoc = -1;
+    GLint m_uPostEnableCALoc = -1;
+
     // 1. Celestial PBR Uber-Shader (Multi-Star, Thermal Glow, Limb Darkening, Debug Overlays)
     GLuint m_shaderProgram = 0;
     GLint m_uMVPLoc = -1;
@@ -122,6 +193,19 @@ private:
     GLint m_uDebugColorLoc = -1;
     GLint m_uDebugScalarLoc = -1;
 
+    // Physical Material & Shadow uniforms
+    GLint m_uWaterFractionLoc = -1;
+    GLint m_uIceFractionLoc = -1;
+    GLint m_uRoughnessLoc = -1;
+    GLint m_uCloudShadowCoverageLoc = -1;
+    GLint m_uCloudShadowRotAngleLoc = -1;
+    GLint m_uCinematicModeLoc = -1;
+    GLint m_uHasRingLoc = -1;
+    GLint m_uRingNormalLoc = -1;
+    GLint m_uPlanetCenterLoc = -1;
+    GLint m_uRingInnerRadiusLoc = -1;
+    GLint m_uRingOuterRadiusLoc = -1;
+
     // 2. Atmospheric Scattering Shader
     GLuint m_atmosphereProgram = 0;
     GLint m_uAtmoMVPLoc = -1;
@@ -132,6 +216,9 @@ private:
     GLint m_uAtmoNumLightsLoc = -1;
     GLint m_uAtmoLightPosLoc[4];
     GLint m_uAtmoLightColorLoc[4];
+    GLint m_uAtmoScaleHeightLoc = -1;
+    GLint m_uAtmoMieFactorLoc = -1;
+    GLint m_uAtmoPlanetRadiusLoc = -1;
 
     // 3. Dynamic Rotating Cloud Layer Shader
     GLuint m_cloudProgram = 0;
@@ -173,6 +260,7 @@ private:
     GLint m_skyUVPLoc = -1;
     GLint m_skyTexLoc = -1;
     GLint m_skyHasTexLoc = -1;
+    GLint m_skyCinematicModeLoc = -1;
     GLuint m_skyboxTexture = 0;
 
     // Trail shader & dynamic buffers

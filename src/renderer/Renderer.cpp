@@ -47,7 +47,8 @@ void main() {
 
 static const char* celestialFragSrc = R"GLSL(
 #version 330 core
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 BrightColor;
 
 in vec3 FragPos;
 in vec3 Normal;
@@ -75,10 +76,31 @@ uniform int uDebugOverlay; // 0 = None, 1 = Stress, 2 = Strain, 3 = Damage, 4 = 
 uniform vec3 uDebugColor;
 uniform float uDebugScalar;
 
+// Physical Material & Cloud Shadows
+uniform float uWaterFraction;
+uniform float uIceFraction;
+uniform float uRoughness;
+uniform float uCloudShadowCoverage;
+uniform float uCloudShadowRotAngle;
+
+// Cinematic Mode & Geometric Shadows
+uniform bool uCinematicMode;
+uniform bool uHasRing;
+uniform vec3 uRingNormal;
+uniform vec3 uPlanetCenter;
+uniform float uRingInnerRadius;
+uniform float uRingOuterRadius;
+
 void main() {
     vec3 baseColor = uColor;
     if (uUseTexture) {
-        baseColor = texture(uTexture, TexCoord).rgb;
+        vec3 rawColor = texture(uTexture, TexCoord).rgb;
+        baseColor = uCinematicMode ? pow(rawColor, vec3(2.2)) : rawColor;
+    }
+
+    // Dynamic temperature-dependent ice albedo brightening
+    if (uIceFraction > 0.01) {
+        baseColor = mix(baseColor, vec3(0.92, 0.95, 1.0), uIceFraction * 0.82);
     }
 
     vec3 norm = normalize(Normal);
@@ -87,7 +109,7 @@ void main() {
     // 1. Stellar Rendering (Blackbody Emission + Limb Darkening + Convection Granulation)
     if (uIsSun) {
         float NdotV = max(dot(norm, viewDir), 0.0);
-        // Eddington approximation limb darkening: I(mu) = I0 * (0.4 + 0.6 * mu)
+        // Eddington approximation limb darkening: I(mu) = I0 * (0.35 + 0.65 * mu^0.7)
         float limb = 0.35 + 0.65 * pow(NdotV, 0.70);
         
         // Solar granulation surface modulation
@@ -95,38 +117,71 @@ void main() {
         
         vec3 starColor = baseColor * uEmissionColor * limb * granulation * uEmissionIntensity;
         FragColor = vec4(starColor, 1.0);
+        BrightColor = vec4(starColor * 1.5, 1.0);
         return;
     }
 
-    // 2. Multi-Star Illumination (Diffuse + Blinn-Phong Specular)
+    // 2. Multi-Star Illumination (Physical inverse-square attenuation + Diffuse + Specular)
     vec3 diffuseLight = vec3(0.0);
     vec3 specularLight = vec3(0.0);
     
-    int numL = clamp(uNumLights, 1, 4);
+    int numL = clamp(uNumLights, 0, 4);
     for (int i = 0; i < numL; ++i) {
         vec3 lightDir = normalize(uLightPos[i] - FragPos);
         float dist = length(uLightPos[i] - FragPos);
-        float atten = clamp(1.0 / (1.0 + 0.05 * dist), 0.15, 1.0);
+        // Physical inverse-square attenuation with near softening
+        float atten = 1.0 / (1.0 + 0.06 * dist + 0.012 * dist * dist);
 
-        // Diffuse (Lambertian)
+        float shadowFactor = 1.0;
+
+        // Planetary Ring Shadow: fragments test intersection of light ray with the tilted ring plane
+        if (uHasRing) {
+            float LdotP = dot(lightDir, uRingNormal);
+            if (abs(LdotP) > 1e-4) {
+                float t = dot(uPlanetCenter - FragPos, uRingNormal) / LdotP;
+                if (t > 0.0) {
+                    vec3 hitPoint = FragPos + t * lightDir;
+                    float rHit = length(hitPoint - uPlanetCenter);
+                    if (rHit >= uRingInnerRadius && rHit <= uRingOuterRadius) {
+                        shadowFactor *= 0.08; // Sharp dark ring shadow on planet surface
+                    }
+                }
+            }
+        }
+
+        // Diffuse (Lambertian with smooth physical terminator)
         float diff = max(dot(norm, lightDir), 0.0);
-        diffuseLight += uLightColor[i] * diff * uLightIntensity[i] * atten;
+        diffuseLight += uLightColor[i] * diff * uLightIntensity[i] * atten * shadowFactor;
 
-        // Specular (Blinn-Phong)
+        // Specular (Roughness-dependent Blinn-Phong + Water Fresnel sunglint)
         vec3 halfDir = normalize(lightDir + viewDir);
-        float spec = pow(max(dot(norm, halfDir), 0.0), 32.0);
-        specularLight += uLightColor[i] * spec * 0.25 * uLightIntensity[i] * atten;
+        float specExponent = mix(128.0, 16.0, uRoughness);
+        float specStrength = mix(0.50, 0.10, uRoughness);
+        float spec = pow(max(dot(norm, halfDir), 0.0), specExponent);
+        specularLight += uLightColor[i] * spec * specStrength * uLightIntensity[i] * atten * shadowFactor;
+
+        // Liquid Water Specular Reflection (Ocean sunglint + Fresnel)
+        if (uWaterFraction > 0.02) {
+            float NdotV = max(dot(norm, viewDir), 0.0);
+            float fresnel = 0.02 + 0.98 * pow(1.0 - NdotV, 5.0);
+            vec3 waveNorm = normalize(norm + 0.015 * vec3(sin(LocalPos.y * 50.0 + uSimTime * 2.5), cos(LocalPos.x * 50.0 + uSimTime * 2.0), 0.0));
+            vec3 waveHalf = normalize(lightDir + viewDir);
+            float oceanSpec = pow(max(dot(waveNorm, waveHalf), 0.0), 160.0) * fresnel * 2.2;
+            specularLight += uLightColor[i] * oceanSpec * uLightIntensity[i] * atten * uWaterFraction * shadowFactor;
+        }
     }
 
-    // Ambient baseline celestial lighting
-    vec3 ambient = baseColor * 0.12;
+    // Deep space: NO artificial ambient floor in cinematic mode. Night sides are genuinely dark.
+    // In normal mode, subtle baseline ambient is kept for scientific clarity.
+    vec3 ambient = uCinematicMode ? vec3(0.0) : (baseColor * 0.08);
     vec3 surfaceColor = ambient + baseColor * diffuseLight + specularLight;
 
-    // 3. Thermal Incandescence (Magma fissures for T > 700 K)
+    // 3. Thermal Incandescence (Magma fissures for T > 600 K)
     if (uThermalGlow > 0.01) {
         float fissurePattern = pow(sin(LocalPos.x * 25.0) * sin(LocalPos.y * 25.0) * sin(LocalPos.z * 25.0), 2.0);
         float magmaIntensity = uThermalGlow * (0.65 + 0.35 * fissurePattern);
-        surfaceColor += uEmissionColor * magmaIntensity;
+        vec3 magmaGlow = uEmissionColor * magmaIntensity;
+        surfaceColor += magmaGlow;
     }
 
     // 4. Debug False-Color Overlay
@@ -135,6 +190,17 @@ void main() {
     }
 
     FragColor = vec4(surfaceColor, 1.0);
+
+    // 5. Luminance Bright-Pass Extraction (for Bloom)
+    // Only true stars, incandescent magma, and extreme sunglint bloom. Ordinary surfaces NEVER bloom.
+    float luminance = dot(surfaceColor, vec3(0.2126, 0.7152, 0.0722));
+    if (uThermalGlow > 0.35) {
+        BrightColor = vec4(uEmissionColor * uThermalGlow * 0.4, 1.0);
+    } else if (luminance > 3.0) {
+        BrightColor = vec4((surfaceColor - vec3(3.0)) * 0.4, 1.0);
+    } else {
+        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
+    }
 }
 )GLSL";
 
@@ -161,7 +227,8 @@ void main() {
 
 static const char* atmoFragSrc = R"GLSL(
 #version 330 core
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 BrightColor;
 
 in vec3 FragPos;
 in vec3 Normal;
@@ -173,29 +240,62 @@ uniform vec3 uCameraPos;
 uniform int uNumLights;
 uniform vec3 uLightPos[4];
 uniform vec3 uLightColor[4];
+uniform float uAtmoScaleHeight;
+uniform float uAtmoMieFactor;
+uniform float uPlanetRadius;
 
 void main() {
     vec3 norm = normalize(Normal);
     vec3 viewDir = normalize(uCameraPos - FragPos);
 
-    // Fresnel limb scattering (strongest along the planetary rim)
+    // Fresnel limb optical path length (Chapman function approximation: thin, subtle limb)
     float NdotV = max(dot(norm, viewDir), 0.0);
-    float rim = pow(1.0 - NdotV, 3.5);
+    float rim = pow(1.0 - NdotV, 3.8);
 
-    // Multi-light directional phase function (forward scattering towards camera)
-    float lightPhase = 0.0;
-    int numL = clamp(uNumLights, 1, 4);
+    // Multi-light directional phase function (Rayleigh + Mie forward scattering)
+    vec3 totalScattered = vec3(0.0);
+    int numL = clamp(uNumLights, 0, 4);
     for (int i = 0; i < numL; ++i) {
         vec3 lightDir = normalize(uLightPos[i] - FragPos);
-        float forwardScattering = max(dot(norm, lightDir), 0.0);
-        lightPhase += forwardScattering;
-    }
-    lightPhase = clamp(lightPhase, 0.20, 1.20);
+        float cosTheta = dot(norm, lightDir);
+        
+        // Twilight illumination: atmosphere scatters slightly past surface terminator
+        // (geometric solar depression angle at upper atmospheric altitude)
+        float twilight = smoothstep(-0.12, 0.20, cosTheta);
+        if (twilight <= 0.0) continue;
 
-    float alpha = clamp(rim * uAtmoDensity * lightPhase * 1.25, 0.0, 0.90);
-    vec3 color = uAtmoColor * (0.85 + 0.35 * rim);
+        // Viewing phase angle for forward/backward scattering
+        float cosViewLight = dot(viewDir, -lightDir);
+
+        // Rayleigh phase function: 3/(16*PI) * (1 + cos^2(theta))
+        float rayleighPhase = 0.75 * (1.0 + cosViewLight * cosViewLight);
+
+        // Mie forward scattering phase function (Henyey-Greenstein for aerosols/dust)
+        float g = 0.80;
+        float miePhase = (1.0 - g * g) / pow(max(1.0 + g * g - 2.0 * g * cosViewLight, 0.01), 1.5) * 0.18;
+
+        float combinedPhase = mix(rayleighPhase, miePhase, clamp(uAtmoMieFactor, 0.0, 1.0));
+        vec3 lightCol = uLightColor[i];
+        totalScattered += lightCol * combinedPhase * twilight;
+    }
+
+    // Unilluminated night side must be completely pitch black (zero scatter)
+    float scatterMagnitude = length(totalScattered);
+    if (scatterMagnitude < 0.0005) {
+        discard;
+    }
+
+    // Controlled, restrained alpha: visible only along illuminated limb
+    float alpha = clamp(rim * uAtmoDensity * 0.85 * smoothstep(0.0, 0.30, scatterMagnitude), 0.0, 0.90);
+    if (alpha < 0.002) discard;
+
+    // Linear color output (composition-dependent tint * light) - NO artificial ambient +0.08 glow
+    vec3 color = uAtmoColor * totalScattered * (0.80 + 0.50 * rim);
 
     FragColor = vec4(color, alpha);
+    
+    // Atmospheric limb does NOT bloom
+    BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
 }
 )GLSL";
 
@@ -227,7 +327,8 @@ void main() {
 
 static const char* cloudFragSrc = R"GLSL(
 #version 330 core
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 BrightColor;
 
 in vec3 FragPos;
 in vec3 Normal;
@@ -245,21 +346,25 @@ void main() {
     // Procedural multi-frequency cloud fractal pattern
     float c1 = sin(LocalPos.x * 12.0 + uSimTime * 0.02) * cos(LocalPos.y * 12.0);
     float c2 = sin(LocalPos.y * 24.0 + LocalPos.z * 18.0) * cos(LocalPos.x * 24.0);
-    float cloudNoise = (c1 * 0.6 + c2 * 0.4) * 0.5 + 0.5;
+    float c3 = sin(LocalPos.z * 48.0 - LocalPos.x * 32.0) * cos(LocalPos.y * 48.0);
+    float cloudNoise = (c1 * 0.50 + c2 * 0.35 + c3 * 0.15) * 0.5 + 0.5;
 
     float cloudAlpha = smoothstep(1.0 - uCloudCoverage, 1.0, cloudNoise);
-    if (cloudAlpha < 0.05) discard;
+    if (cloudAlpha < 0.04) discard;
 
-    // Multi-light cloud diffuse shading
+    // Multi-light cloud diffuse shading with silver-lining forward scattering
     float lightSum = 0.0;
-    int numL = clamp(uNumLights, 1, 4);
+    int numL = clamp(uNumLights, 0, 4);
     for (int i = 0; i < numL; ++i) {
         vec3 lightDir = normalize(uLightPos[i] - FragPos);
-        lightSum += max(dot(norm, lightDir), 0.15);
+        float NdotL = max(dot(norm, lightDir), 0.0);
+        float rim = pow(1.0 - max(dot(norm, vec3(0.0, 0.0, 1.0)), 0.0), 3.0) * 0.35;
+        lightSum += NdotL + rim;
     }
-    vec3 cloudColor = vec3(0.95, 0.97, 1.0) * clamp(lightSum, 0.25, 1.15);
+    vec3 cloudColor = vec3(0.96, 0.98, 1.0) * clamp(lightSum, 0.22, 1.25);
 
-    FragColor = vec4(cloudColor, cloudAlpha * 0.85);
+    FragColor = vec4(cloudColor, cloudAlpha * 0.88);
+    BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
 }
 )GLSL";
 
@@ -288,7 +393,8 @@ void main() {
 
 static const char* coronaFragSrc = R"GLSL(
 #version 330 core
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 BrightColor;
 
 in vec2 TexCoord;
 in vec3 Normal;
@@ -308,12 +414,13 @@ void main() {
     // Dynamic solar flare prominences
     float angle = atan(LocalPos.y, LocalPos.x);
     float flare = sin(angle * 9.0 + uSimTime * 2.0) * cos(angle * 14.0 - uSimTime * 1.5);
-    float flareIntensity = 1.0 + 0.25 * flare;
+    float flareIntensity = 1.0 + 0.30 * flare;
 
     float alpha = clamp(radial * flareIntensity * uCoronaIntensity * 0.65, 0.0, 1.0);
-    vec3 col = uCoronaColor * (1.2 + 0.3 * flare);
+    vec3 col = uCoronaColor * (1.3 + 0.4 * flare);
 
     FragColor = vec4(col, alpha);
+    BrightColor = vec4(col * alpha * 2.2, 1.0);
 }
 )GLSL";
 
@@ -343,7 +450,8 @@ void main() {
 
 static const char* bhFragSrc = R"GLSL(
 #version 330 core
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 BrightColor;
 
 in vec3 FragPos;
 in vec3 Normal;
@@ -359,13 +467,17 @@ void main() {
     float NdotV = max(dot(norm, viewDir), 0.0);
     
     // Pure black Schwarzschild Event Horizon shadow at center
-    if (NdotV > 0.15) {
+    if (NdotV > 0.16) {
         FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
     } else {
-        // Relativistic Photon Sphere Ring Lensing Rim
+        // Relativistic Photon Sphere Ring & Accretion Disk with Doppler beaming
         float photonRing = pow(1.0 - NdotV, 12.0);
-        vec3 ringColor = vec3(0.3, 0.6, 1.0) * (photonRing * 2.5);
+        float doppler = 1.0 + 0.60 * clamp(LocalPos.x, -1.0, 1.0);
+        vec3 ringColor = mix(vec3(1.0, 0.55, 0.15), vec3(0.35, 0.75, 1.3), clamp((doppler - 0.5) * 0.8, 0.0, 1.0));
+        ringColor *= (photonRing * 2.8 * doppler);
         FragColor = vec4(ringColor, photonRing);
+        BrightColor = vec4(ringColor * 1.8, 1.0);
     }
 }
 )GLSL";
@@ -390,7 +502,8 @@ void main() {
 
 static const char* impactFragSrc = R"GLSL(
 #version 330 core
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 BrightColor;
 
 uniform vec3 uImpactColor;
 uniform float uIntensity;
@@ -398,7 +511,9 @@ uniform float uAge;
 
 void main() {
     float alpha = uIntensity * (1.0 - uAge * 0.33);
-    FragColor = vec4(uImpactColor * 2.0, clamp(alpha, 0.0, 1.0));
+    vec3 col = uImpactColor * 2.0;
+    FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
+    BrightColor = vec4(col * alpha * 1.5, 1.0);
 }
 )GLSL";
 
@@ -419,16 +534,34 @@ void main() {
 
 static const char* skyboxFragSrc = R"GLSL(
 #version 330 core
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 BrightColor;
 in vec2 TexCoord;
 uniform sampler2D uTexture;
 uniform bool uHasTexture;
+uniform bool uCinematicMode;
+
 void main() {
     if (uHasTexture) {
-        FragColor = texture(uTexture, TexCoord);
+        vec3 rawCol = texture(uTexture, TexCoord).rgb;
+        if (uCinematicMode) {
+            // Linearize from sRGB to radiometric space
+            vec3 linearSky = pow(rawCol, vec3(2.2));
+            float lum = dot(linearSky, vec3(0.2126, 0.7152, 0.0722));
+            
+            // Deep space void drops to black, while subtle Milky Way and pinpoint stars remain
+            vec3 skyCol = pow(linearSky, vec3(1.25)) * 0.25;
+            if (lum > 0.40) {
+                skyCol += linearSky * (lum - 0.40) * 0.75; // Crisp pinpoint stars
+            }
+            FragColor = vec4(skyCol, 1.0);
+        } else {
+            FragColor = vec4(rawCol, 1.0);
+        }
     } else {
-        FragColor = vec4(0.015, 0.025, 0.05, 1.0);
+        FragColor = vec4(0.0, 0.0, 0.0, 1.0);
     }
+    BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
 }
 )GLSL";
 
@@ -447,9 +580,11 @@ void main() {
 static const char* trailFragSrc = R"GLSL(
 #version 330 core
 in vec4 vColor;
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 BrightColor;
 void main() {
     FragColor = vColor;
+    BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
 }
 )GLSL";
 
@@ -482,7 +617,8 @@ void main() {
 
 static const char* ringFragSrc = R"GLSL(
 #version 330 core
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 BrightColor;
 
 in vec3 FragPos;
 in vec3 WorldNormal;
@@ -495,6 +631,7 @@ uniform float uPlanetRadius;
 uniform vec3 uRingColor;
 uniform sampler2D uRingTexture;
 uniform bool uHasRingTexture;
+uniform bool uCinematicMode;
 
 float calculatePlanetShadow(vec3 fragPos, vec3 sunPos, vec3 planetCenter, float planetRadius) {
     vec3 rayDir = normalize(sunPos - fragPos);
@@ -504,7 +641,7 @@ float calculatePlanetShadow(vec3 fragPos, vec3 sunPos, vec3 planetCenter, float 
     float d2 = dot(L, L) - tca * tca;
     float r2 = planetRadius * planetRadius;
     if (d2 > r2) return 1.0;
-    return smoothstep(r2 * 0.90, r2 * 1.05, d2);
+    return smoothstep(r2 * 0.94, r2 * 1.02, d2);
 }
 
 void main() {
@@ -514,19 +651,199 @@ void main() {
 
     if (uHasRingTexture) {
         vec4 texCol = texture(uRingTexture, vec2(u, 0.5));
-        baseAlbedo = texCol.rgb;
+        baseAlbedo = uCinematicMode ? pow(texCol.rgb, vec3(2.2)) : texCol.rgb;
         baseOpacity = texCol.a;
     } else {
         baseOpacity = 0.70;
-        baseAlbedo = uRingColor;
+        baseAlbedo = uCinematicMode ? pow(uRingColor, vec3(2.2)) : uRingColor;
     }
 
     float shadow = calculatePlanetShadow(FragPos, uSunPos, uPlanetCenter, uPlanetRadius);
     vec3 lightDir = normalize(uSunPos - FragPos);
-    float diff = max(abs(dot(WorldNormal, lightDir)), 0.20);
+    
+    // Physical diffuse scattering on ring particles with zero arbitrary ambient clamp
+    float cosIncidence = abs(dot(WorldNormal, lightDir));
+    float diff = uCinematicMode ? max(cosIncidence, 0.02) : max(cosIncidence, 0.20);
 
+    // In shadow, ring particles receive zero direct starlight
     vec3 finalCol = baseAlbedo * diff * shadow;
-    FragColor = vec4(finalCol, baseOpacity * (0.35 + 0.65 * shadow));
+    
+    // In cinematic mode, unlit ring particles inside planet shadow do not glow
+    float opacity = uCinematicMode ? (baseOpacity * (0.05 + 0.95 * shadow)) : (baseOpacity * (0.35 + 0.65 * shadow));
+    FragColor = vec4(finalCol, opacity);
+    BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
+}
+)GLSL";
+
+// =========================================================================
+// 7. Bloom Separable Gaussian Blur & Cinematic Post-Processing Shaders
+// =========================================================================
+static const char* bloomBlurVertSrc = R"GLSL(
+#version 330 core
+layout(location = 0) in vec3 aPos;
+layout(location = 2) in vec2 aTexCoord;
+out vec2 TexCoord;
+void main() {
+    TexCoord = aTexCoord;
+    gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);
+}
+)GLSL";
+
+static const char* bloomBlurFragSrc = R"GLSL(
+#version 330 core
+out vec4 FragColor;
+in vec2 TexCoord;
+
+uniform sampler2D uImage;
+uniform bool uHorizontal;
+
+// 9-tap Gaussian weights (normalized)
+const float weight[5] = float[](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
+
+void main() {
+    vec2 tex_offset = 1.0 / vec2(textureSize(uImage, 0));
+    vec3 result = texture(uImage, TexCoord).rgb * weight[0];
+    if (uHorizontal) {
+        for (int i = 1; i < 5; ++i) {
+            result += texture(uImage, TexCoord + vec2(tex_offset.x * float(i), 0.0)).rgb * weight[i];
+            result += texture(uImage, TexCoord - vec2(tex_offset.x * float(i), 0.0)).rgb * weight[i];
+        }
+    } else {
+        for (int i = 1; i < 5; ++i) {
+            result += texture(uImage, TexCoord + vec2(0.0, tex_offset.y * float(i))).rgb * weight[i];
+            result += texture(uImage, TexCoord - vec2(0.0, tex_offset.y * float(i))).rgb * weight[i];
+        }
+    }
+    FragColor = vec4(result, 1.0);
+}
+)GLSL";
+
+static const char* postProcessVertSrc = R"GLSL(
+#version 330 core
+layout(location = 0) in vec3 aPos;
+layout(location = 2) in vec2 aTexCoord;
+out vec2 TexCoord;
+void main() {
+    TexCoord = aTexCoord;
+    gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);
+}
+)GLSL";
+
+static const char* postProcessFragSrc = R"GLSL(
+#version 330 core
+out vec4 FragColor;
+in vec2 TexCoord;
+
+uniform sampler2D uSceneTex;
+uniform sampler2D uBloomTex;
+uniform sampler2D uDepthTex;
+
+uniform float uExposure;
+uniform float uBloomIntensity;
+uniform int uToneMapMode;
+uniform bool uEnableDoF;
+uniform float uFocusDist;
+uniform float uDoFAperture;
+uniform float uNearPlane;
+uniform float uFarPlane;
+uniform bool uEnableVignette;
+uniform bool uEnableCA;
+
+// ACES Filmic Tone Mapping Curve
+vec3 ACESFilm(vec3 x) {
+    float a = 2.51;
+    float b = 0.03;
+    float c = 2.43;
+    float d = 0.59;
+    float e = 0.14;
+    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
+vec3 Reinhard(vec3 x) {
+    return x / (x + vec3(1.0));
+}
+
+vec3 Filmic(vec3 x) {
+    vec3 X = max(vec3(0.0), x - 0.004);
+    return (X * (6.2 * X + 0.5)) / (X * (6.2 * X + 1.7) + 0.06);
+}
+
+float linearizeDepth(float depth) {
+    float z = depth * 2.0 - 1.0;
+    return (2.0 * uNearPlane * uFarPlane) / (uFarPlane + uNearPlane - z * (uFarPlane - uNearPlane));
+}
+
+void main() {
+    vec2 uv = TexCoord;
+
+    // 1. Subtle Chromatic Aberration
+    vec3 sceneColor;
+    if (uEnableCA) {
+        vec2 distFromCenter = uv - 0.5;
+        float distSq = dot(distFromCenter, distFromCenter);
+        vec2 caOffset = distFromCenter * distSq * 0.012;
+        float r = texture(uSceneTex, uv - caOffset).r;
+        float g = texture(uSceneTex, uv).g;
+        float b = texture(uSceneTex, uv + caOffset).b;
+        sceneColor = vec3(r, g, b);
+    } else {
+        sceneColor = texture(uSceneTex, uv).rgb;
+    }
+
+    // 2. Depth of Field (Photo / Cinematic Mode close shots)
+    if (uEnableDoF) {
+        float depthVal = texture(uDepthTex, uv).r;
+        if (depthVal < 0.9999) {
+            float linDepth = linearizeDepth(depthVal);
+            float coc = clamp(abs(linDepth - uFocusDist) * uDoFAperture, 0.0, 0.015);
+            if (coc > 0.001) {
+                vec3 blurCol = vec3(0.0);
+                float totalW = 0.0;
+                for (int x = -2; x <= 2; ++x) {
+                    for (int y = -2; y <= 2; ++y) {
+                        vec2 offset = vec2(float(x), float(y)) * coc * 0.5;
+                        blurCol += texture(uSceneTex, uv + offset).rgb;
+                        totalW += 1.0;
+                    }
+                }
+                sceneColor = mix(sceneColor, blurCol / totalW, smoothstep(0.001, 0.006, coc));
+            }
+        }
+    }
+
+    // 3. Luminance Bloom Composite
+    vec3 bloom = texture(uBloomTex, uv).rgb;
+    sceneColor += bloom * uBloomIntensity;
+
+    // 4. Exposure Scaling
+    vec3 exposed = sceneColor * uExposure;
+
+    // 5. Tone Mapping
+    vec3 mapped;
+    if (uToneMapMode == 0) {
+        mapped = ACESFilm(exposed);
+    } else if (uToneMapMode == 1) {
+        mapped = Reinhard(exposed);
+    } else {
+        mapped = Filmic(exposed);
+    }
+
+    // 6. Subtle Vignette
+    if (uEnableVignette) {
+        vec2 vUV = uv * (1.0 - uv.yx);
+        float vig = vUV.x * vUV.y * 15.0;
+        vig = clamp(pow(vig, 0.18), 0.0, 1.0);
+        mapped *= vig;
+    }
+
+    // 7. Gamma Correction into sRGB space
+    mapped = pow(mapped, vec3(1.0 / 2.2));
+
+    // 8. Subtle Film Grain (suppressed in deep space so pitch black remains pristine)
+    float grain = fract(sin(dot(uv * 1000.0, vec2(12.9898, 78.233))) * 43758.5453);
+    mapped += (grain - 0.5) * 0.006 * smoothstep(0.01, 0.25, length(mapped));
+
+    FragColor = vec4(clamp(mapped, 0.0, 1.0), 1.0);
 }
 )GLSL";
 
@@ -578,6 +895,19 @@ bool Renderer::initialize() {
     m_uDebugColorLoc         = glGetUniformLocation(m_shaderProgram, "uDebugColor");
     m_uDebugScalarLoc        = glGetUniformLocation(m_shaderProgram, "uDebugScalar");
 
+    // Physical Material & Cloud Shadow Uniforms
+    m_uWaterFractionLoc          = glGetUniformLocation(m_shaderProgram, "uWaterFraction");
+    m_uIceFractionLoc            = glGetUniformLocation(m_shaderProgram, "uIceFraction");
+    m_uRoughnessLoc              = glGetUniformLocation(m_shaderProgram, "uRoughness");
+    m_uCloudShadowCoverageLoc    = glGetUniformLocation(m_shaderProgram, "uCloudShadowCoverage");
+    m_uCloudShadowRotAngleLoc    = glGetUniformLocation(m_shaderProgram, "uCloudShadowRotAngle");
+    m_uCinematicModeLoc          = glGetUniformLocation(m_shaderProgram, "uCinematicMode");
+    m_uHasRingLoc                = glGetUniformLocation(m_shaderProgram, "uHasRing");
+    m_uRingNormalLoc             = glGetUniformLocation(m_shaderProgram, "uRingNormal");
+    m_uPlanetCenterLoc           = glGetUniformLocation(m_shaderProgram, "uPlanetCenter");
+    m_uRingInnerRadiusLoc        = glGetUniformLocation(m_shaderProgram, "uRingInnerRadius");
+    m_uRingOuterRadiusLoc        = glGetUniformLocation(m_shaderProgram, "uRingOuterRadius");
+
     for (int i = 0; i < 4; ++i) {
         char pBuf[32], cBuf[32], iBuf[32];
         snprintf(pBuf, sizeof(pBuf), "uLightPos[%d]", i);
@@ -598,12 +928,16 @@ bool Renderer::initialize() {
     glDeleteShader(atmoV);
     glDeleteShader(atmoF);
 
-    m_uAtmoMVPLoc       = glGetUniformLocation(m_atmosphereProgram, "uMVP");
-    m_uAtmoModelLoc     = glGetUniformLocation(m_atmosphereProgram, "uModel");
-    m_uAtmoColorLoc     = glGetUniformLocation(m_atmosphereProgram, "uAtmoColor");
-    m_uAtmoDensityLoc   = glGetUniformLocation(m_atmosphereProgram, "uAtmoDensity");
-    m_uAtmoCameraPosLoc = glGetUniformLocation(m_atmosphereProgram, "uCameraPos");
-    m_uAtmoNumLightsLoc = glGetUniformLocation(m_atmosphereProgram, "uNumLights");
+    m_uAtmoMVPLoc          = glGetUniformLocation(m_atmosphereProgram, "uMVP");
+    m_uAtmoModelLoc        = glGetUniformLocation(m_atmosphereProgram, "uModel");
+    m_uAtmoColorLoc        = glGetUniformLocation(m_atmosphereProgram, "uAtmoColor");
+    m_uAtmoDensityLoc      = glGetUniformLocation(m_atmosphereProgram, "uAtmoDensity");
+    m_uAtmoCameraPosLoc    = glGetUniformLocation(m_atmosphereProgram, "uCameraPos");
+    m_uAtmoNumLightsLoc    = glGetUniformLocation(m_atmosphereProgram, "uNumLights");
+    m_uAtmoScaleHeightLoc  = glGetUniformLocation(m_atmosphereProgram, "uAtmoScaleHeight");
+    m_uAtmoMieFactorLoc    = glGetUniformLocation(m_atmosphereProgram, "uAtmoMieFactor");
+    m_uAtmoPlanetRadiusLoc = glGetUniformLocation(m_atmosphereProgram, "uPlanetRadius");
+
     for (int i = 0; i < 4; ++i) {
         char pBuf[32], cBuf[32];
         snprintf(pBuf, sizeof(pBuf), "uLightPos[%d]", i);
@@ -695,6 +1029,7 @@ bool Renderer::initialize() {
     m_skyUVPLoc = glGetUniformLocation(m_skyboxProgram, "uVP");
     m_skyTexLoc = glGetUniformLocation(m_skyboxProgram, "uTexture");
     m_skyHasTexLoc = glGetUniformLocation(m_skyboxProgram, "uHasTexture");
+    m_skyCinematicModeLoc = glGetUniformLocation(m_skyboxProgram, "uCinematicMode");
 
     GLuint trailV = compileShader(GL_VERTEX_SHADER, trailVertSrc);
     GLuint trailF = compileShader(GL_FRAGMENT_SHADER, trailFragSrc);
@@ -735,6 +1070,42 @@ bool Renderer::initialize() {
     m_uRingTexLoc          = glGetUniformLocation(m_ringProgram, "uRingTexture");
     m_uRingHasTexLoc       = glGetUniformLocation(m_ringProgram, "uHasRingTexture");
 
+    // 8. Compile Bloom Blur Program
+    GLuint bloomV = compileShader(GL_VERTEX_SHADER, bloomBlurVertSrc);
+    GLuint bloomF = compileShader(GL_FRAGMENT_SHADER, bloomBlurFragSrc);
+    m_bloomBlurProgram = glCreateProgram();
+    glAttachShader(m_bloomBlurProgram, bloomV);
+    glAttachShader(m_bloomBlurProgram, bloomF);
+    glLinkProgram(m_bloomBlurProgram);
+    glDeleteShader(bloomV);
+    glDeleteShader(bloomF);
+    m_uBloomBlurImageLoc = glGetUniformLocation(m_bloomBlurProgram, "uImage");
+    m_uBloomBlurHorizLoc = glGetUniformLocation(m_bloomBlurProgram, "uHorizontal");
+
+    // 9. Compile Cinematic Post-Processing Program
+    GLuint postV = compileShader(GL_VERTEX_SHADER, postProcessVertSrc);
+    GLuint postF = compileShader(GL_FRAGMENT_SHADER, postProcessFragSrc);
+    m_postProcessProgram = glCreateProgram();
+    glAttachShader(m_postProcessProgram, postV);
+    glAttachShader(m_postProcessProgram, postF);
+    glLinkProgram(m_postProcessProgram);
+    glDeleteShader(postV);
+    glDeleteShader(postF);
+
+    m_uPostSceneTexLoc          = glGetUniformLocation(m_postProcessProgram, "uSceneTex");
+    m_uPostBloomTexLoc          = glGetUniformLocation(m_postProcessProgram, "uBloomTex");
+    m_uPostDepthTexLoc          = glGetUniformLocation(m_postProcessProgram, "uDepthTex");
+    m_uPostExposureLoc          = glGetUniformLocation(m_postProcessProgram, "uExposure");
+    m_uPostBloomIntensityLoc    = glGetUniformLocation(m_postProcessProgram, "uBloomIntensity");
+    m_uPostToneMapModeLoc       = glGetUniformLocation(m_postProcessProgram, "uToneMapMode");
+    m_uPostEnableDoFLoc         = glGetUniformLocation(m_postProcessProgram, "uEnableDoF");
+    m_uPostFocusDistLoc         = glGetUniformLocation(m_postProcessProgram, "uFocusDist");
+    m_uPostDoFApertureLoc       = glGetUniformLocation(m_postProcessProgram, "uDoFAperture");
+    m_uPostNearPlaneLoc         = glGetUniformLocation(m_postProcessProgram, "uNearPlane");
+    m_uPostFarPlaneLoc          = glGetUniformLocation(m_postProcessProgram, "uFarPlane");
+    m_uPostEnableVignetteLoc    = glGetUniformLocation(m_postProcessProgram, "uEnableVignette");
+    m_uPostEnableCALoc          = glGetUniformLocation(m_postProcessProgram, "uEnableCA");
+
     // Create Meshes
     m_sphereMesh = createSphereMesh(1.0f, 48, 48);
     m_ringMesh = createRingMesh(128);
@@ -747,6 +1118,8 @@ bool Renderer::initialize() {
 }
 
 void Renderer::shutdown() {
+    destroyHDRFramebuffers();
+
     if (m_shaderProgram) { glDeleteProgram(m_shaderProgram); m_shaderProgram = 0; }
     if (m_atmosphereProgram) { glDeleteProgram(m_atmosphereProgram); m_atmosphereProgram = 0; }
     if (m_cloudProgram) { glDeleteProgram(m_cloudProgram); m_cloudProgram = 0; }
@@ -756,6 +1129,8 @@ void Renderer::shutdown() {
     if (m_skyboxProgram) { glDeleteProgram(m_skyboxProgram); m_skyboxProgram = 0; }
     if (m_trailProgram) { glDeleteProgram(m_trailProgram); m_trailProgram = 0; }
     if (m_ringProgram) { glDeleteProgram(m_ringProgram); m_ringProgram = 0; }
+    if (m_bloomBlurProgram) { glDeleteProgram(m_bloomBlurProgram); m_bloomBlurProgram = 0; }
+    if (m_postProcessProgram) { glDeleteProgram(m_postProcessProgram); m_postProcessProgram = 0; }
 
     if (m_trailVAO) { glDeleteVertexArrays(1, &m_trailVAO); m_trailVAO = 0; }
     if (m_trailVBO) { glDeleteBuffers(1, &m_trailVBO); m_trailVBO = 0; }
@@ -977,13 +1352,211 @@ GLuint Renderer::loadTexture(const std::string& filepath) {
     return texture;
 }
 
+void Renderer::setCinematicParameters(
+    bool enabled,
+    float exposure,
+    float bloomIntensity,
+    int toneMappingMode,
+    bool enableDoF,
+    float focusDistance,
+    float dofAperture,
+    bool enableVignette,
+    bool enableChromaticAberration,
+    float nearPlane,
+    float farPlane
+) {
+    m_cinematicEnabled = enabled;
+    m_cinematicExposure = exposure;
+    m_cinematicBloomIntensity = bloomIntensity;
+    m_cinematicToneMappingMode = toneMappingMode;
+    m_cinematicEnableDoF = enableDoF;
+    m_cinematicFocusDistance = focusDistance;
+    m_cinematicDoFAperture = dofAperture;
+    m_cinematicEnableVignette = enableVignette;
+    m_cinematicEnableCA = enableChromaticAberration;
+    m_cinematicNearPlane = nearPlane;
+    m_cinematicFarPlane = farPlane;
+}
+
+bool Renderer::initHDRFramebuffers(int width, int height) {
+    width = std::max(width, 1);
+    height = std::max(height, 1);
+    if (m_hdrFBO != 0 && m_hdrWidth == width && m_hdrHeight == height) {
+        return true;
+    }
+    destroyHDRFramebuffers();
+
+    m_hdrWidth = width;
+    m_hdrHeight = height;
+
+    // 1. Create HDR Scene FBO (2 Floating-point color targets + depth)
+    glGenFramebuffers(1, &m_hdrFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_hdrFBO);
+
+    // Color Attachment 0: Linear Scene Radiance
+    glGenTextures(1, &m_hdrColorTex);
+    glBindTexture(GL_TEXTURE_2D, m_hdrColorTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_hdrColorTex, 0);
+
+    // Color Attachment 1: Bright-Pass Radiance (for Bloom)
+    glGenTextures(1, &m_hdrBrightTex);
+    glBindTexture(GL_TEXTURE_2D, m_hdrBrightTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, m_hdrBrightTex, 0);
+
+    // Depth Attachment: Depth Texture (for DoF and depth sampling)
+    glGenTextures(1, &m_hdrDepthTex);
+    glBindTexture(GL_TEXTURE_2D, m_hdrDepthTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_hdrDepthTex, 0);
+
+    GLenum attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, attachments);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        fprintf(stderr, "[Renderer] HDR FBO setup incomplete!\n");
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        return false;
+    }
+
+    // 2. Create Ping-Pong Bloom FBOs at half resolution
+    m_bloomWidth = std::max(width / 2, 1);
+    m_bloomHeight = std::max(height / 2, 1);
+    glGenFramebuffers(2, m_bloomFBO);
+    glGenTextures(2, m_bloomTex);
+
+    for (int i = 0; i < 2; ++i) {
+        glBindFramebuffer(GL_FRAMEBUFFER, m_bloomFBO[i]);
+        glBindTexture(GL_TEXTURE_2D, m_bloomTex[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, m_bloomWidth, m_bloomHeight, 0, GL_RGBA, GL_FLOAT, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_bloomTex[i], 0);
+
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+            fprintf(stderr, "[Renderer] Bloom FBO %d setup incomplete!\n", i);
+        }
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    return true;
+}
+
+void Renderer::destroyHDRFramebuffers() {
+    if (m_hdrFBO) { glDeleteFramebuffers(1, &m_hdrFBO); m_hdrFBO = 0; }
+    if (m_hdrColorTex) { glDeleteTextures(1, &m_hdrColorTex); m_hdrColorTex = 0; }
+    if (m_hdrBrightTex) { glDeleteTextures(1, &m_hdrBrightTex); m_hdrBrightTex = 0; }
+    if (m_hdrDepthTex) { glDeleteTextures(1, &m_hdrDepthTex); m_hdrDepthTex = 0; }
+    if (m_bloomFBO[0]) { glDeleteFramebuffers(2, m_bloomFBO); m_bloomFBO[0] = m_bloomFBO[1] = 0; }
+    if (m_bloomTex[0]) { glDeleteTextures(2, m_bloomTex); m_bloomTex[0] = m_bloomTex[1] = 0; }
+    m_hdrWidth = m_hdrHeight = 0;
+    m_bloomWidth = m_bloomHeight = 0;
+}
+
+void Renderer::renderPostProcessingPass() {
+    if (!m_postProcessProgram || !m_bloomBlurProgram || !m_quadMesh.vao) return;
+
+    // 1. Ping-pong separable Gaussian blur on bright-pass buffer
+    bool horizontal = true, first_iteration = true;
+    int blurPasses = 8; // 4 horizontal + 4 vertical passes
+    glUseProgram(m_bloomBlurProgram);
+    glUniform1i(m_uBloomBlurImageLoc, 0);
+
+    for (int i = 0; i < blurPasses; ++i) {
+        glBindFramebuffer(GL_FRAMEBUFFER, m_bloomFBO[horizontal ? 1 : 0]);
+        glViewport(0, 0, m_bloomWidth, m_bloomHeight);
+        glUniform1i(m_uBloomBlurHorizLoc, horizontal ? 1 : 0);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, first_iteration ? m_hdrBrightTex : m_bloomTex[!horizontal]);
+
+        glBindVertexArray(m_quadMesh.vao);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        horizontal = !horizontal;
+        if (first_iteration) first_iteration = false;
+    }
+
+    // 2. Render Fullscreen Quad with Tone Mapping + Bloom Composite + DoF
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(m_lastVpX, m_lastVpY, m_lastVpW, m_lastVpH);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+
+    glUseProgram(m_postProcessProgram);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_hdrColorTex);
+    glUniform1i(m_uPostSceneTexLoc, 0);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, m_bloomTex[!horizontal]);
+    glUniform1i(m_uPostBloomTexLoc, 1);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, m_hdrDepthTex);
+    glUniform1i(m_uPostDepthTexLoc, 2);
+
+    glUniform1f(m_uPostExposureLoc, m_cinematicExposure);
+    glUniform1f(m_uPostBloomIntensityLoc, m_cinematicBloomIntensity);
+    glUniform1i(m_uPostToneMapModeLoc, m_cinematicToneMappingMode);
+    glUniform1i(m_uPostEnableDoFLoc, m_cinematicEnableDoF ? 1 : 0);
+    glUniform1f(m_uPostFocusDistLoc, m_cinematicFocusDistance);
+    glUniform1f(m_uPostDoFApertureLoc, m_cinematicDoFAperture);
+    glUniform1f(m_uPostNearPlaneLoc, m_cinematicNearPlane);
+    glUniform1f(m_uPostFarPlaneLoc, m_cinematicFarPlane);
+    glUniform1i(m_uPostEnableVignetteLoc, m_cinematicEnableVignette ? 1 : 0);
+    glUniform1i(m_uPostEnableCALoc, m_cinematicEnableCA ? 1 : 0);
+
+    glBindVertexArray(m_quadMesh.vao);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glBindVertexArray(0);
+    glEnable(GL_DEPTH_TEST);
+}
+
 void Renderer::beginViewport(int x, int y, int width, int height, const glm::vec4& clearColor) {
-    glViewport(x, y, width, height);
-    glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    m_lastVpX = x;
+    m_lastVpY = y;
+    m_lastVpW = width;
+    m_lastVpH = height;
+
+    if (m_cinematicEnabled) {
+        initHDRFramebuffers(width, height);
+        glBindFramebuffer(GL_FRAMEBUFFER, m_hdrFBO);
+        GLenum attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+        glDrawBuffers(2, attachments);
+        glViewport(0, 0, width, height);
+        glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    } else {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(x, y, width, height);
+        glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    }
 }
 
 void Renderer::endViewport(int windowWidth, int windowHeight) {
+    if (m_cinematicEnabled && m_hdrFBO != 0) {
+        renderPostProcessingPass();
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, windowWidth, windowHeight);
 }
 
@@ -1029,15 +1602,40 @@ void Renderer::renderCelestialBody(
     glUniform1f(m_uSimTimeLoc, simTime);
     glUniform3fv(m_uCameraPosLoc, 1, glm::value_ptr(camPos));
 
-    // Multi-Star Lighting Upload
-    int numLights = (int)std::min(stars.size(), (size_t)4);
-    glUniform1i(m_uNumLightsLoc, numLights);
-    for (int i = 0; i < numLights; ++i) {
-        glm::vec3 relLightPos = stars[i].positionAU - cameraTarget;
-        glUniform3fv(m_uLightPosLoc[i], 1, glm::value_ptr(relLightPos));
-        glUniform3fv(m_uLightColorLoc[i], 1, glm::value_ptr(stars[i].color));
-        glUniform1f(m_uLightIntensityLoc[i], stars[i].intensity);
+    // Physical Material & Cloud Shadow Uniforms
+    glUniform1f(m_uWaterFractionLoc, vBody.waterFraction);
+    glUniform1f(m_uIceFractionLoc, vBody.iceFraction);
+    glUniform1f(m_uRoughnessLoc, vBody.surfaceRoughness);
+    glUniform1f(m_uCloudShadowCoverageLoc, vBody.cloudCoverage);
+    glUniform1f(m_uCloudShadowRotAngleLoc, vBody.cloudRotationAngle);
+
+    if (m_uCinematicModeLoc != -1) glUniform1i(m_uCinematicModeLoc, m_cinematicEnabled ? 1 : 0);
+
+    // Planetary Ring Shadow projection parameters
+    glUniform1i(m_uHasRingLoc, vBody.hasRing ? 1 : 0);
+    if (vBody.hasRing) {
+        float innerR = (vBody.ringInnerRadiusAU > 0.0f) ? vBody.ringInnerRadiusAU : (vBody.renderRadius * 1.35f);
+        float outerR = (vBody.ringOuterRadiusAU > 0.0f) ? vBody.ringOuterRadiusAU : (vBody.renderRadius * 2.45f);
+        glm::vec3 ringNorm = glm::normalize(glm::mat3(vBody.rotationMatrix) * glm::vec3(0.0f, 1.0f, 0.0f));
+        glUniform3fv(m_uRingNormalLoc, 1, glm::value_ptr(ringNorm));
+        glUniform3fv(m_uPlanetCenterLoc, 1, glm::value_ptr(relativePos));
+        glUniform1f(m_uRingInnerRadiusLoc, innerR);
+        glUniform1f(m_uRingOuterRadiusLoc, outerR);
     }
+
+    // Multi-Star Lighting Upload (A body cannot be illuminated by itself)
+    int numLights = 0;
+    for (size_t i = 0; i < stars.size() && numLights < 4; ++i) {
+        if (glm::distance(stars[i].positionAU, vBody.positionAU) < 0.0001f) {
+            continue;
+        }
+        glm::vec3 relLightPos = stars[i].positionAU - cameraTarget;
+        glUniform3fv(m_uLightPosLoc[numLights], 1, glm::value_ptr(relLightPos));
+        glUniform3fv(m_uLightColorLoc[numLights], 1, glm::value_ptr(stars[i].color));
+        glUniform1f(m_uLightIntensityLoc[numLights], stars[i].intensity);
+        numLights++;
+    }
+    glUniform1i(m_uNumLightsLoc, numLights);
 
     // Debug Overlays
     glUniform1i(m_uDebugOverlayLoc, (int)debugOverlay);
@@ -1062,12 +1660,9 @@ void Renderer::renderCelestialBody(
     glBindVertexArray(m_sphereMesh.vao);
     glDrawElements(GL_TRIANGLES, m_sphereMesh.indexCount, GL_UNSIGNED_INT, 0);
 
-    // Render Atmospheric Shell
+    // Render Atmospheric Shell (procedural generic clouds bypassed to preserve real textures)
     if (vBody.hasAtmosphere && !vBody.isStar) {
         renderAtmosphereShell(camera, aspect, vBody, stars, cameraTarget);
-        if (vBody.hasClouds) {
-            renderCloudLayer(camera, aspect, vBody, stars, cameraTarget);
-        }
     }
 
     // Render Stellar Corona
@@ -1107,14 +1702,21 @@ void Renderer::renderAtmosphereShell(
     glUniform3fv(m_uAtmoColorLoc, 1, glm::value_ptr(vBody.atmosphereColor));
     glUniform1f(m_uAtmoDensityLoc, vBody.atmosphereDensity);
     glUniform3fv(m_uAtmoCameraPosLoc, 1, glm::value_ptr(camPos));
+    glUniform1f(m_uAtmoScaleHeightLoc, (float)vBody.scaleHeightKm);
+    glUniform1f(m_uAtmoMieFactorLoc, vBody.mieHazeFactor);
+    glUniform1f(m_uAtmoPlanetRadiusLoc, vBody.renderRadius);
 
-    int numLights = (int)std::min(stars.size(), (size_t)4);
-    glUniform1i(m_uAtmoNumLightsLoc, numLights);
-    for (int i = 0; i < numLights; ++i) {
+    int numLights = 0;
+    for (size_t i = 0; i < stars.size() && numLights < 4; ++i) {
+        if (glm::distance(stars[i].positionAU, vBody.positionAU) < 0.0001f) {
+            continue;
+        }
         glm::vec3 relLightPos = stars[i].positionAU - cameraTarget;
-        glUniform3fv(m_uAtmoLightPosLoc[i], 1, glm::value_ptr(relLightPos));
-        glUniform3fv(m_uAtmoLightColorLoc[i], 1, glm::value_ptr(stars[i].color));
+        glUniform3fv(m_uAtmoLightPosLoc[numLights], 1, glm::value_ptr(relLightPos));
+        glUniform3fv(m_uAtmoLightColorLoc[numLights], 1, glm::value_ptr(stars[i].color));
+        numLights++;
     }
+    glUniform1i(m_uAtmoNumLightsLoc, numLights);
 
     glBindVertexArray(m_sphereMesh.vao);
     glDrawElements(GL_TRIANGLES, m_sphereMesh.indexCount, GL_UNSIGNED_INT, 0);
@@ -1155,12 +1757,16 @@ void Renderer::renderCloudLayer(
     glUniform1f(m_uCloudCoverageLoc, vBody.cloudCoverage);
     glUniform1f(m_uCloudSimTimeLoc, vBody.cloudRotationAngle);
 
-    int numLights = (int)std::min(stars.size(), (size_t)4);
-    glUniform1i(m_uCloudNumLightsLoc, numLights);
-    for (int i = 0; i < numLights; ++i) {
+    int numLights = 0;
+    for (size_t i = 0; i < stars.size() && numLights < 4; ++i) {
+        if (glm::distance(stars[i].positionAU, vBody.positionAU) < 0.0001f) {
+            continue;
+        }
         glm::vec3 relLightPos = stars[i].positionAU - cameraTarget;
-        glUniform3fv(m_uCloudLightPosLoc[i], 1, glm::value_ptr(relLightPos));
+        glUniform3fv(m_uCloudLightPosLoc[numLights], 1, glm::value_ptr(relLightPos));
+        numLights++;
     }
+    glUniform1i(m_uCloudNumLightsLoc, numLights);
 
     glBindVertexArray(m_sphereMesh.vao);
     glDrawElements(GL_TRIANGLES, m_sphereMesh.indexCount, GL_UNSIGNED_INT, 0);
@@ -1352,7 +1958,7 @@ void Renderer::renderSkybox(const Camera& camera, float aspect) {
 
     glUseProgram(m_skyboxProgram);
 
-    glm::mat4 proj = glm::perspective(glm::radians(45.0f), std::max(aspect, 0.1f), 0.1f, 1000.0f);
+    glm::mat4 proj = glm::perspective(glm::radians(camera.getFOV()), std::max(aspect, 0.1f), 0.1f, 1000.0f);
     glm::mat4 view = glm::mat4(glm::mat3(camera.getViewMatrix()));
     glm::mat4 model = glm::scale(glm::mat4(1.0f), glm::vec3(100.0f));
     glm::mat4 vp = proj * view * model;
@@ -1367,6 +1973,7 @@ void Renderer::renderSkybox(const Camera& camera, float aspect) {
     } else {
         if (m_skyHasTexLoc != -1) glUniform1i(m_skyHasTexLoc, 0);
     }
+    if (m_skyCinematicModeLoc != -1) glUniform1i(m_skyCinematicModeLoc, m_cinematicEnabled ? 1 : 0);
 
     glBindVertexArray(m_sphereMesh.vao);
     glDrawElements(GL_TRIANGLES, m_sphereMesh.indexCount, GL_UNSIGNED_INT, 0);
@@ -1635,6 +2242,7 @@ void Renderer::renderRings(const Camera& camera, float aspect, const std::vector
         glUniform3fv(m_uRingPlanetCenterLoc, 1, glm::value_ptr(relativePlanetCenter));
         glUniform1f(m_uRingPlanetRadiusLoc, body.radius3D);
         glUniform3fv(m_uRingColorLoc, 1, glm::value_ptr(body.ring.baseColor));
+        glUniform1i(glGetUniformLocation(m_ringProgram, "uCinematicMode"), m_cinematicEnabled ? 1 : 0);
 
         glBindVertexArray(m_ringMesh.vao);
         glDrawElements(GL_TRIANGLES, m_ringMesh.indexCount, GL_UNSIGNED_INT, 0);

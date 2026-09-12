@@ -180,6 +180,13 @@ void Application::processInput(float deltaTime) {
         if (glfwGetKey(m_window, GLFW_KEY_MINUS) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_KP_SUBTRACT) == GLFW_PRESS) {
             m_camera.processMouseZoom(-1.0f * deltaTime * 5.0f);
         }
+        // Q and E: Smooth camera roll in Photo Mode or Viewport Hover
+        if (glfwGetKey(m_window, GLFW_KEY_Q) == GLFW_PRESS) {
+            m_camera.roll(-1.2f * deltaTime);
+        }
+        if (glfwGetKey(m_window, GLFW_KEY_E) == GLFW_PRESS) {
+            m_camera.roll(1.2f * deltaTime);
+        }
     }
 
     if (!io.WantTextInput && !io.WantCaptureKeyboard) {
@@ -190,6 +197,34 @@ void Application::processInput(float deltaTime) {
             m_physics.resetSimulation(m_objRepo);
             m_camera.resetOverview(glm::vec3(0.0f), 6.0f);
             m_uiManager.addEventLog("Simulation workspace reset to fresh start (Hotkey: R)");
+        }
+        // F10: Toggle Cinematic Mode
+        if (ImGui::IsKeyPressed(ImGuiKey_F10, false)) {
+            m_visualAdapter.toggleCinematicMode();
+            m_uiManager.addEventLog(m_visualAdapter.isCinematicModeEnabled() ? "Cinematic Mode enabled (Hotkey: F10)" : "Standard Mode active (Hotkey: F10)");
+        }
+        // P or F11: Toggle Photo Mode
+        if (ImGui::IsKeyPressed(ImGuiKey_P, false) || ImGui::IsKeyPressed(ImGuiKey_F11, false)) {
+            bool next = !m_visualAdapter.isPhotoModeActive();
+            m_visualAdapter.setPhotoModeActive(next);
+            m_uiManager.addEventLog(next ? "Photo Mode activated (Hotkey: P / F11)" : "Exited Photo Mode");
+        }
+        // F12: Toggle UI Visibility for clean capture
+        if (ImGui::IsKeyPressed(ImGuiKey_F12, false)) {
+            m_visualAdapter.toggleUIHidden();
+            m_uiManager.addEventLog(m_visualAdapter.isUIHidden() ? "UI hidden for clean capture (Hotkey: F12)" : "UI restored (Hotkey: F12)");
+        }
+        // Escape: unhide UI or exit Photo Mode
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+            if (m_visualAdapter.isUIHidden()) {
+                m_visualAdapter.setUIHidden(false);
+            } else if (m_visualAdapter.isPhotoModeActive()) {
+                m_visualAdapter.setPhotoModeActive(false);
+            }
+        }
+        // Z: Reset camera roll
+        if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
+            m_camera.resetRoll();
         }
         // Number keys 1-6 switch top-level workspaces
         if (ImGui::IsKeyPressed(ImGuiKey_1, false)) m_uiManager.setActiveTopTab(0);
@@ -290,15 +325,33 @@ void Application::run() {
         // Process mouse & keyboard interactions
         processInput(deltaTime);
 
+        // Pass cinematic parameters to renderer
+        m_renderer.setCinematicParameters(
+            m_visualAdapter.isCinematicModeEnabled(),
+            m_visualAdapter.getExposure(),
+            m_visualAdapter.getBloomIntensity(),
+            m_visualAdapter.getToneMappingMode(),
+            m_visualAdapter.isDoFEnabled(),
+            m_visualAdapter.getFocusDistance(),
+            m_visualAdapter.getDoFAperture(),
+            m_visualAdapter.isVignetteEnabled(),
+            m_visualAdapter.isCAEnabled(),
+            m_camera.getNearPlane(),
+            m_camera.getFarPlane()
+        );
+
         // Get 3D viewport bounds
         float vpX, vpY, vpW, vpH;
         m_uiManager.getViewportBounds(vpX, vpY, vpW, vpH);
 
-        glm::vec4 bgDark{0.039f, 0.055f, 0.102f, 1.00f};
-        m_renderer.beginViewport(0, 0, fbW, fbH, bgDark);
+        int vx = (int)vpX;
+        int vy = (int)(fbH - vpY - vpH);
+        int vw = std::max((int)vpW, 1);
+        int vh = std::max((int)vpH, 1);
+        float aspect = (float)vw / (float)vh;
 
-        glViewport((int)vpX, (int)(fbH - vpY - vpH), (int)vpW, (int)vpH);
-        float aspect = vpW / std::max(vpH, 1.0f);
+        glm::vec4 bgDark{0.0f, 0.0f, 0.0f, 1.00f};
+        m_renderer.beginViewport(vx, vy, vw, vh, bgDark);
 
         // 1. Skybox background
         m_renderer.renderSkybox(m_camera, aspect);

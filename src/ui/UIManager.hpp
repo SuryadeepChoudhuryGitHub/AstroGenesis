@@ -48,8 +48,9 @@ public:
     void setActiveTopTab(int tab) { m_activeTopTab = tab; }
     int getActiveTopTab() const { return m_activeTopTab; }
 
-private:
-    void drawTopBar(float width, PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo);
+    void drawTopBar(float width, PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo, VisualStateAdapter& visualAdapter);
+    void drawPhotoModeToolbar(PhysicsEngine& physics, Camera& camera, VisualStateAdapter& visualAdapter, float winW, float winH);
+    void drawHiddenUIOverlay(VisualStateAdapter& visualAdapter, float winW, float winH);
     void drawLeftPanel(PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo, float topBarH, float statusBarH, float winH);
     void drawInfoOverlay(const CelestialBody& body, float x, float y);
     void drawRightPanel(PhysicsEngine& physics, CelestialBody& body, DataManager& dataManager, ObjectRepository& objRepo, VisualStateAdapter& visualAdapter, ai::AIManager& aiManager, float topBarH, float winW, float winH, float statusBarH);

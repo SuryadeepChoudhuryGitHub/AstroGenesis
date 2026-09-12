@@ -134,6 +134,32 @@ void UIManager::renderUI(PhysicsEngine& physics,
                          VisualStateAdapter& visualAdapter,
                          ai::AIManager& aiManager,
                          float windowWidth, float windowHeight, float fps) {
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 mousePos = ImGui::GetMousePos();
+
+    // 1. Clean Screenshot Mode (Hotkey: F12)
+    if (visualAdapter.isUIHidden()) {
+        m_viewportX = 0.0f;
+        m_viewportY = 0.0f;
+        m_viewportW = windowWidth;
+        m_viewportH = windowHeight;
+        m_viewportHovered = !io.WantCaptureMouse;
+        drawHiddenUIOverlay(visualAdapter, windowWidth, windowHeight);
+        return;
+    }
+
+    // 2. SpaceEngine-style Photo Mode Active (Hotkey: P / F11)
+    if (visualAdapter.isPhotoModeActive()) {
+        m_viewportX = 0.0f;
+        m_viewportY = 0.0f;
+        m_viewportW = windowWidth;
+        m_viewportH = windowHeight;
+        m_viewportHovered = !io.WantCaptureMouse;
+        drawPhotoModeToolbar(physics, camera, visualAdapter, windowWidth, windowHeight);
+        return;
+    }
+
+    // 3. Standard Workspace Layout
     float topBarH    = 48.0f;
     float statusBarH = 28.0f;
     float leftPanelW = 210.0f;
@@ -145,13 +171,11 @@ void UIManager::renderUI(PhysicsEngine& physics,
     m_viewportW = windowWidth - leftPanelW - rightPanelW;
     m_viewportH = windowHeight - topBarH - bottomH - statusBarH;
 
-    ImVec2 mousePos = ImGui::GetMousePos();
-    ImGuiIO& io = ImGui::GetIO();
     m_viewportHovered = (mousePos.x >= m_viewportX && mousePos.x <= m_viewportX + m_viewportW &&
                          mousePos.y >= m_viewportY && mousePos.y <= m_viewportY + m_viewportH) && !io.WantCaptureMouse;
 
     // 1. Top Bar (Global Navigation & Workspace Switcher)
-    drawTopBar(windowWidth, physics, camera, objRepo);
+    drawTopBar(windowWidth, physics, camera, objRepo, visualAdapter);
 
     // 2. Route Top-Level Workspaces
     if (m_activeTopTab == 0) {
@@ -218,7 +242,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
 }
 
 
-void UIManager::drawTopBar(float width, PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo) {
+void UIManager::drawTopBar(float width, PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo, VisualStateAdapter& visualAdapter) {
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(width, 48));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
@@ -236,7 +260,7 @@ void UIManager::drawTopBar(float width, PhysicsEngine& physics, Camera& camera, 
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::TextColored(Col::TextSecondary, "SPACE SIMULATION ENGINE");
-    ImGui::SameLine(0, 32);
+    ImGui::SameLine(0, 24);
 
     // Top Navigation Tabs
     const char* tabs[] = { "UNIVERSE", "SYSTEM", "OBJECTS", "EXPLORE", "SIMULATION", "AI ASSISTANT" };
@@ -254,11 +278,51 @@ void UIManager::drawTopBar(float width, PhysicsEngine& physics, Camera& camera, 
         ImGui::PopStyleColor(2);
     }
 
-    // Top Bar Action Buttons: Reset Workspace, Data Manager, Validation, Asteroids, Matter Lab
-    float rightOffset = width - 830.0f;
+    // Top Bar Action Buttons: Cinematic Toggle, Photo Mode, Reset Workspace, Data Manager, Validation, Asteroids, Matter Lab
+    float rightOffset = std::max(width - 1120.0f, 630.0f);
     ImGui::SameLine(rightOffset);
 
-    // 0. RESET WORKSPACE (Clean Start)
+    // 1. CINEMATIC MODE TOGGLE
+    bool cineOn = visualAdapter.isCinematicModeEnabled();
+    if (cineOn) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.85f, 0.60f, 0.05f, 0.95f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.95f, 0.70f, 0.15f, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.05f, 0.05f, 0.05f, 1.0f));
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.16f, 0.24f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.24f, 0.35f, 0.95f));
+        ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
+    }
+    if (ImGui::Button(cineOn ? "🎬 CINEMATIC: ON" : "🎬 CINEMATIC: OFF", ImVec2(140, 28))) {
+        visualAdapter.toggleCinematicMode();
+        addEventLog(visualAdapter.isCinematicModeEnabled() ? "Cinematic Graphics Mode enabled (ACES Filmic + Bloom)" : "Standard Graphics Mode active");
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Toggle Realistic Cinematic Post-Processing Pipeline (ACES Filmic Tone Mapping, HDR Bloom, Rayleigh Scattering) (Hotkey: F10)");
+    }
+    ImGui::PopStyleColor(3);
+
+    // 2. PHOTO MODE BUTTON
+    ImGui::SameLine(0, 5);
+    bool photoOn = visualAdapter.isPhotoModeActive();
+    if (photoOn) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.60f, 0.20f, 0.85f, 0.95f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.16f, 0.12f, 0.26f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.70f, 1.0f, 1.0f));
+    }
+    if (ImGui::Button("📷 PHOTO MODE", ImVec2(120, 28))) {
+        visualAdapter.setPhotoModeActive(!photoOn);
+        addEventLog(visualAdapter.isPhotoModeActive() ? "Photo Mode activated (Hotkey: P / F11)" : "Exited Photo Mode");
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Open SpaceEngine-inspired Photo Mode Toolbar (Camera Roll, FOV, Exposure EV, DoF Focus, Clean Shots) (Hotkey: P / F11)");
+    }
+    ImGui::PopStyleColor(2);
+
+    // 3. RESET WORKSPACE (Clean Start)
+    ImGui::SameLine(0, 5);
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.50f, 0.16f, 0.16f, 0.85f));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.70f, 0.22f, 0.22f, 0.95f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.9f, 0.9f, 1.0f));
@@ -272,7 +336,7 @@ void UIManager::drawTopBar(float width, PhysicsEngine& physics, Camera& camera, 
     }
     ImGui::PopStyleColor(3);
 
-    // 1. DATA MANAGER
+    // 4. DATA MANAGER
     ImGui::SameLine(0, 5);
     if (m_showDataManager) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.00f, 0.65f, 0.85f, 0.95f));
@@ -286,7 +350,7 @@ void UIManager::drawTopBar(float width, PhysicsEngine& physics, Camera& camera, 
     }
     ImGui::PopStyleColor(2);
 
-    // 2. VALIDATION
+    // 5. VALIDATION
     ImGui::SameLine(0, 5);
     if (m_showValidationDashboard) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.35f, 0.12f, 0.95f));
@@ -300,7 +364,7 @@ void UIManager::drawTopBar(float width, PhysicsEngine& physics, Camera& camera, 
     }
     ImGui::PopStyleColor(2);
 
-    // 3. ASTEROID BELT
+    // 6. ASTEROID BELT
     ImGui::SameLine(0, 5);
     if (m_showAsteroidBeltDiagnostics) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.45f, 0.75f, 0.95f));
@@ -309,12 +373,12 @@ void UIManager::drawTopBar(float width, PhysicsEngine& physics, Camera& camera, 
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.10f, 0.16f, 0.26f, 0.85f));
         ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
     }
-    if (ImGui::Button("☄ ASTEROID BELT (N(a))", ImVec2(185, 28))) {
+    if (ImGui::Button("☄ ASTEROID BELT", ImVec2(145, 28))) {
         m_showAsteroidBeltDiagnostics = !m_showAsteroidBeltDiagnostics;
     }
     ImGui::PopStyleColor(2);
 
-    // 4. DEFORMABLE MATTER LAB
+    // 7. DEFORMABLE MATTER LAB
     ImGui::SameLine(0, 5);
     if (m_showMatterLab) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65f, 0.35f, 0.15f, 0.95f));
@@ -331,6 +395,217 @@ void UIManager::drawTopBar(float width, PhysicsEngine& physics, Camera& camera, 
     ImGui::End();
     ImGui::PopStyleColor(2);
     ImGui::PopStyleVar(2);
+}
+
+void UIManager::drawPhotoModeToolbar(PhysicsEngine& physics, Camera& camera, VisualStateAdapter& visualAdapter, float winW, float winH) {
+    float toolbarW = 340.0f;
+    float toolbarH = std::min(winH - 40.0f, 680.0f);
+    ImGui::SetNextWindowPos(ImVec2(20.0f, 20.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(toolbarW, toolbarH), ImGuiCond_FirstUseEver);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.035f, 0.045f, 0.080f, 0.90f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.60f, 0.30f, 0.90f, 0.80f));
+
+    if (ImGui::Begin("📷 PHOTO MODE STUDIO##PhotoModeWin", nullptr, ImGuiWindowFlags_NoCollapse)) {
+        // Header & Exit
+        ImGui::TextColored(ImVec4(0.85f, 0.65f, 1.0f, 1.0f), "SPACE PHOTO MODE");
+        ImGui::SameLine(toolbarW - 90.0f);
+        if (ImGui::Button("✖ Exit (Esc)", ImVec2(80, 22))) {
+            visualAdapter.setPhotoModeActive(false);
+        }
+        ImGui::Separator();
+
+        // 1. Visual Preset Selector
+        ImGui::TextColored(Col::Accent, "VISUAL QUALITY PRESET");
+        int curPreset = (int)visualAdapter.getPreset();
+        const char* presets[] = { "Normal (Baseline)", "Realistic (Photometric)", "Cinematic (Bloom + Flare)", "Ultra (Full ACES & FX)" };
+        if (ImGui::Combo("##PresetCombo", &curPreset, presets, 4)) {
+            visualAdapter.applyPreset((VisualPreset)curPreset);
+            addEventLog(std::string("Applied visual preset: ") + presets[curPreset]);
+        }
+
+        bool cine = visualAdapter.isCinematicModeEnabled();
+        if (ImGui::Checkbox("Cinematic Graphics Pipeline (F10)", &cine)) {
+            visualAdapter.setCinematicMode(cine);
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        // 2. Camera Lens & Roll Controls
+        ImGui::TextColored(Col::Accent, "CAMERA LENS & ANGLE");
+
+        // FOV Slider
+        float fov = camera.getFOV();
+        if (ImGui::SliderFloat("FOV (Lens)##PhotoFOV", &fov, 15.0f, 105.0f, "%.1f°")) {
+            camera.setFOV(fov);
+        }
+        // FOV quick presets
+        if (ImGui::SmallButton("24mm (42°)##Fov24")) { camera.setFOV(42.0f); }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("50mm (28°)##Fov50")) { camera.setFOV(28.0f); }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("85mm (18°)##Fov85")) { camera.setFOV(18.0f); }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Wide (65°)##FovWide")) { camera.setFOV(65.0f); }
+
+        // Camera Roll Slider (radians -> degrees)
+        float rollDeg = glm::degrees(camera.getRoll());
+        if (ImGui::SliderFloat("Roll (Tilt)##PhotoRoll", &rollDeg, -180.0f, 180.0f, "%.1f°")) {
+            camera.setRoll(glm::radians(rollDeg));
+        }
+        ImGui::TextDisabled("Hold [Q] / [E] to roll camera smoothly");
+        if (ImGui::Button("↺ Reset Roll (0°)##ResetRollBtn", ImVec2(140, 22))) {
+            camera.resetRoll();
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        // 3. Photographic Exposure & Tone Mapping
+        ImGui::TextColored(Col::Accent, "EXPOSURE & COLOR SCIENCE");
+
+        float expVal = visualAdapter.getExposure();
+        float ev = std::log2(std::max(expVal, 0.05f));
+        if (ImGui::SliderFloat("Exposure (EV)##PhotoEV", &ev, -3.0f, 3.0f, "%.2f EV")) {
+            visualAdapter.setExposure(std::pow(2.0f, ev));
+        }
+        if (ImGui::SmallButton("Reset EV (0.0)##ResetEV")) {
+            visualAdapter.setExposure(1.0f);
+        }
+
+        int toneMode = visualAdapter.getToneMappingMode();
+        const char* toneNames[] = { "ACES Filmic (Hollywood Standard)", "Reinhard (Natural Highlight Softening)", "Filmic (High Contrast Space)" };
+        if (ImGui::Combo("Tone Mapping##PhotoTone", &toneMode, toneNames, 3)) {
+            visualAdapter.setToneMappingMode(toneMode);
+        }
+
+        float bloom = visualAdapter.getBloomIntensity();
+        if (ImGui::SliderFloat("HDR Bloom Glow##PhotoBloom", &bloom, 0.0f, 2.5f, "%.2fx")) {
+            visualAdapter.setBloomIntensity(bloom);
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        // 4. Depth of Field (DoF) & Focus Distance
+        ImGui::TextColored(Col::Accent, "DEPTH OF FIELD (CINEMATIC BLUR)");
+        bool dof = visualAdapter.isDoFEnabled();
+        if (ImGui::Checkbox("Enable Depth of Field##PhotoDoF", &dof)) {
+            visualAdapter.setDoFEnabled(dof);
+            camera.setDoFEnabled(dof);
+        }
+
+        if (dof) {
+            float focusDist = visualAdapter.getFocusDistance();
+            if (ImGui::DragFloat("Focus Distance (AU)##PhotoFocus", &focusDist, 0.05f, 0.001f, 100.0f, "%.4f AU")) {
+                visualAdapter.setFocusDistance(focusDist);
+                camera.setFocusDistance(focusDist);
+            }
+
+            if (ImGui::Button("🎯 Auto-Focus on Target Object##FocusTgt", ImVec2(220, 24))) {
+                float dist = camera.getDistance();
+                visualAdapter.setFocusDistance(dist);
+                camera.setFocusDistance(dist);
+            }
+
+            float aperture = visualAdapter.getDoFAperture();
+            if (ImGui::SliderFloat("Aperture / CoC##PhotoAp", &aperture, 0.002f, 0.12f, "f/%.3f")) {
+                visualAdapter.setDoFAperture(aperture);
+                camera.setDoFAperture(aperture);
+            }
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        // 5. Optics & Lens Effects
+        ImGui::TextColored(Col::Accent, "OPTICAL EFFECTS");
+        bool vig = visualAdapter.isVignetteEnabled();
+        if (ImGui::Checkbox("Lens Vignette##PhotoVig", &vig)) {
+            visualAdapter.setVignetteEnabled(vig);
+        }
+        ImGui::SameLine();
+        bool ca = visualAdapter.isCAEnabled();
+        if (ImGui::Checkbox("Chromatic Aberration##PhotoCA", &ca)) {
+            visualAdapter.setCAEnabled(ca);
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        // 6. Scene Overlays & Elements
+        ImGui::TextColored(Col::Accent, "SCENE ELEMENTS");
+        bool orbits = visualAdapter.areOrbitLinesEnabled();
+        if (ImGui::Checkbox("Orbit Lines##PhotoOrbits", &orbits)) {
+            visualAdapter.setOrbitLinesEnabled(orbits);
+        }
+        ImGui::SameLine();
+        bool trails = visualAdapter.areMotionTrailsEnabled();
+        if (ImGui::Checkbox("Motion Trails##PhotoTrails", &trails)) {
+            visualAdapter.setMotionTrailsEnabled(trails);
+        }
+
+        bool atmo = visualAdapter.areAtmospheresEnabled();
+        if (ImGui::Checkbox("Atmosphere Glow##PhotoAtmo", &atmo)) {
+            visualAdapter.setAtmospheresEnabled(atmo);
+        }
+        ImGui::SameLine();
+        bool clouds = visualAdapter.areCloudsEnabled();
+        if (ImGui::Checkbox("Clouds##PhotoClouds", &clouds)) {
+            visualAdapter.setCloudsEnabled(clouds);
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        // 7. Time Control & Capture
+        ImGui::TextColored(Col::Accent, "CAPTURE & CONTROLS");
+        bool paused = physics.isPaused();
+        if (ImGui::Button(paused ? "▶ Resume Motion##PhotoPlay" : "⏸ Freeze Motion##PhotoPause", ImVec2(150, 26))) {
+            physics.togglePause();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("📸 HIDE UI (F12)##HideUIBtn", ImVec2(140, 26))) {
+            visualAdapter.setUIHidden(true);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Hide all UI and menus for clean screenshot capture! (Press F12 again to bring UI back)");
+        }
+
+        ImGui::Spacing();
+        ImGui::TextDisabled("Controls: [Q/E] Roll | [Scroll] Zoom/Distance | [F12] Hide UI | [Esc] Exit");
+    }
+    ImGui::End();
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar();
+}
+
+void UIManager::drawHiddenUIOverlay(VisualStateAdapter& visualAdapter, float winW, float winH) {
+    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    const char* hint = "● PHOTO CAPTURE MODE  |  [F12] Show UI  |  [Esc] Exit";
+    ImVec2 textSize = ImGui::CalcTextSize(hint);
+    float pad = 8.0f;
+    float boxW = textSize.x + pad * 2.0f;
+    float boxH = textSize.y + pad * 1.5f;
+    float boxX = winW - boxW - 16.0f;
+    float boxY = 16.0f;
+
+    // Translucent glass badge (40% opacity so it doesn't ruin the view)
+    dl->AddRectFilled(ImVec2(boxX, boxY), ImVec2(boxX + boxW, boxY + boxH),
+                      ImGui::ColorConvertFloat4ToU32(ImVec4(0.02f, 0.03f, 0.06f, 0.40f)), 4.0f);
+    dl->AddRect(ImVec2(boxX, boxY), ImVec2(boxX + boxW, boxY + boxH),
+                ImGui::ColorConvertFloat4ToU32(ImVec4(0.40f, 0.60f, 0.90f, 0.35f)), 4.0f);
+    dl->AddText(ImVec2(boxX + pad, boxY + pad * 0.75f),
+                ImGui::ColorConvertFloat4ToU32(ImVec4(0.80f, 0.85f, 0.95f, 0.70f)), hint);
+
+    // If clicked on the badge, unhide UI
+    ImVec2 mousePos = ImGui::GetMousePos();
+    if (mousePos.x >= boxX && mousePos.x <= boxX + boxW && mousePos.y >= boxY && mousePos.y <= boxY + boxH) {
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            visualAdapter.setUIHidden(false);
+        }
+    }
 }
 
 void UIManager::drawLeftPanel(PhysicsEngine& physics, Camera& camera, ObjectRepository& objRepo, float topBarH, float statusBarH, float winH) {
@@ -584,7 +859,12 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, Data
         int selIdx = physics.getSelectedBodyIndex();
         if (selIdx >= 0 && selIdx < (int)physics.getBodies().size()) {
             CelestialBody& mutBody = physics.getBodies()[selIdx];
-            bool isStar = (mutBody.type.find("Star") != std::string::npos || mutBody.type.find("Dwarf") != std::string::npos || mutBody.id == "sol");
+            bool isPlanetOrMinor = (mutBody.type.find("Planet") != std::string::npos || 
+                                   mutBody.type.find("Moon") != std::string::npos || 
+                                   mutBody.type.find("Asteroid") != std::string::npos || 
+                                   mutBody.type.find("Comet") != std::string::npos);
+            bool isDwarfStar = (mutBody.type.find("Dwarf") != std::string::npos && !isPlanetOrMinor);
+            bool isStar = !isPlanetOrMinor && (mutBody.id == "sol" || mutBody.type.find("Star") != std::string::npos || isDwarfStar);
             bool isBlackHole = (mutBody.type.find("Black Hole") != std::string::npos);
 
             ImGui::TextColored(physics.isPaused() ? Col::Yellow : Col::Green, 
@@ -1218,12 +1498,44 @@ void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, VisualSt
 
     if (showVisPopup) {
         ImGui::SetNextWindowPos(ImVec2(visBtnPos.x - 140.0f, visBtnPos.y + 32.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(320.0f, 470.0f));
+        ImGui::SetNextWindowSize(ImVec2(340.0f, 580.0f));
         ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.03f, 0.045f, 0.085f, 0.98f));
         ImGui::PushStyleColor(ImGuiCol_Border, Col::Accent);
         if (ImGui::Begin("##VisPopup", &showVisPopup, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
-            ImGui::TextColored(Col::Accent, "VISUALIZATION PIPELINE");
+            ImGui::TextColored(Col::Accent, "CINEMATIC & VISUAL PRESETS");
+            int curPreset = (int)visualAdapter.getPreset();
+            const char* presets[] = { "Normal (Baseline)", "Realistic (Photometric)", "Cinematic (Bloom + Flare)", "Ultra (Full ACES & FX)" };
+            if (ImGui::Combo("Quality Preset##VisPreset", &curPreset, presets, 4)) {
+                visualAdapter.applyPreset((VisualPreset)curPreset);
+            }
+
+            bool cineOn = visualAdapter.isCinematicModeEnabled();
+            if (ImGui::Checkbox("Cinematic Graphics Pipeline (F10)", &cineOn)) {
+                visualAdapter.setCinematicMode(cineOn);
+            }
+
+            if (cineOn) {
+                float expVal = visualAdapter.getExposure();
+                float ev = std::log2(std::max(expVal, 0.05f));
+                if (ImGui::SliderFloat("Exposure (EV)", &ev, -3.0f, 3.0f, "%.2f EV")) {
+                    visualAdapter.setExposure(std::pow(2.0f, ev));
+                }
+
+                float bloom = visualAdapter.getBloomIntensity();
+                if (ImGui::SliderFloat("HDR Bloom Glow", &bloom, 0.0f, 2.5f, "%.2fx")) {
+                    visualAdapter.setBloomIntensity(bloom);
+                }
+
+                int toneMode = visualAdapter.getToneMappingMode();
+                const char* toneNames[] = { "ACES Filmic", "Reinhard", "Filmic" };
+                if (ImGui::Combo("Tone Mapping", &toneMode, toneNames, 3)) {
+                    visualAdapter.setToneMappingMode(toneMode);
+                }
+            }
+
+            ImGui::Spacing();
             ImGui::Separator();
+            ImGui::TextColored(Col::Accent, "VISUALIZATION PIPELINE");
 
             int vMode = (int)visualAdapter.getVisualMode();
             const char* vModes[] = { "Realistic (PBR Photometry)", "Scientific (High-Contrast)", "Cinematic (Bloom & Flare)", "Debug (Physical Overlays)" };
