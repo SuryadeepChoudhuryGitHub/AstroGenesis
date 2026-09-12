@@ -108,6 +108,10 @@ public:
     void recalculateStellarLuminosity(int bodyIdx);
     void setBodyGreenhouseDeltaK(int bodyIdx, float greenhouseDeltaK);
     void setBodyAtmosphere(int bodyIdx, bool enabled);
+    void setBodyGasPercentage(int bodyIdx, const std::string& speciesId, float newPercentage);
+    void setBodySurfacePressureKpa(int bodyIdx, double pressureKpa);
+    void setBodyBareAlbedo(int bodyIdx, double baseAlbedo);
+    void resetBodyAtmosphereToBaseline(int bodyIdx);
     void forceUpdatePhysicalQuantities();
 
     // Collision Detection & Events

@@ -231,43 +231,23 @@ void VisualStateAdapter::update(
 
         // Atmosphere & Cloud Physics
         bool isGasGiant = (b.type.find("Gas Giant") != std::string::npos || b.type.find("Ice Giant") != std::string::npos || b.id == "jupiter" || b.id == "saturn" || b.id == "uranus" || b.id == "neptune");
-        bool hasAtmoData = (!b.atmosphereStr.empty() && b.atmosphereStr != "None" && b.atmosphereStr != "Trace");
+        bool hasAtmoData = (!b.atmosphereStr.empty() && b.atmosphereStr != "None" && b.atmosphereStr != "Trace" && b.atmosphereStr != "Airless (Vacuum)");
         
-        bool wantsAtmo = b.hasAtmosphereCustom ? b.hasAtmosphere : (hasAtmoData || isGasGiant || b.greenhouseK > 1.0);
+        bool wantsAtmo = b.hasAtmosphereCustom ? b.hasAtmosphere : (b.atmosphere.hasAtmosphere || b.hasAtmosphere || hasAtmoData || isGasGiant || b.greenhouseK > 1.0);
         if (wantsAtmo && m_enableAtmospheres) {
             vs.hasAtmosphere = true;
-            vs.scaleHeightKm = calculateAtmosphericScaleHeightKm(b.surfaceTempK, b.surfaceGravityMps2);
+            vs.scaleHeightKm = (b.scaleHeightKm > 0.0) ? b.scaleHeightKm : (double)calculateAtmosphericScaleHeightKm(b.surfaceTempK, b.surfaceGravityMps2);
             
             // Atmospheric outer shell thickness in visual space
             float atmoVisualThickness = isGasGiant ? (vs.renderRadius * 0.12f) : std::clamp((float)(vs.scaleHeightKm / vs.physicalRadiusKm * vs.renderRadius * 12.0f), vs.renderRadius * 0.025f, vs.renderRadius * 0.16f);
             vs.atmosphereThickness = atmoVisualThickness;
             vs.atmosphereRadius = vs.renderRadius + atmoVisualThickness;
 
-            // Composition-based Rayleigh tint
-            if (b.id == "earth" || b.atmosphereStr.find("N2") != std::string::npos || b.atmosphereStr.find("N₂") != std::string::npos) {
-                vs.atmosphereColor = glm::vec3(0.18f, 0.45f, 0.95f); // Nitrogen-Oxygen Blue Rayleigh Sky
-                vs.hasClouds = m_enableClouds;
-                vs.cloudCoverage = 0.55f;
-            } else if (b.id == "venus" || b.atmosphereStr.find("CO2") != std::string::npos || b.atmosphereStr.find("CO₂") != std::string::npos) {
-                vs.atmosphereColor = glm::vec3(0.85f, 0.75f, 0.42f); // Sulfuric haze / Dense CO2
-                vs.hasClouds = m_enableClouds;
-                vs.cloudCoverage = 0.95f;
-            } else if (b.id == "mars") {
-                vs.atmosphereColor = glm::vec3(0.72f, 0.48f, 0.35f); // Thin mineral dust haze
-                vs.hasClouds = false;
-                vs.cloudCoverage = 0.08f;
-            } else if (b.id == "titan") {
-                vs.atmosphereColor = glm::vec3(0.88f, 0.58f, 0.22f); // Tholin organic orange haze
-                vs.hasClouds = m_enableClouds;
-                vs.cloudCoverage = 0.80f;
-            } else if (isGasGiant) {
-                vs.atmosphereColor = b.color * 1.1f;
-                vs.hasClouds = m_enableClouds;
-                vs.cloudCoverage = 1.0f;
-            } else {
-                vs.atmosphereColor = glm::vec3(0.35f, 0.60f, 0.90f);
-            }
-
+            // Direct coupling from dynamic chemical and atmospheric model
+            vs.atmosphereColor = b.rayleighColor;
+            vs.atmosphereDensity = (b.atmosphere.visualDensityFactor > 0.0f) ? b.atmosphere.visualDensityFactor : 1.0f;
+            vs.cloudCoverage = (float)b.cloudCoverage;
+            vs.hasClouds = m_enableClouds && (vs.cloudCoverage > 0.02f);
             vs.cloudRotationAngle = b.rotationAngle + m_globalCloudRotationTimer * 0.15f;
         }
 

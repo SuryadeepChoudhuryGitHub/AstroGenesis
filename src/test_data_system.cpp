@@ -10,6 +10,7 @@
 #include "data/DataManager.hpp"
 #include "simulation/ValidationEngine.hpp"
 #include "simulation/PhysicsEngine.hpp"
+#include "simulation/ChemicalComposition.hpp"
 #include "renderer/VisualStateAdapter.hpp"
 
 using namespace AstroGenesis;
@@ -376,14 +377,107 @@ int main() {
 
     // 17d. Verify Star is selectable and usable in Custom System Builder
     auto hydratedStar = objRepo.getHydratedBodyBySlug(starRec.object.slug);
-    assert(hydratedStar.has_value());
     assert(hydratedStar.value().surfaceTempK > 3000.0);
     std::cout << "    - Verified Star in Library: Temp = " << hydratedStar.value().surfaceTempK << " K, Color = (" 
               << hydratedStar.value().color.r << ", " << hydratedStar.value().color.g << ", " << hydratedStar.value().color.b << ")" << std::endl;
     std::cout << "    -> PASS" << std::endl;
 
+    // 18. Test Physical-Chemical Consistency & Atmospheric Thermodynamics
+    std::cout << "\n[18] Physical-Chemical Consistency & Atmospheric Thermodynamics" << std::endl;
+
+    // 18a. Jeans Thermal Atmospheric Escape: Earth vs Moon vs Jupiter
+    ChemicalSystem::initialize();
+    const auto& specH2 = ChemicalSystem::getSpecies("H2");
+    const auto& specN2 = ChemicalSystem::getSpecies("N2");
+    const auto& specCO2 = ChemicalSystem::getSpecies("CO2");
+
+    // Earth (v_esc = 11.19 km/s, T_exo ~ 900 K)
+    auto retEarthN2 = ChemicalSystem::evaluateGasRetention(specN2, 11190.0, 900.0);
+    auto retEarthCO2 = ChemicalSystem::evaluateGasRetention(specCO2, 11190.0, 900.0);
+    auto retEarthH2 = ChemicalSystem::evaluateGasRetention(specH2, 11190.0, 900.0);
+    std::cout << "    - Earth Jeans Retention: N2=" << (retEarthN2.isRetained ? "Retained" : "Lost")
+              << ", CO2=" << (retEarthCO2.isRetained ? "Retained" : "Lost")
+              << ", H2=" << (retEarthH2.isRetained ? "Retained" : "Lost") << std::endl;
+    assert(retEarthN2.isRetained);
+    assert(retEarthCO2.isRetained);
+    assert(!retEarthH2.isRetained); // H2 escapes thermally on terrestrial planets
+
+    // Moon (v_esc = 2.38 km/s, T_exo ~ 700 K)
+    auto retMoonN2 = ChemicalSystem::evaluateGasRetention(specN2, 2380.0, 700.0);
+    std::cout << "    - Moon Jeans Retention: N2=" << (retMoonN2.isRetained ? "Retained" : "Lost (Airless)") << std::endl;
+    assert(!retMoonN2.isRetained); // Moon cannot hold N2 atmosphere
+
+    // Jupiter (v_esc = 59.5 km/s, T ~ 160 K)
+    auto retJupH2 = ChemicalSystem::evaluateGasRetention(specH2, 59500.0, 160.0);
+    std::cout << "    - Jupiter Jeans Retention: H2=" << (retJupH2.isRetained ? "Retained" : "Lost") << std::endl;
+    assert(retJupH2.isRetained);
+
+    // 18b. Milne-Eddington Optical Depth & Greenhouse Warming: Earth vs Venus
+    std::vector<ChemicalAbundance> earthInventory = {
+        { "N2", "N₂", "Nitrogen", 78.08f, 0.78f, glm::vec4(0.2f, 0.5f, 0.9f, 1.0f) },
+        { "O2", "O₂", "Oxygen", 20.95f, 0.21f, glm::vec4(0.3f, 0.8f, 0.4f, 1.0f) },
+        { "H2O", "H₂O", "Water Vapor", 1.20f, 0.012f, glm::vec4(0.4f, 0.7f, 1.0f, 1.0f) },
+        { "CO2", "CO₂", "Carbon Dioxide", 0.04f, 0.0004f, glm::vec4(0.8f, 0.4f, 0.2f, 1.0f) }
+    };
+    double tauEarth = ChemicalSystem::calculateOpticalDepth(101325.0, earthInventory);
+    double tEffEarth = 255.0; // Raw radiative equilibrium temperature without atmosphere
+    double deltaTEarth = ChemicalSystem::calculateGreenhouseDeltaK(tEffEarth, tauEarth);
+    std::cout << "    - Earth Greenhouse Effect: tau=" << tauEarth << ", DeltaT=+" << deltaTEarth << " K (Expected ~30-35 K)" << std::endl;
+    assert(deltaTEarth >= 20.0 && deltaTEarth <= 45.0);
+
+    // Venus baseline: P = 9300 kPa (93 atm), 96.5% CO2
+    std::vector<ChemicalAbundance> venusInventory = {
+        { "CO2", "CO₂", "Carbon Dioxide", 96.5f, 0.965f, glm::vec4(0.85f, 0.75f, 0.42f, 1.0f) },
+        { "N2", "N₂", "Nitrogen", 3.5f, 0.035f, glm::vec4(0.4f, 0.6f, 0.8f, 1.0f) }
+    };
+    double tauVenus = ChemicalSystem::calculateOpticalDepth(9.3e6, venusInventory);
+    double tEffVenus = 230.0;
+    double deltaTVenus = ChemicalSystem::calculateGreenhouseDeltaK(tEffVenus, tauVenus);
+    std::cout << "    - Venus Greenhouse Effect: tau=" << tauVenus << ", DeltaT=+" << deltaTVenus << " K (Expected ~450-520 K)" << std::endl;
+    assert(deltaTVenus >= 400.0 && deltaTVenus <= 550.0);
+
+    // 18c. Dynamic Albedo & Phase Feedback Coupling
+    double albedoWarm = ChemicalSystem::calculateDynamicAlbedo(0.30, 295.0, 0.0, true);
+    double albedoFrozen = ChemicalSystem::calculateDynamicAlbedo(0.30, 240.0, 0.0, true);
+    std::cout << "    - Ice-Albedo Feedback: Warm Albedo=" << albedoWarm << " -> Frozen Ice Albedo=" << albedoFrozen << std::endl;
+    assert(albedoFrozen > albedoWarm + 0.20);
+
+    // 18d. Live Simulation Coupling in PhysicsEngine
+    physics.reloadCurrentSystem(objRepo);
+    int earthIdx = -1;
+    for (size_t i = 0; i < physics.getBodies().size(); ++i) {
+        if (physics.getBodies()[i].id == "earth") {
+            earthIdx = (int)i;
+            break;
+        }
+    }
+    assert(earthIdx >= 0);
+    const auto& liveEarth = physics.getBodies()[earthIdx];
+    std::cout << "    - Live Earth Simulated State:" << std::endl;
+    std::cout << "      • Surface Temp: " << liveEarth.tempStr << " (Equilibrium + Greenhouse)" << std::endl;
+    std::cout << "      • Atmosphere:   " << liveEarth.atmosphereStr << std::endl;
+    std::cout << "      • Pressure:     " << liveEarth.pressureStr << std::endl;
+    std::cout << "      • Scale Height: " << liveEarth.scaleHeightKm << " km" << std::endl;
+    std::cout << "      • Optical Depth: tau=" << liveEarth.opticalDepth << " (Greenhouse +" << liveEarth.greenhouseK << " K)" << std::endl;
+    assert(liveEarth.hasAtmosphere);
+    assert(liveEarth.surfaceTempK > 270.0 && liveEarth.surfaceTempK < 310.0);
+    assert(liveEarth.scaleHeightKm > 7.0 && liveEarth.scaleHeightKm < 11.5);
+
+    // Test live perturbation: Inject CO2 greenhouse burst into Earth
+    double initialTemp = liveEarth.surfaceTempK;
+    physics.setBodyGasPercentage(earthIdx, "CO2", 50.0f);
+    double warmedTemp = physics.getBodies()[earthIdx].surfaceTempK;
+    std::cout << "    - Earth CO2 Injection (0.04% -> 50%): Temp " << initialTemp << " K -> " << warmedTemp << " K (DeltaT = +" << (warmedTemp - initialTemp) << " K)" << std::endl;
+    assert(warmedTemp > initialTemp + 20.0);
+
+    // Reset back to baseline
+    physics.resetBodyAtmosphereToBaseline(earthIdx);
+    std::cout << "    - Reset Earth Atmosphere to Baseline: Temp = " << physics.getBodies()[earthIdx].tempStr << std::endl;
+    assert(std::abs(physics.getBodies()[earthIdx].surfaceTempK - initialTemp) < 5.0);
+    std::cout << "    -> PASS" << std::endl;
+
     std::cout << "\n==========================================================" << std::endl;
-    std::cout << " ALL 17 TEST SUITES PASSED SUCCESSFULLY!" << std::endl;
+    std::cout << " ALL 18 TEST SUITES PASSED SUCCESSFULLY!" << std::endl;
     std::cout << "==========================================================" << std::endl;
 
     return 0;

@@ -1,4 +1,5 @@
 #include "simulation/PhysicsEngine.hpp"
+#include "simulation/ChemicalComposition.hpp"
 #include "renderer/VisualStateAdapter.hpp"
 #include "data/UnitConverter.hpp"
 #include <ctime>
@@ -365,21 +366,7 @@ void PhysicsEngine::updatePhysicalQuantities() {
         snprintf(fluxBuf, sizeof(fluxBuf), "%'.1f W/m²", b.solarRadiationFlux);
         b.solarRadiationStr = fluxBuf;
 
-        if (b.solarRadiationFlux > 1500.0) b.radLevelStr = "Extreme";
-        else if (b.solarRadiationFlux > 800.0) b.radLevelStr = "High";
-        else if (b.solarRadiationFlux > 200.0) b.radLevelStr = "Moderate";
-        else b.radLevelStr = "Low";
-
-        // Thermal Equilibrium Temperature: T_eq = ( (F * (1 - A)) / (4 * sigma) )^(1/4) + T_greenhouse
-        double tEffectiveK = std::pow((b.solarRadiationFlux * (1.0 - b.albedo)) / (4.0 * SIGMA_SB), 0.25);
-        if (!b.hasCustomTemp) {
-            b.surfaceTempK = tEffectiveK + b.greenhouseK;
-        }
-        char tempBuf[64];
-        snprintf(tempBuf, sizeof(tempBuf), "%d K (%.1f °C)", (int)std::round(b.surfaceTempK), b.surfaceTempK - 273.15);
-        b.tempStr = tempBuf;
-
-        // Surface gravity: g = G * M / R^2
+        // Surface gravity & Escape velocity: g = G * M / R^2, v_esc = sqrt(2 * G * M / R)
         if (b.radiusM > 0.0) {
             b.surfaceGravityMps2 = (G_CONST * b.massKg) / (b.radiusM * b.radiusM);
             char gravBuf[64];
@@ -403,6 +390,95 @@ void PhysicsEngine::updatePhysicalQuantities() {
             snprintf(areaBuf, sizeof(areaBuf), "%.1f M km²", b.surfaceAreaKm2 * 1e-6);
             b.surfaceAreaStr = areaBuf;
         }
+
+        // Initialize base albedo if unassigned
+        if (b.baseAlbedo <= 0.0) {
+            b.baseAlbedo = (b.albedo > 0.0) ? b.albedo : 0.30;
+        }
+
+        // Ensure chemical inventory is populated
+        if (b.chemicalInventory.empty()) {
+            b.chemicalInventory = ChemicalSystem::generateBaselineComposition(
+                b.type, b.id, b.massKg, b.radiusM, b.distanceAU, (b.surfaceTempK > 0.0) ? b.surfaceTempK : 250.0
+            );
+        }
+
+        // Atmosphere custom pressure handling
+        double currentPressurePa = -1.0;
+        if (b.hasAtmosphereCustom) {
+            currentPressurePa = b.hasAtmosphere ? b.surfacePressurePa : 0.0;
+        } else if (b.surfacePressurePa > 0.0) {
+            currentPressurePa = b.surfacePressurePa;
+        }
+
+        // Evaluate coupled atmospheric state (Jeans escape, Milne-Eddington optical depth, greenhouse, dynamic albedo)
+        b.atmosphere = ChemicalSystem::evaluateAtmosphericState(
+            b.type,
+            b.massKg,
+            b.radiusM,
+            b.surfaceGravityMps2,
+            b.escapeVelocityKmpS * 1000.0,
+            b.solarRadiationFlux,
+            b.baseAlbedo,
+            (b.surfaceTempK > 0.0) ? b.surfaceTempK : 288.15,
+            b.chemicalInventory,
+            currentPressurePa
+        );
+
+        // Synchronize evaluated atmospheric physics back into CelestialBody
+        b.albedo = b.atmosphere.dynamicAlbedo;
+        b.surfacePressurePa = b.atmosphere.surfacePressurePa;
+        b.surfacePressureKpa = b.atmosphere.surfacePressureKpa;
+        b.opticalDepth = b.atmosphere.opticalDepth;
+        b.scaleHeightKm = b.atmosphere.scaleHeightKm;
+        b.cloudCoverage = b.atmosphere.cloudCoverage;
+        b.iceCoverage = b.atmosphere.iceCoverage;
+        b.rayleighColor = b.atmosphere.rayleighScatteringColor;
+        b.greenhouseK = b.atmosphere.greenhouseDeltaK;
+        if (!b.hasAtmosphereCustom) {
+            b.hasAtmosphere = b.atmosphere.hasAtmosphere;
+        }
+
+        // Surface Temperature (Radiative Equilibrium + Greenhouse Warming)
+        if (!b.hasCustomTemp) {
+            b.surfaceTempK = b.atmosphere.surfaceTempK;
+        }
+        char tempBuf[64];
+        snprintf(tempBuf, sizeof(tempBuf), "%d K (%.1f °C)", (int)std::round(b.surfaceTempK), b.surfaceTempK - 273.15);
+        b.tempStr = tempBuf;
+
+        // Dynamic surface pressure formatted string
+        char pBuf[64];
+        if (b.surfacePressureKpa >= 100.0) {
+            snprintf(pBuf, sizeof(pBuf), "%.1f kPa (%.2f atm)", b.surfacePressureKpa, b.surfacePressureKpa / 101.325);
+        } else if (b.surfacePressureKpa >= 0.01) {
+            snprintf(pBuf, sizeof(pBuf), "%.2f kPa (%.3f atm)", b.surfacePressureKpa, b.surfacePressureKpa / 101.325);
+        } else if (b.surfacePressurePa > 0.1) {
+            snprintf(pBuf, sizeof(pBuf), "%.1f Pa", b.surfacePressurePa);
+        } else {
+            snprintf(pBuf, sizeof(pBuf), "Trace / Vacuum");
+        }
+        b.pressureStr = pBuf;
+
+        // Atmospheric composition summary string
+        b.atmosphereStr = ChemicalSystem::formatAtmosphericSummary(b.atmosphere);
+
+        // Sync b.composition for UI and backward compatibility
+        b.composition.clear();
+        for (const auto& sp : b.atmosphere.composition) {
+            CompositionItem item;
+            item.name = sp.speciesId;
+            item.percentage = sp.percentage;
+            item.color = sp.color;
+            b.composition.push_back(item);
+        }
+
+        // Atmospheric shielding against solar radiation
+        double shieldedRadFlux = b.atmosphere.transmittedRadiationFlux;
+        if (shieldedRadFlux > 1500.0) b.radLevelStr = "Extreme";
+        else if (shieldedRadFlux > 800.0) b.radLevelStr = "High";
+        else if (shieldedRadFlux > 200.0) b.radLevelStr = "Moderate";
+        else b.radLevelStr = "Low";
 
         // Relativistic Time Dilation
         double phiPotential = - (G_CONST * attractorMass) / rM;
@@ -1034,6 +1110,88 @@ void PhysicsEngine::setBodyAtmosphere(int bodyIdx, bool enabled) {
     if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
     m_bodies[bodyIdx].hasAtmosphere = enabled;
     m_bodies[bodyIdx].hasAtmosphereCustom = true;
+    if (!enabled) {
+        m_bodies[bodyIdx].surfacePressurePa = 0.0;
+        m_bodies[bodyIdx].surfacePressureKpa = 0.0;
+    }
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::setBodyGasPercentage(int bodyIdx, const std::string& speciesId, float newPercentage) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    auto& b = m_bodies[bodyIdx];
+    newPercentage = std::clamp(newPercentage, 0.0f, 100.0f);
+
+    // If chemical inventory is empty, populate from baseline first
+    if (b.chemicalInventory.empty()) {
+        b.chemicalInventory = ChemicalSystem::generateBaselineComposition(
+            b.type, b.id, b.massKg, b.radiusM, b.distanceAU, (b.surfaceTempK > 0.0) ? b.surfaceTempK : 250.0
+        );
+    }
+
+    bool found = false;
+    for (auto& item : b.chemicalInventory) {
+        if (item.speciesId == speciesId) {
+            item.percentage = newPercentage;
+            found = true;
+            break;
+        }
+    }
+    if (!found && newPercentage > 0.0f) {
+        const auto& spec = ChemicalSystem::getSpecies(speciesId);
+        ChemicalAbundance ab;
+        ab.speciesId = spec.id;
+        ab.formula = spec.formula;
+        ab.name = spec.displayName;
+        ab.percentage = newPercentage;
+        ab.color = glm::vec4(spec.rayleighColor, 1.0f);
+        b.chemicalInventory.push_back(ab);
+    }
+
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::setBodySurfacePressureKpa(int bodyIdx, double pressureKpa) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    auto& b = m_bodies[bodyIdx];
+    b.surfacePressureKpa = std::max(0.0, pressureKpa);
+    b.surfacePressurePa = b.surfacePressureKpa * 1000.0;
+    b.hasAtmosphereCustom = true;
+    b.hasAtmosphere = (b.surfacePressurePa > 10.0);
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::setBodyBareAlbedo(int bodyIdx, double baseAlbedo) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    m_bodies[bodyIdx].baseAlbedo = std::clamp(baseAlbedo, 0.01, 0.98);
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::resetBodyAtmosphereToBaseline(int bodyIdx) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    auto& b = m_bodies[bodyIdx];
+    b.hasAtmosphereCustom = false;
+    b.hasCustomTemp = false;
+
+    // Baseline albedo
+    if (b.id == "earth") b.baseAlbedo = 0.306;
+    else if (b.id == "venus") b.baseAlbedo = 0.77;
+    else if (b.id == "mars") b.baseAlbedo = 0.25;
+    else if (b.id == "titan") b.baseAlbedo = 0.22;
+    else b.baseAlbedo = 0.30;
+    b.albedo = b.baseAlbedo;
+
+    // Baseline pressure
+    if (b.id == "earth") b.surfacePressureKpa = 101.325;
+    else if (b.id == "venus") b.surfacePressureKpa = 9300.0;
+    else if (b.id == "mars") b.surfacePressureKpa = 0.61;
+    else if (b.id == "titan") b.surfacePressureKpa = 146.7;
+    else if (b.type.find("Gas Giant") != std::string::npos || b.type.find("Ice Giant") != std::string::npos) b.surfacePressureKpa = 100.0;
+    else b.surfacePressureKpa = 0.0;
+    b.surfacePressurePa = b.surfacePressureKpa * 1000.0;
+
+    b.chemicalInventory = ChemicalSystem::generateBaselineComposition(b.type, b.id, b.massKg, b.radiusM, b.distanceAU, 288.0);
+    updatePhysicalQuantities();
 }
 
 void PhysicsEngine::forceUpdatePhysicalQuantities() {

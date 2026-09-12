@@ -556,6 +556,15 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, Data
         StatItem("\xE2\x97\x8B", "Atmospheric Pressure", body.pressureStr.c_str());
         ImGui::EndGroup();
 
+        char hBuf[32], tauBuf[32];
+        snprintf(hBuf, sizeof(hBuf), "%.1f km", body.scaleHeightKm);
+        snprintf(tauBuf, sizeof(tauBuf), "%.2f (+%.0f K)", body.opticalDepth, body.greenhouseK);
+        ImGui::BeginGroup();
+        StatItem("\xE2\x96\xB3", "Scale Height", (body.hasAtmosphere && body.surfacePressurePa > 1.0) ? hBuf : "N/A");
+        ImGui::SameLine(halfW);
+        StatItem("\xE2\x97\x86", "Optical Depth (τ)", (body.hasAtmosphere && body.surfacePressurePa > 1.0) ? tauBuf : "0.00 (+0 K)");
+        ImGui::EndGroup();
+
         ImGui::BeginGroup();
         StatItem("\xE2\x97\x8F", "Mean Density", body.densityStr.c_str());
         ImGui::SameLine(halfW);
@@ -652,9 +661,58 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, CelestialBody& body, Data
                     physics.setBodyAtmosphere(selIdx, atmo);
                 }
                 if (atmo) {
-                    float gh = (float)mutBody.greenhouseK;
-                    if (ImGui::DragFloat("Greenhouse (ΔK)##LiveGH", &gh, 1.0f, 0.0f, 600.0f, "+%.0f K")) {
-                        physics.setBodyGreenhouseDeltaK(selIdx, (double)gh);
+                    float pressKpa = (float)mutBody.surfacePressureKpa;
+                    if (ImGui::DragFloat("Pressure (kPa)##LiveP", &pressKpa, 0.5f, 0.0f, 15000.0f, "%.1f kPa")) {
+                        physics.setBodySurfacePressureKpa(selIdx, (double)pressKpa);
+                    }
+
+                    float baseAlb = (float)mutBody.baseAlbedo;
+                    if (ImGui::SliderFloat("Bare Albedo##LiveBaseAlb", &baseAlb, 0.01f, 0.95f, "%.2f")) {
+                        physics.setBodyBareAlbedo(selIdx, (double)baseAlb);
+                    }
+
+                    // Chemical Species Gas Sliders
+                    ImGui::Spacing();
+                    ImGui::TextColored(Col::Accent, "Atmospheric Volatiles & Greenhouse Gases:");
+                    
+                    float co2Pct = 0.0f;
+                    for (const auto& ab : mutBody.chemicalInventory) {
+                        if (ab.speciesId == "CO2") co2Pct = ab.percentage;
+                    }
+                    if (ImGui::SliderFloat("CO₂ (%)##LiveCO2", &co2Pct, 0.0f, 100.0f, "%.1f%%")) {
+                        physics.setBodyGasPercentage(selIdx, "CO2", co2Pct);
+                    }
+
+                    float ch4Pct = 0.0f;
+                    for (const auto& ab : mutBody.chemicalInventory) {
+                        if (ab.speciesId == "CH4") ch4Pct = ab.percentage;
+                    }
+                    if (ImGui::SliderFloat("CH₄ (%)##LiveCH4", &ch4Pct, 0.0f, 100.0f, "%.1f%%")) {
+                        physics.setBodyGasPercentage(selIdx, "CH4", ch4Pct);
+                    }
+
+                    float h2oPct = 0.0f;
+                    for (const auto& ab : mutBody.chemicalInventory) {
+                        if (ab.speciesId == "H2O") h2oPct = ab.percentage;
+                    }
+                    if (ImGui::SliderFloat("H₂O Vapor (%)##LiveH2O", &h2oPct, 0.0f, 100.0f, "%.1f%%")) {
+                        physics.setBodyGasPercentage(selIdx, "H2O", h2oPct);
+                    }
+
+                    float n2Pct = 0.0f;
+                    for (const auto& ab : mutBody.chemicalInventory) {
+                        if (ab.speciesId == "N2") n2Pct = ab.percentage;
+                    }
+                    if (ImGui::SliderFloat("N₂ (%)##LiveN2", &n2Pct, 0.0f, 100.0f, "%.1f%%")) {
+                        physics.setBodyGasPercentage(selIdx, "N2", n2Pct);
+                    }
+
+                    ImGui::TextDisabled("Greenhouse warming: +%.1f K (τ = %.2f)", mutBody.greenhouseK, mutBody.opticalDepth);
+                    ImGui::TextDisabled("Rayleigh Sky: (%.2f, %.2f, %.2f) Clouds: %.0f%%", 
+                        mutBody.rayleighColor.r, mutBody.rayleighColor.g, mutBody.rayleighColor.b, mutBody.cloudCoverage * 100.0f);
+
+                    if (ImGui::SmallButton("Reset Atmosphere to Baseline##ResetAtmo")) {
+                        physics.resetBodyAtmosphereToBaseline(selIdx);
                     }
                 }
             } else if (isStar) {

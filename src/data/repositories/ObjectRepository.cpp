@@ -1,5 +1,6 @@
 #include "data/repositories/ObjectRepository.hpp"
 #include "data/UnitConverter.hpp"
+#include "simulation/ChemicalComposition.hpp"
 #include <iostream>
 #include <sstream>
 #include <cmath>
@@ -569,7 +570,8 @@ void ObjectRepository::hydrateCelestialBodyFields(CelestialBody& body,
         const auto& p = phys.value();
         body.massKg = p.massKg.value_or(0.0);
         body.radiusM = p.radiusM.value_or(0.0);
-        body.albedo = p.albedo.value_or(0.3);
+        body.baseAlbedo = p.albedo.value_or(0.3);
+        body.albedo = body.baseAlbedo;
         body.greenhouseK = p.greenhouseK.value_or(0.0);
         body.luminosityW = p.luminosityW.value_or(0.0);
         body.axialTiltDeg = (float)p.axialTiltDeg.value_or(0.0);
@@ -612,7 +614,9 @@ void ObjectRepository::hydrateCelestialBodyFields(CelestialBody& body,
         body.tempStr = tempBuf;
 
         if (p.surfacePressureKpa.has_value()) {
-            snprintf(pressBuf, sizeof(pressBuf), "%.1f kPa", p.surfacePressureKpa.value());
+            body.surfacePressureKpa = p.surfacePressureKpa.value();
+            body.surfacePressurePa = body.surfacePressureKpa * 1000.0;
+            snprintf(pressBuf, sizeof(pressBuf), "%.1f kPa", body.surfacePressureKpa);
             body.pressureStr = pressBuf;
         } else {
             body.pressureStr = "N/A";
@@ -689,8 +693,19 @@ void ObjectRepository::hydrateCelestialBodyFields(CelestialBody& body,
     }
 
     body.composition.clear();
+    body.chemicalInventory.clear();
     for (const auto& c : comp) {
         body.composition.push_back({ c.elementOrCompound, c.percentage, c.color });
+
+        const auto& spec = ChemicalSystem::getSpecies(c.elementOrCompound);
+        ChemicalAbundance ab;
+        ab.speciesId = spec.id;
+        ab.formula = spec.formula;
+        ab.name = spec.displayName;
+        ab.percentage = c.percentage;
+        ab.massFraction = c.percentage / 100.0f;
+        ab.color = c.color;
+        body.chemicalInventory.push_back(ab);
     }
 
     body.realRadiusAU = (body.radiusM > 0.0) ? (body.radiusM / UnitConverter::AU_TO_METERS) : 0.0000426;

@@ -5,6 +5,7 @@
 #include <deque>
 #include <optional>
 #include <glm/glm.hpp>
+#include "simulation/ChemicalComposition.hpp"
 
 namespace AstroGenesis {
 
@@ -100,8 +101,10 @@ struct CelestialBody {
     std::string grPrecessionStr;    // e.g. "+42.98\"/century"
     std::string trueAnomalyStr;     // e.g. "134.2°"
 
-    // Composition
+    // Composition & Chemical Inventory
     std::vector<CompositionItem> composition;
+    std::vector<ChemicalAbundance> chemicalInventory;
+    AtmosphereModel atmosphere;
 
     // Fundamental SI Physical State (Exact Double-Precision Dynamics)
     glm::dvec3 positionM{0.0};       // World position in meters
@@ -109,12 +112,20 @@ struct CelestialBody {
     glm::dvec3 accelerationMps2{0.0};// Net gravitational acceleration in m/s²
     double massKg = 0.0;             // Mass in kg
     double radiusM = 0.0;            // Physical radius in meters
-    double albedo = 0.3;             // Bond / Geometric Albedo
-    double greenhouseK = 0.0;        // Atmospheric greenhouse warming in Kelvin
+    double baseAlbedo = 0.3;         // Intrinsic bare surface albedo
+    double albedo = 0.3;             // Dynamic Bond / Geometric Albedo (coupled to ice, clouds, and atmosphere)
+    double greenhouseK = 0.0;        // Dynamic atmospheric greenhouse warming in Kelvin
     double luminosityW = 0.0;        // Stellar luminosity in Watts (Sol = 3.828e26 W)
     bool hasCustomTemp = false;      // True if user manually tuned surface temperature (prevents radiative equilibrium overwrite)
     bool hasAtmosphereCustom = false;// True if user explicitly enabled/disabled atmosphere
     bool hasAtmosphere = true;       // Per-body atmosphere state
+    double surfacePressurePa = 0.0;  // Dynamic atmospheric surface pressure in Pa
+    double surfacePressureKpa = 0.0; // Dynamic atmospheric surface pressure in kPa
+    double opticalDepth = 0.0;       // Infrared opacity tau
+    double scaleHeightKm = 8.5;      // Dynamic atmospheric scale height in km
+    double cloudCoverage = 0.0;      // Dynamic fractional cloud cover [0, 1]
+    double iceCoverage = 0.0;        // Dynamic snow/ice surface coverage [0, 1]
+    glm::vec3 rayleighColor{0.18f, 0.45f, 0.95f}; // Dynamic Rayleigh scattering tint
 
     // Dynamic Live Physical Metrics
     double distanceAU = 0.0;         // Instantaneous distance to Sol in AU
