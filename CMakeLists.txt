@@ -53,6 +53,7 @@ set(ASTROGENESIS_CORE_SOURCES
     src/data/providers/JPLSBDBProvider.cpp
     src/data/providers/NASAExoplanetProvider.cpp
     src/simulation/PhysicsEngine.cpp
+    src/simulation/ChemicalComposition.cpp
     src/simulation/ParticleSystem.cpp
     src/simulation/MaterialModel.cpp
     src/simulation/DeformableBody.cpp
@@ -68,6 +69,10 @@ set(ASTROGENESIS_CORE_SOURCES
     src/ui/ValidationUI.cpp
     src/ui/SystemWorkspaceUI.cpp
     src/ui/ObjectWorkspaceUI.cpp
+    src/ai/FeatureExtractor.cpp
+    src/ai/ModelInference.cpp
+    src/ai/OrbitalStabilityPredictor.cpp
+    src/ai/AIManager.cpp
 )
 
 
@@ -133,8 +138,56 @@ target_link_libraries(test_data_system PRIVATE
     ${PLATFORM_LIBS}
 )
 
+# ── AI Subsystem Test Suite Executable ─────────────────────────────────────────
+add_executable(test_ai_system
+    src/test_ai_system.cpp
+    ${ASTROGENESIS_CORE_SOURCES}
+)
+
+target_include_directories(test_ai_system PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/external
+    ${CMAKE_SOURCE_DIR}/external/sqlite
+    ${CMAKE_SOURCE_DIR}/external/nlohmann
+)
+
+target_link_libraries(test_ai_system PRIVATE 
+    imgui 
+    glfw 
+    glad 
+    glm::glm 
+    sqlite3
+    ${PLATFORM_LIBS}
+)
+
+# ── Cinematic Mode & Photo Mode Test Suite Executable ────────────────────────
+add_executable(test_cinematic_mode
+    src/test_cinematic_mode.cpp
+    ${ASTROGENESIS_CORE_SOURCES}
+)
+
+target_include_directories(test_cinematic_mode PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/external
+    ${CMAKE_SOURCE_DIR}/external/sqlite
+    ${CMAKE_SOURCE_DIR}/external/nlohmann
+)
+
+target_link_libraries(test_cinematic_mode PRIVATE 
+    imgui 
+    glfw 
+    glad 
+    glm::glm 
+    sqlite3
+    ${PLATFORM_LIBS}
+)
+
 # ── Assets Sync ────────────────────────────────────────────────────────────────
 add_custom_command(TARGET AstroGenesis POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:AstroGenesis>/assets
+)
+add_custom_command(TARGET test_cinematic_mode POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:test_cinematic_mode>/assets
 )

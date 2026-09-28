@@ -14,6 +14,7 @@
 #include "data/repositories/EphemerisRepository.hpp"
 #include "data/repositories/ValidationRepository.hpp"
 #include "ui/UIManager.hpp"
+#include "ai/AIManager.hpp"
 
 namespace AstroGenesis {
 
@@ -47,11 +48,13 @@ private:
     // Simulation and Validation Engines
     PhysicsEngine m_physics;
     ValidationEngine m_valEngine;
+    ai::AIManager m_aiManager;
     UIManager m_uiManager;
 
     double m_lastMouseX = 0.0;
     double m_lastMouseY = 0.0;
     bool m_isDraggingViewport = false;
+    bool m_isPanningViewport = false;
 };
 
 } // namespace AstroGenesis

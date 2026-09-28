@@ -1,4 +1,5 @@
 #include "renderer/Renderer.hpp"
+#include "renderer/ShaderLoader.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <vector>
@@ -17,518 +18,6 @@ struct TrailVertex {
     glm::vec3 pos;
     glm::vec4 col;
 };
-
-// =========================================================================
-// 1. Celestial Body PBR Uber-Shader (Multi-Star Lighting & Thermal Magma)
-// =========================================================================
-static const char* celestialVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNormal;
-layout(location = 2) in vec2 aTexCoord;
-
-out vec3 FragPos;
-out vec3 Normal;
-out vec2 TexCoord;
-out vec3 LocalPos;
-
-uniform mat4 uMVP;
-uniform mat4 uModel;
-uniform mat3 uNormalMat;
-
-void main() {
-    LocalPos = aPos;
-    FragPos = vec3(uModel * vec4(aPos, 1.0));
-    Normal = normalize(uNormalMat * aNormal);
-    TexCoord = aTexCoord;
-    gl_Position = uMVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* celestialFragSrc = R"GLSL(
-#version 330 core
-out vec4 FragColor;
-
-in vec3 FragPos;
-in vec3 Normal;
-in vec2 TexCoord;
-in vec3 LocalPos;
-
-uniform vec3 uColor;
-uniform sampler2D uTexture;
-uniform bool uUseTexture;
-uniform vec3 uEmissionColor;
-uniform float uEmissionIntensity;
-uniform float uThermalGlow;
-uniform bool uIsSun;
-uniform float uSimTime;
-uniform vec3 uCameraPos;
-
-// Multi-Star Lighting (up to 4 stellar sources)
-uniform int uNumLights;
-uniform vec3 uLightPos[4];
-uniform vec3 uLightColor[4];
-uniform float uLightIntensity[4];
-
-// Debug Physical Overlays
-uniform int uDebugOverlay; // 0 = None, 1 = Stress, 2 = Strain, 3 = Damage, 4 = Temp, 5 = Vel, 6 = GR, 7 = Phase
-uniform vec3 uDebugColor;
-uniform float uDebugScalar;
-
-void main() {
-    vec3 baseColor = uColor;
-    if (uUseTexture) {
-        baseColor = texture(uTexture, TexCoord).rgb;
-    }
-
-    vec3 norm = normalize(Normal);
-    vec3 viewDir = normalize(uCameraPos - FragPos);
-
-    // 1. Stellar Rendering (Blackbody Emission + Limb Darkening + Convection Granulation)
-    if (uIsSun) {
-        float NdotV = max(dot(norm, viewDir), 0.0);
-        // Eddington approximation limb darkening: I(mu) = I0 * (0.4 + 0.6 * mu)
-        float limb = 0.35 + 0.65 * pow(NdotV, 0.70);
-        
-        // Solar granulation surface modulation
-        float granulation = 1.0 + 0.04 * sin(LocalPos.x * 45.0 + uSimTime * 1.5) * cos(LocalPos.y * 45.0 + uSimTime * 1.2);
-        
-        vec3 starColor = baseColor * uEmissionColor * limb * granulation * uEmissionIntensity;
-        FragColor = vec4(starColor, 1.0);
-        return;
-    }
-
-    // 2. Multi-Star Illumination (Diffuse + Blinn-Phong Specular)
-    vec3 diffuseLight = vec3(0.0);
-    vec3 specularLight = vec3(0.0);
-    
-    int numL = clamp(uNumLights, 1, 4);
-    for (int i = 0; i < numL; ++i) {
-        vec3 lightDir = normalize(uLightPos[i] - FragPos);
-        float dist = length(uLightPos[i] - FragPos);
-        float atten = clamp(1.0 / (1.0 + 0.05 * dist), 0.15, 1.0);
-
-        // Diffuse (Lambertian)
-        float diff = max(dot(norm, lightDir), 0.0);
-        diffuseLight += uLightColor[i] * diff * uLightIntensity[i] * atten;
-
-        // Specular (Blinn-Phong)
-        vec3 halfDir = normalize(lightDir + viewDir);
-        float spec = pow(max(dot(norm, halfDir), 0.0), 32.0);
-        specularLight += uLightColor[i] * spec * 0.25 * uLightIntensity[i] * atten;
-    }
-
-    // Ambient baseline celestial lighting
-    vec3 ambient = baseColor * 0.12;
-    vec3 surfaceColor = ambient + baseColor * diffuseLight + specularLight;
-
-    // 3. Thermal Incandescence (Magma fissures for T > 700 K)
-    if (uThermalGlow > 0.01) {
-        float fissurePattern = pow(sin(LocalPos.x * 25.0) * sin(LocalPos.y * 25.0) * sin(LocalPos.z * 25.0), 2.0);
-        float magmaIntensity = uThermalGlow * (0.65 + 0.35 * fissurePattern);
-        surfaceColor += uEmissionColor * magmaIntensity;
-    }
-
-    // 4. Debug False-Color Overlay
-    if (uDebugOverlay > 0) {
-        surfaceColor = mix(surfaceColor, uDebugColor * 1.3, 0.70);
-    }
-
-    FragColor = vec4(surfaceColor, 1.0);
-}
-)GLSL";
-
-// =========================================================================
-// 2. Atmospheric Scattering Shader (Rayleigh & Mie Scattering Shell)
-// =========================================================================
-static const char* atmoVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNormal;
-
-out vec3 FragPos;
-out vec3 Normal;
-
-uniform mat4 uMVP;
-uniform mat4 uModel;
-
-void main() {
-    FragPos = vec3(uModel * vec4(aPos, 1.0));
-    Normal = normalize(mat3(uModel) * aNormal);
-    gl_Position = uMVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* atmoFragSrc = R"GLSL(
-#version 330 core
-out vec4 FragColor;
-
-in vec3 FragPos;
-in vec3 Normal;
-
-uniform vec3 uAtmoColor;
-uniform float uAtmoDensity;
-uniform vec3 uCameraPos;
-
-uniform int uNumLights;
-uniform vec3 uLightPos[4];
-uniform vec3 uLightColor[4];
-
-void main() {
-    vec3 norm = normalize(Normal);
-    vec3 viewDir = normalize(uCameraPos - FragPos);
-
-    // Fresnel limb scattering (strongest along the planetary rim)
-    float NdotV = max(dot(norm, viewDir), 0.0);
-    float rim = pow(1.0 - NdotV, 3.5);
-
-    // Multi-light directional phase function (forward scattering towards camera)
-    float lightPhase = 0.0;
-    int numL = clamp(uNumLights, 1, 4);
-    for (int i = 0; i < numL; ++i) {
-        vec3 lightDir = normalize(uLightPos[i] - FragPos);
-        float forwardScattering = max(dot(norm, lightDir), 0.0);
-        lightPhase += forwardScattering;
-    }
-    lightPhase = clamp(lightPhase, 0.20, 1.20);
-
-    float alpha = clamp(rim * uAtmoDensity * lightPhase * 1.25, 0.0, 0.90);
-    vec3 color = uAtmoColor * (0.85 + 0.35 * rim);
-
-    FragColor = vec4(color, alpha);
-}
-)GLSL";
-
-// =========================================================================
-// 3. Dynamic Rotating Cloud Layer Shader
-// =========================================================================
-static const char* cloudVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNormal;
-layout(location = 2) in vec2 aTexCoord;
-
-out vec3 FragPos;
-out vec3 Normal;
-out vec2 TexCoord;
-out vec3 LocalPos;
-
-uniform mat4 uMVP;
-uniform mat4 uModel;
-
-void main() {
-    LocalPos = aPos;
-    FragPos = vec3(uModel * vec4(aPos, 1.0));
-    Normal = normalize(mat3(uModel) * aNormal);
-    TexCoord = aTexCoord;
-    gl_Position = uMVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* cloudFragSrc = R"GLSL(
-#version 330 core
-out vec4 FragColor;
-
-in vec3 FragPos;
-in vec3 Normal;
-in vec2 TexCoord;
-in vec3 LocalPos;
-
-uniform float uCloudCoverage;
-uniform float uSimTime;
-uniform int uNumLights;
-uniform vec3 uLightPos[4];
-
-void main() {
-    vec3 norm = normalize(Normal);
-    
-    // Procedural multi-frequency cloud fractal pattern
-    float c1 = sin(LocalPos.x * 12.0 + uSimTime * 0.02) * cos(LocalPos.y * 12.0);
-    float c2 = sin(LocalPos.y * 24.0 + LocalPos.z * 18.0) * cos(LocalPos.x * 24.0);
-    float cloudNoise = (c1 * 0.6 + c2 * 0.4) * 0.5 + 0.5;
-
-    float cloudAlpha = smoothstep(1.0 - uCloudCoverage, 1.0, cloudNoise);
-    if (cloudAlpha < 0.05) discard;
-
-    // Multi-light cloud diffuse shading
-    float lightSum = 0.0;
-    int numL = clamp(uNumLights, 1, 4);
-    for (int i = 0; i < numL; ++i) {
-        vec3 lightDir = normalize(uLightPos[i] - FragPos);
-        lightSum += max(dot(norm, lightDir), 0.15);
-    }
-    vec3 cloudColor = vec3(0.95, 0.97, 1.0) * clamp(lightSum, 0.25, 1.15);
-
-    FragColor = vec4(cloudColor, cloudAlpha * 0.85);
-}
-)GLSL";
-
-// =========================================================================
-// 4. Stellar Corona & Solar Flare Prominence Shader
-// =========================================================================
-static const char* coronaVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNormal;
-layout(location = 2) in vec2 aTexCoord;
-
-out vec2 TexCoord;
-out vec3 Normal;
-out vec3 LocalPos;
-
-uniform mat4 uMVP;
-
-void main() {
-    LocalPos = aPos;
-    TexCoord = aTexCoord;
-    Normal = aNormal;
-    gl_Position = uMVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* coronaFragSrc = R"GLSL(
-#version 330 core
-out vec4 FragColor;
-
-in vec2 TexCoord;
-in vec3 Normal;
-in vec3 LocalPos;
-
-uniform vec3 uCoronaColor;
-uniform float uCoronaIntensity;
-uniform float uSimTime;
-
-void main() {
-    float distFromCenter = length(LocalPos.xy);
-    if (distFromCenter > 1.0) discard;
-
-    // Radial exponential falloff
-    float radial = pow(1.0 - distFromCenter, 2.2);
-
-    // Dynamic solar flare prominences
-    float angle = atan(LocalPos.y, LocalPos.x);
-    float flare = sin(angle * 9.0 + uSimTime * 2.0) * cos(angle * 14.0 - uSimTime * 1.5);
-    float flareIntensity = 1.0 + 0.25 * flare;
-
-    float alpha = clamp(radial * flareIntensity * uCoronaIntensity * 0.65, 0.0, 1.0);
-    vec3 col = uCoronaColor * (1.2 + 0.3 * flare);
-
-    FragColor = vec4(col, alpha);
-}
-)GLSL";
-
-// =========================================================================
-// 5. Relativistic Black Hole Shader (Event Horizon & Accretion Ring)
-// =========================================================================
-static const char* bhVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNormal;
-layout(location = 2) in vec2 aTexCoord;
-
-out vec3 FragPos;
-out vec3 Normal;
-out vec3 LocalPos;
-
-uniform mat4 uMVP;
-uniform mat4 uModel;
-
-void main() {
-    LocalPos = aPos;
-    FragPos = vec3(uModel * vec4(aPos, 1.0));
-    Normal = normalize(mat3(uModel) * aNormal);
-    gl_Position = uMVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* bhFragSrc = R"GLSL(
-#version 330 core
-out vec4 FragColor;
-
-in vec3 FragPos;
-in vec3 Normal;
-in vec3 LocalPos;
-
-uniform vec3 uCameraPos;
-uniform float uSimTime;
-
-void main() {
-    vec3 norm = normalize(Normal);
-    vec3 viewDir = normalize(uCameraPos - FragPos);
-
-    float NdotV = max(dot(norm, viewDir), 0.0);
-    
-    // Pure black Schwarzschild Event Horizon shadow at center
-    if (NdotV > 0.15) {
-        FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-    } else {
-        // Relativistic Photon Sphere Ring Lensing Rim
-        float photonRing = pow(1.0 - NdotV, 12.0);
-        vec3 ringColor = vec3(0.3, 0.6, 1.0) * (photonRing * 2.5);
-        FragColor = vec4(ringColor, photonRing);
-    }
-}
-)GLSL";
-
-// =========================================================================
-// 6. Collision & Impact Shockwave FX Shader
-// =========================================================================
-static const char* impactVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-
-uniform mat4 uVP;
-uniform vec3 uImpactCenter;
-uniform vec3 uImpactNormal;
-uniform float uFlashRadius;
-
-void main() {
-    vec3 pos = uImpactCenter + aPos * uFlashRadius;
-    gl_Position = uVP * vec4(pos, 1.0);
-}
-)GLSL";
-
-static const char* impactFragSrc = R"GLSL(
-#version 330 core
-out vec4 FragColor;
-
-uniform vec3 uImpactColor;
-uniform float uIntensity;
-uniform float uAge;
-
-void main() {
-    float alpha = uIntensity * (1.0 - uAge * 0.33);
-    FragColor = vec4(uImpactColor * 2.0, clamp(alpha, 0.0, 1.0));
-}
-)GLSL";
-
-// =========================================================================
-// Skybox, Trail, Ring Shaders
-// =========================================================================
-static const char* skyboxVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 2) in vec2 aTexCoord;
-out vec2 TexCoord;
-uniform mat4 uVP;
-void main() {
-    TexCoord = aTexCoord;
-    gl_Position = uVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* skyboxFragSrc = R"GLSL(
-#version 330 core
-out vec4 FragColor;
-in vec2 TexCoord;
-uniform sampler2D uTexture;
-uniform bool uHasTexture;
-void main() {
-    if (uHasTexture) {
-        FragColor = texture(uTexture, TexCoord);
-    } else {
-        FragColor = vec4(0.015, 0.025, 0.05, 1.0);
-    }
-}
-)GLSL";
-
-static const char* trailVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec4 aColor;
-out vec4 vColor;
-uniform mat4 uVP;
-void main() {
-    vColor = aColor;
-    gl_Position = uVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* trailFragSrc = R"GLSL(
-#version 330 core
-in vec4 vColor;
-out vec4 FragColor;
-void main() {
-    FragColor = vColor;
-}
-)GLSL";
-
-static const char* ringVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec2 aTexCoord;
-
-out vec3 FragPos;
-out vec3 WorldNormal;
-out vec2 TexCoord;
-out float NormalizedRadius;
-
-uniform mat4 uMVP;
-uniform mat4 uModel;
-uniform mat3 uNormalMat;
-uniform float uInnerRadius;
-uniform float uOuterRadius;
-
-void main() {
-    float r = mix(uInnerRadius, uOuterRadius, aTexCoord.x);
-    vec3 pos = vec3(aPos.x * r, aPos.y, aPos.z * r);
-    FragPos = vec3(uModel * vec4(pos, 1.0));
-    WorldNormal = normalize(uNormalMat * vec3(0.0, 1.0, 0.0));
-    TexCoord = aTexCoord;
-    NormalizedRadius = aTexCoord.x;
-    gl_Position = uMVP * vec4(pos, 1.0);
-}
-)GLSL";
-
-static const char* ringFragSrc = R"GLSL(
-#version 330 core
-out vec4 FragColor;
-
-in vec3 FragPos;
-in vec3 WorldNormal;
-in vec2 TexCoord;
-in float NormalizedRadius;
-
-uniform vec3 uSunPos;
-uniform vec3 uPlanetCenter;
-uniform float uPlanetRadius;
-uniform vec3 uRingColor;
-uniform sampler2D uRingTexture;
-uniform bool uHasRingTexture;
-
-float calculatePlanetShadow(vec3 fragPos, vec3 sunPos, vec3 planetCenter, float planetRadius) {
-    vec3 rayDir = normalize(sunPos - fragPos);
-    vec3 L = planetCenter - fragPos;
-    float tca = dot(L, rayDir);
-    if (tca < 0.0) return 1.0;
-    float d2 = dot(L, L) - tca * tca;
-    float r2 = planetRadius * planetRadius;
-    if (d2 > r2) return 1.0;
-    return smoothstep(r2 * 0.90, r2 * 1.05, d2);
-}
-
-void main() {
-    float u = clamp(NormalizedRadius, 0.0, 1.0);
-    vec3 baseAlbedo;
-    float baseOpacity;
-
-    if (uHasRingTexture) {
-        vec4 texCol = texture(uRingTexture, vec2(u, 0.5));
-        baseAlbedo = texCol.rgb;
-        baseOpacity = texCol.a;
-    } else {
-        baseOpacity = 0.70;
-        baseAlbedo = uRingColor;
-    }
-
-    float shadow = calculatePlanetShadow(FragPos, uSunPos, uPlanetCenter, uPlanetRadius);
-    vec3 lightDir = normalize(uSunPos - FragPos);
-    float diff = max(abs(dot(WorldNormal, lightDir)), 0.20);
-
-    vec3 finalCol = baseAlbedo * diff * shadow;
-    FragColor = vec4(finalCol, baseOpacity * (0.35 + 0.65 * shadow));
-}
-)GLSL";
 
 static GLuint compileShader(GLenum type, const char* src) {
     GLuint s = glCreateShader(type);
@@ -552,8 +41,10 @@ Renderer::~Renderer() {
 
 bool Renderer::initialize() {
     // 1. Compile Celestial PBR Shader
-    GLuint vShader = compileShader(GL_VERTEX_SHADER, celestialVertSrc);
-    GLuint fShader = compileShader(GL_FRAGMENT_SHADER, celestialFragSrc);
+    std::string celestialVertSrc = loadShaderSource("assets/shaders/celestial.vert");
+    std::string celestialFragSrc = loadShaderSource("assets/shaders/celestial.frag");
+    GLuint vShader = compileShader(GL_VERTEX_SHADER, celestialVertSrc.c_str());
+    GLuint fShader = compileShader(GL_FRAGMENT_SHADER, celestialFragSrc.c_str());
     m_shaderProgram = glCreateProgram();
     glAttachShader(m_shaderProgram, vShader);
     glAttachShader(m_shaderProgram, fShader);
@@ -578,6 +69,19 @@ bool Renderer::initialize() {
     m_uDebugColorLoc         = glGetUniformLocation(m_shaderProgram, "uDebugColor");
     m_uDebugScalarLoc        = glGetUniformLocation(m_shaderProgram, "uDebugScalar");
 
+    // Physical Material & Cloud Shadow Uniforms
+    m_uWaterFractionLoc          = glGetUniformLocation(m_shaderProgram, "uWaterFraction");
+    m_uIceFractionLoc            = glGetUniformLocation(m_shaderProgram, "uIceFraction");
+    m_uRoughnessLoc              = glGetUniformLocation(m_shaderProgram, "uRoughness");
+    m_uCloudShadowCoverageLoc    = glGetUniformLocation(m_shaderProgram, "uCloudShadowCoverage");
+    m_uCloudShadowRotAngleLoc    = glGetUniformLocation(m_shaderProgram, "uCloudShadowRotAngle");
+    m_uCinematicModeLoc          = glGetUniformLocation(m_shaderProgram, "uCinematicMode");
+    m_uHasRingLoc                = glGetUniformLocation(m_shaderProgram, "uHasRing");
+    m_uRingNormalLoc             = glGetUniformLocation(m_shaderProgram, "uRingNormal");
+    m_uPlanetCenterLoc           = glGetUniformLocation(m_shaderProgram, "uPlanetCenter");
+    m_uRingInnerRadiusLoc        = glGetUniformLocation(m_shaderProgram, "uRingInnerRadius");
+    m_uRingOuterRadiusLoc        = glGetUniformLocation(m_shaderProgram, "uRingOuterRadius");
+
     for (int i = 0; i < 4; ++i) {
         char pBuf[32], cBuf[32], iBuf[32];
         snprintf(pBuf, sizeof(pBuf), "uLightPos[%d]", i);
@@ -589,8 +93,10 @@ bool Renderer::initialize() {
     }
 
     // 2. Compile Atmosphere Shader
-    GLuint atmoV = compileShader(GL_VERTEX_SHADER, atmoVertSrc);
-    GLuint atmoF = compileShader(GL_FRAGMENT_SHADER, atmoFragSrc);
+    std::string atmoVertSrc = loadShaderSource("assets/shaders/atmosphere.vert");
+    std::string atmoFragSrc = loadShaderSource("assets/shaders/atmosphere.frag");
+    GLuint atmoV = compileShader(GL_VERTEX_SHADER, atmoVertSrc.c_str());
+    GLuint atmoF = compileShader(GL_FRAGMENT_SHADER, atmoFragSrc.c_str());
     m_atmosphereProgram = glCreateProgram();
     glAttachShader(m_atmosphereProgram, atmoV);
     glAttachShader(m_atmosphereProgram, atmoF);
@@ -598,12 +104,16 @@ bool Renderer::initialize() {
     glDeleteShader(atmoV);
     glDeleteShader(atmoF);
 
-    m_uAtmoMVPLoc       = glGetUniformLocation(m_atmosphereProgram, "uMVP");
-    m_uAtmoModelLoc     = glGetUniformLocation(m_atmosphereProgram, "uModel");
-    m_uAtmoColorLoc     = glGetUniformLocation(m_atmosphereProgram, "uAtmoColor");
-    m_uAtmoDensityLoc   = glGetUniformLocation(m_atmosphereProgram, "uAtmoDensity");
-    m_uAtmoCameraPosLoc = glGetUniformLocation(m_atmosphereProgram, "uCameraPos");
-    m_uAtmoNumLightsLoc = glGetUniformLocation(m_atmosphereProgram, "uNumLights");
+    m_uAtmoMVPLoc          = glGetUniformLocation(m_atmosphereProgram, "uMVP");
+    m_uAtmoModelLoc        = glGetUniformLocation(m_atmosphereProgram, "uModel");
+    m_uAtmoColorLoc        = glGetUniformLocation(m_atmosphereProgram, "uAtmoColor");
+    m_uAtmoDensityLoc      = glGetUniformLocation(m_atmosphereProgram, "uAtmoDensity");
+    m_uAtmoCameraPosLoc    = glGetUniformLocation(m_atmosphereProgram, "uCameraPos");
+    m_uAtmoNumLightsLoc    = glGetUniformLocation(m_atmosphereProgram, "uNumLights");
+    m_uAtmoScaleHeightLoc  = glGetUniformLocation(m_atmosphereProgram, "uAtmoScaleHeight");
+    m_uAtmoMieFactorLoc    = glGetUniformLocation(m_atmosphereProgram, "uAtmoMieFactor");
+    m_uAtmoPlanetRadiusLoc = glGetUniformLocation(m_atmosphereProgram, "uPlanetRadius");
+
     for (int i = 0; i < 4; ++i) {
         char pBuf[32], cBuf[32];
         snprintf(pBuf, sizeof(pBuf), "uLightPos[%d]", i);
@@ -613,8 +123,10 @@ bool Renderer::initialize() {
     }
 
     // 3. Compile Cloud Shader
-    GLuint cloudV = compileShader(GL_VERTEX_SHADER, cloudVertSrc);
-    GLuint cloudF = compileShader(GL_FRAGMENT_SHADER, cloudFragSrc);
+    std::string cloudVertSrc = loadShaderSource("assets/shaders/cloud.vert");
+    std::string cloudFragSrc = loadShaderSource("assets/shaders/cloud.frag");
+    GLuint cloudV = compileShader(GL_VERTEX_SHADER, cloudVertSrc.c_str());
+    GLuint cloudF = compileShader(GL_FRAGMENT_SHADER, cloudFragSrc.c_str());
     m_cloudProgram = glCreateProgram();
     glAttachShader(m_cloudProgram, cloudV);
     glAttachShader(m_cloudProgram, cloudF);
@@ -634,8 +146,10 @@ bool Renderer::initialize() {
     }
 
     // 4. Compile Corona Shader
-    GLuint corV = compileShader(GL_VERTEX_SHADER, coronaVertSrc);
-    GLuint corF = compileShader(GL_FRAGMENT_SHADER, coronaFragSrc);
+    std::string coronaVertSrc = loadShaderSource("assets/shaders/corona.vert");
+    std::string coronaFragSrc = loadShaderSource("assets/shaders/corona.frag");
+    GLuint corV = compileShader(GL_VERTEX_SHADER, coronaVertSrc.c_str());
+    GLuint corF = compileShader(GL_FRAGMENT_SHADER, coronaFragSrc.c_str());
     m_coronaProgram = glCreateProgram();
     glAttachShader(m_coronaProgram, corV);
     glAttachShader(m_coronaProgram, corF);
@@ -649,8 +163,10 @@ bool Renderer::initialize() {
     m_uCoronaSimTimeLoc   = glGetUniformLocation(m_coronaProgram, "uSimTime");
 
     // 5. Compile Black Hole Shader
-    GLuint bhV = compileShader(GL_VERTEX_SHADER, bhVertSrc);
-    GLuint bhF = compileShader(GL_FRAGMENT_SHADER, bhFragSrc);
+    std::string bhVertSrc = loadShaderSource("assets/shaders/black_hole.vert");
+    std::string bhFragSrc = loadShaderSource("assets/shaders/black_hole.frag");
+    GLuint bhV = compileShader(GL_VERTEX_SHADER, bhVertSrc.c_str());
+    GLuint bhF = compileShader(GL_FRAGMENT_SHADER, bhFragSrc.c_str());
     m_blackHoleProgram = glCreateProgram();
     glAttachShader(m_blackHoleProgram, bhV);
     glAttachShader(m_blackHoleProgram, bhF);
@@ -666,8 +182,10 @@ bool Renderer::initialize() {
     m_uBhSimTimeLoc     = glGetUniformLocation(m_blackHoleProgram, "uSimTime");
 
     // 6. Compile Impact FX Shader
-    GLuint impV = compileShader(GL_VERTEX_SHADER, impactVertSrc);
-    GLuint impF = compileShader(GL_FRAGMENT_SHADER, impactFragSrc);
+    std::string impactVertSrc = loadShaderSource("assets/shaders/impact.vert");
+    std::string impactFragSrc = loadShaderSource("assets/shaders/impact.frag");
+    GLuint impV = compileShader(GL_VERTEX_SHADER, impactVertSrc.c_str());
+    GLuint impF = compileShader(GL_FRAGMENT_SHADER, impactFragSrc.c_str());
     m_impactProgram = glCreateProgram();
     glAttachShader(m_impactProgram, impV);
     glAttachShader(m_impactProgram, impF);
@@ -684,8 +202,10 @@ bool Renderer::initialize() {
     m_uImpAgeLoc       = glGetUniformLocation(m_impactProgram, "uAge");
 
     // 7. Compile Skybox, Trail, Ring Shaders
-    GLuint skyV = compileShader(GL_VERTEX_SHADER, skyboxVertSrc);
-    GLuint skyF = compileShader(GL_FRAGMENT_SHADER, skyboxFragSrc);
+    std::string skyboxVertSrc = loadShaderSource("assets/shaders/skybox.vert");
+    std::string skyboxFragSrc = loadShaderSource("assets/shaders/skybox.frag");
+    GLuint skyV = compileShader(GL_VERTEX_SHADER, skyboxVertSrc.c_str());
+    GLuint skyF = compileShader(GL_FRAGMENT_SHADER, skyboxFragSrc.c_str());
     m_skyboxProgram = glCreateProgram();
     glAttachShader(m_skyboxProgram, skyV);
     glAttachShader(m_skyboxProgram, skyF);
@@ -695,9 +215,12 @@ bool Renderer::initialize() {
     m_skyUVPLoc = glGetUniformLocation(m_skyboxProgram, "uVP");
     m_skyTexLoc = glGetUniformLocation(m_skyboxProgram, "uTexture");
     m_skyHasTexLoc = glGetUniformLocation(m_skyboxProgram, "uHasTexture");
+    m_skyCinematicModeLoc = glGetUniformLocation(m_skyboxProgram, "uCinematicMode");
 
-    GLuint trailV = compileShader(GL_VERTEX_SHADER, trailVertSrc);
-    GLuint trailF = compileShader(GL_FRAGMENT_SHADER, trailFragSrc);
+    std::string trailVertSrc = loadShaderSource("assets/shaders/trail.vert");
+    std::string trailFragSrc = loadShaderSource("assets/shaders/trail.frag");
+    GLuint trailV = compileShader(GL_VERTEX_SHADER, trailVertSrc.c_str());
+    GLuint trailF = compileShader(GL_FRAGMENT_SHADER, trailFragSrc.c_str());
     m_trailProgram = glCreateProgram();
     glAttachShader(m_trailProgram, trailV);
     glAttachShader(m_trailProgram, trailF);
@@ -716,8 +239,10 @@ bool Renderer::initialize() {
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(TrailVertex), (void*)offsetof(TrailVertex, col));
     glBindVertexArray(0);
 
-    GLuint ringV = compileShader(GL_VERTEX_SHADER, ringVertSrc);
-    GLuint ringF = compileShader(GL_FRAGMENT_SHADER, ringFragSrc);
+    std::string ringVertSrc = loadShaderSource("assets/shaders/ring.vert");
+    std::string ringFragSrc = loadShaderSource("assets/shaders/ring.frag");
+    GLuint ringV = compileShader(GL_VERTEX_SHADER, ringVertSrc.c_str());
+    GLuint ringF = compileShader(GL_FRAGMENT_SHADER, ringFragSrc.c_str());
     m_ringProgram = glCreateProgram();
     glAttachShader(m_ringProgram, ringV);
     glAttachShader(m_ringProgram, ringF);
@@ -735,6 +260,46 @@ bool Renderer::initialize() {
     m_uRingTexLoc          = glGetUniformLocation(m_ringProgram, "uRingTexture");
     m_uRingHasTexLoc       = glGetUniformLocation(m_ringProgram, "uHasRingTexture");
 
+    // 8. Compile Bloom Blur Program
+    std::string bloomBlurVertSrc = loadShaderSource("assets/shaders/bloom_blur.vert");
+    std::string bloomBlurFragSrc = loadShaderSource("assets/shaders/bloom_blur.frag");
+    GLuint bloomV = compileShader(GL_VERTEX_SHADER, bloomBlurVertSrc.c_str());
+    GLuint bloomF = compileShader(GL_FRAGMENT_SHADER, bloomBlurFragSrc.c_str());
+    m_bloomBlurProgram = glCreateProgram();
+    glAttachShader(m_bloomBlurProgram, bloomV);
+    glAttachShader(m_bloomBlurProgram, bloomF);
+    glLinkProgram(m_bloomBlurProgram);
+    glDeleteShader(bloomV);
+    glDeleteShader(bloomF);
+    m_uBloomBlurImageLoc = glGetUniformLocation(m_bloomBlurProgram, "uImage");
+    m_uBloomBlurHorizLoc = glGetUniformLocation(m_bloomBlurProgram, "uHorizontal");
+
+    // 9. Compile Cinematic Post-Processing Program
+    std::string postProcessVertSrc = loadShaderSource("assets/shaders/post_process.vert");
+    std::string postProcessFragSrc = loadShaderSource("assets/shaders/post_process.frag");
+    GLuint postV = compileShader(GL_VERTEX_SHADER, postProcessVertSrc.c_str());
+    GLuint postF = compileShader(GL_FRAGMENT_SHADER, postProcessFragSrc.c_str());
+    m_postProcessProgram = glCreateProgram();
+    glAttachShader(m_postProcessProgram, postV);
+    glAttachShader(m_postProcessProgram, postF);
+    glLinkProgram(m_postProcessProgram);
+    glDeleteShader(postV);
+    glDeleteShader(postF);
+
+    m_uPostSceneTexLoc          = glGetUniformLocation(m_postProcessProgram, "uSceneTex");
+    m_uPostBloomTexLoc          = glGetUniformLocation(m_postProcessProgram, "uBloomTex");
+    m_uPostDepthTexLoc          = glGetUniformLocation(m_postProcessProgram, "uDepthTex");
+    m_uPostExposureLoc          = glGetUniformLocation(m_postProcessProgram, "uExposure");
+    m_uPostBloomIntensityLoc    = glGetUniformLocation(m_postProcessProgram, "uBloomIntensity");
+    m_uPostToneMapModeLoc       = glGetUniformLocation(m_postProcessProgram, "uToneMapMode");
+    m_uPostEnableDoFLoc         = glGetUniformLocation(m_postProcessProgram, "uEnableDoF");
+    m_uPostFocusDistLoc         = glGetUniformLocation(m_postProcessProgram, "uFocusDist");
+    m_uPostDoFApertureLoc       = glGetUniformLocation(m_postProcessProgram, "uDoFAperture");
+    m_uPostNearPlaneLoc         = glGetUniformLocation(m_postProcessProgram, "uNearPlane");
+    m_uPostFarPlaneLoc          = glGetUniformLocation(m_postProcessProgram, "uFarPlane");
+    m_uPostEnableVignetteLoc    = glGetUniformLocation(m_postProcessProgram, "uEnableVignette");
+    m_uPostEnableCALoc          = glGetUniformLocation(m_postProcessProgram, "uEnableCA");
+
     // Create Meshes
     m_sphereMesh = createSphereMesh(1.0f, 48, 48);
     m_ringMesh = createRingMesh(128);
@@ -747,6 +312,8 @@ bool Renderer::initialize() {
 }
 
 void Renderer::shutdown() {
+    destroyHDRFramebuffers();
+
     if (m_shaderProgram) { glDeleteProgram(m_shaderProgram); m_shaderProgram = 0; }
     if (m_atmosphereProgram) { glDeleteProgram(m_atmosphereProgram); m_atmosphereProgram = 0; }
     if (m_cloudProgram) { glDeleteProgram(m_cloudProgram); m_cloudProgram = 0; }
@@ -756,6 +323,8 @@ void Renderer::shutdown() {
     if (m_skyboxProgram) { glDeleteProgram(m_skyboxProgram); m_skyboxProgram = 0; }
     if (m_trailProgram) { glDeleteProgram(m_trailProgram); m_trailProgram = 0; }
     if (m_ringProgram) { glDeleteProgram(m_ringProgram); m_ringProgram = 0; }
+    if (m_bloomBlurProgram) { glDeleteProgram(m_bloomBlurProgram); m_bloomBlurProgram = 0; }
+    if (m_postProcessProgram) { glDeleteProgram(m_postProcessProgram); m_postProcessProgram = 0; }
 
     if (m_trailVAO) { glDeleteVertexArrays(1, &m_trailVAO); m_trailVAO = 0; }
     if (m_trailVBO) { glDeleteBuffers(1, &m_trailVBO); m_trailVBO = 0; }
@@ -810,7 +379,7 @@ MeshData Renderer::createSphereMesh(float radius, int stacks, int sectors) {
             vertices.push_back(z / radius);
             vertices.push_back(y / radius);
 
-            vertices.push_back((float)j / sectors);
+            vertices.push_back(1.0f - (float)j / sectors);
             vertices.push_back((float)i / stacks);
         }
     }
@@ -977,13 +546,211 @@ GLuint Renderer::loadTexture(const std::string& filepath) {
     return texture;
 }
 
+void Renderer::setCinematicParameters(
+    bool enabled,
+    float exposure,
+    float bloomIntensity,
+    int toneMappingMode,
+    bool enableDoF,
+    float focusDistance,
+    float dofAperture,
+    bool enableVignette,
+    bool enableChromaticAberration,
+    float nearPlane,
+    float farPlane
+) {
+    m_cinematicEnabled = enabled;
+    m_cinematicExposure = exposure;
+    m_cinematicBloomIntensity = bloomIntensity;
+    m_cinematicToneMappingMode = toneMappingMode;
+    m_cinematicEnableDoF = enableDoF;
+    m_cinematicFocusDistance = focusDistance;
+    m_cinematicDoFAperture = dofAperture;
+    m_cinematicEnableVignette = enableVignette;
+    m_cinematicEnableCA = enableChromaticAberration;
+    m_cinematicNearPlane = nearPlane;
+    m_cinematicFarPlane = farPlane;
+}
+
+bool Renderer::initHDRFramebuffers(int width, int height) {
+    width = std::max(width, 1);
+    height = std::max(height, 1);
+    if (m_hdrFBO != 0 && m_hdrWidth == width && m_hdrHeight == height) {
+        return true;
+    }
+    destroyHDRFramebuffers();
+
+    m_hdrWidth = width;
+    m_hdrHeight = height;
+
+    // 1. Create HDR Scene FBO (2 Floating-point color targets + depth)
+    glGenFramebuffers(1, &m_hdrFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_hdrFBO);
+
+    // Color Attachment 0: Linear Scene Radiance
+    glGenTextures(1, &m_hdrColorTex);
+    glBindTexture(GL_TEXTURE_2D, m_hdrColorTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_hdrColorTex, 0);
+
+    // Color Attachment 1: Bright-Pass Radiance (for Bloom)
+    glGenTextures(1, &m_hdrBrightTex);
+    glBindTexture(GL_TEXTURE_2D, m_hdrBrightTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, m_hdrBrightTex, 0);
+
+    // Depth Attachment: Depth Texture (for DoF and depth sampling)
+    glGenTextures(1, &m_hdrDepthTex);
+    glBindTexture(GL_TEXTURE_2D, m_hdrDepthTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_hdrDepthTex, 0);
+
+    GLenum attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, attachments);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        fprintf(stderr, "[Renderer] HDR FBO setup incomplete!\n");
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        return false;
+    }
+
+    // 2. Create Ping-Pong Bloom FBOs at half resolution
+    m_bloomWidth = std::max(width / 2, 1);
+    m_bloomHeight = std::max(height / 2, 1);
+    glGenFramebuffers(2, m_bloomFBO);
+    glGenTextures(2, m_bloomTex);
+
+    for (int i = 0; i < 2; ++i) {
+        glBindFramebuffer(GL_FRAMEBUFFER, m_bloomFBO[i]);
+        glBindTexture(GL_TEXTURE_2D, m_bloomTex[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, m_bloomWidth, m_bloomHeight, 0, GL_RGBA, GL_FLOAT, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_bloomTex[i], 0);
+
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+            fprintf(stderr, "[Renderer] Bloom FBO %d setup incomplete!\n", i);
+        }
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    return true;
+}
+
+void Renderer::destroyHDRFramebuffers() {
+    if (m_hdrFBO) { glDeleteFramebuffers(1, &m_hdrFBO); m_hdrFBO = 0; }
+    if (m_hdrColorTex) { glDeleteTextures(1, &m_hdrColorTex); m_hdrColorTex = 0; }
+    if (m_hdrBrightTex) { glDeleteTextures(1, &m_hdrBrightTex); m_hdrBrightTex = 0; }
+    if (m_hdrDepthTex) { glDeleteTextures(1, &m_hdrDepthTex); m_hdrDepthTex = 0; }
+    if (m_bloomFBO[0]) { glDeleteFramebuffers(2, m_bloomFBO); m_bloomFBO[0] = m_bloomFBO[1] = 0; }
+    if (m_bloomTex[0]) { glDeleteTextures(2, m_bloomTex); m_bloomTex[0] = m_bloomTex[1] = 0; }
+    m_hdrWidth = m_hdrHeight = 0;
+    m_bloomWidth = m_bloomHeight = 0;
+}
+
+void Renderer::renderPostProcessingPass() {
+    if (!m_postProcessProgram || !m_bloomBlurProgram || !m_quadMesh.vao) return;
+
+    // 1. Ping-pong separable Gaussian blur on bright-pass buffer
+    bool horizontal = true, first_iteration = true;
+    int blurPasses = 8; // 4 horizontal + 4 vertical passes
+    glUseProgram(m_bloomBlurProgram);
+    glUniform1i(m_uBloomBlurImageLoc, 0);
+
+    for (int i = 0; i < blurPasses; ++i) {
+        glBindFramebuffer(GL_FRAMEBUFFER, m_bloomFBO[horizontal ? 1 : 0]);
+        glViewport(0, 0, m_bloomWidth, m_bloomHeight);
+        glUniform1i(m_uBloomBlurHorizLoc, horizontal ? 1 : 0);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, first_iteration ? m_hdrBrightTex : m_bloomTex[!horizontal]);
+
+        glBindVertexArray(m_quadMesh.vao);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        horizontal = !horizontal;
+        if (first_iteration) first_iteration = false;
+    }
+
+    // 2. Render Fullscreen Quad with Tone Mapping + Bloom Composite + DoF
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(m_lastVpX, m_lastVpY, m_lastVpW, m_lastVpH);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+
+    glUseProgram(m_postProcessProgram);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_hdrColorTex);
+    glUniform1i(m_uPostSceneTexLoc, 0);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, m_bloomTex[!horizontal]);
+    glUniform1i(m_uPostBloomTexLoc, 1);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, m_hdrDepthTex);
+    glUniform1i(m_uPostDepthTexLoc, 2);
+
+    glUniform1f(m_uPostExposureLoc, m_cinematicExposure);
+    glUniform1f(m_uPostBloomIntensityLoc, m_cinematicBloomIntensity);
+    glUniform1i(m_uPostToneMapModeLoc, m_cinematicToneMappingMode);
+    glUniform1i(m_uPostEnableDoFLoc, m_cinematicEnableDoF ? 1 : 0);
+    glUniform1f(m_uPostFocusDistLoc, m_cinematicFocusDistance);
+    glUniform1f(m_uPostDoFApertureLoc, m_cinematicDoFAperture);
+    glUniform1f(m_uPostNearPlaneLoc, m_cinematicNearPlane);
+    glUniform1f(m_uPostFarPlaneLoc, m_cinematicFarPlane);
+    glUniform1i(m_uPostEnableVignetteLoc, m_cinematicEnableVignette ? 1 : 0);
+    glUniform1i(m_uPostEnableCALoc, m_cinematicEnableCA ? 1 : 0);
+
+    glBindVertexArray(m_quadMesh.vao);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glBindVertexArray(0);
+    glEnable(GL_DEPTH_TEST);
+}
+
 void Renderer::beginViewport(int x, int y, int width, int height, const glm::vec4& clearColor) {
-    glViewport(x, y, width, height);
-    glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    m_lastVpX = x;
+    m_lastVpY = y;
+    m_lastVpW = width;
+    m_lastVpH = height;
+
+    if (m_cinematicEnabled) {
+        initHDRFramebuffers(width, height);
+        glBindFramebuffer(GL_FRAMEBUFFER, m_hdrFBO);
+        GLenum attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+        glDrawBuffers(2, attachments);
+        glViewport(0, 0, width, height);
+        glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    } else {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(x, y, width, height);
+        glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    }
 }
 
 void Renderer::endViewport(int windowWidth, int windowHeight) {
+    if (m_cinematicEnabled && m_hdrFBO != 0) {
+        renderPostProcessingPass();
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, windowWidth, windowHeight);
 }
 
@@ -1029,15 +796,40 @@ void Renderer::renderCelestialBody(
     glUniform1f(m_uSimTimeLoc, simTime);
     glUniform3fv(m_uCameraPosLoc, 1, glm::value_ptr(camPos));
 
-    // Multi-Star Lighting Upload
-    int numLights = (int)std::min(stars.size(), (size_t)4);
-    glUniform1i(m_uNumLightsLoc, numLights);
-    for (int i = 0; i < numLights; ++i) {
-        glm::vec3 relLightPos = stars[i].positionAU - cameraTarget;
-        glUniform3fv(m_uLightPosLoc[i], 1, glm::value_ptr(relLightPos));
-        glUniform3fv(m_uLightColorLoc[i], 1, glm::value_ptr(stars[i].color));
-        glUniform1f(m_uLightIntensityLoc[i], stars[i].intensity);
+    // Physical Material & Cloud Shadow Uniforms
+    glUniform1f(m_uWaterFractionLoc, vBody.waterFraction);
+    glUniform1f(m_uIceFractionLoc, vBody.iceFraction);
+    glUniform1f(m_uRoughnessLoc, vBody.surfaceRoughness);
+    glUniform1f(m_uCloudShadowCoverageLoc, vBody.cloudCoverage);
+    glUniform1f(m_uCloudShadowRotAngleLoc, vBody.cloudRotationAngle);
+
+    if (m_uCinematicModeLoc != -1) glUniform1i(m_uCinematicModeLoc, m_cinematicEnabled ? 1 : 0);
+
+    // Planetary Ring Shadow projection parameters
+    glUniform1i(m_uHasRingLoc, vBody.hasRing ? 1 : 0);
+    if (vBody.hasRing) {
+        float innerR = (vBody.ringInnerRadiusAU > 0.0f) ? vBody.ringInnerRadiusAU : (vBody.renderRadius * 1.35f);
+        float outerR = (vBody.ringOuterRadiusAU > 0.0f) ? vBody.ringOuterRadiusAU : (vBody.renderRadius * 2.45f);
+        glm::vec3 ringNorm = glm::normalize(glm::mat3(vBody.rotationMatrix) * glm::vec3(0.0f, 1.0f, 0.0f));
+        glUniform3fv(m_uRingNormalLoc, 1, glm::value_ptr(ringNorm));
+        glUniform3fv(m_uPlanetCenterLoc, 1, glm::value_ptr(relativePos));
+        glUniform1f(m_uRingInnerRadiusLoc, innerR);
+        glUniform1f(m_uRingOuterRadiusLoc, outerR);
     }
+
+    // Multi-Star Lighting Upload (A body cannot be illuminated by itself)
+    int numLights = 0;
+    for (size_t i = 0; i < stars.size() && numLights < 4; ++i) {
+        if (glm::distance(stars[i].positionAU, vBody.positionAU) < 0.0001f) {
+            continue;
+        }
+        glm::vec3 relLightPos = stars[i].positionAU - cameraTarget;
+        glUniform3fv(m_uLightPosLoc[numLights], 1, glm::value_ptr(relLightPos));
+        glUniform3fv(m_uLightColorLoc[numLights], 1, glm::value_ptr(stars[i].color));
+        glUniform1f(m_uLightIntensityLoc[numLights], stars[i].intensity);
+        numLights++;
+    }
+    glUniform1i(m_uNumLightsLoc, numLights);
 
     // Debug Overlays
     glUniform1i(m_uDebugOverlayLoc, (int)debugOverlay);
@@ -1062,12 +854,9 @@ void Renderer::renderCelestialBody(
     glBindVertexArray(m_sphereMesh.vao);
     glDrawElements(GL_TRIANGLES, m_sphereMesh.indexCount, GL_UNSIGNED_INT, 0);
 
-    // Render Atmospheric Shell
+    // Render Atmospheric Shell (procedural generic clouds bypassed to preserve real textures)
     if (vBody.hasAtmosphere && !vBody.isStar) {
         renderAtmosphereShell(camera, aspect, vBody, stars, cameraTarget);
-        if (vBody.hasClouds) {
-            renderCloudLayer(camera, aspect, vBody, stars, cameraTarget);
-        }
     }
 
     // Render Stellar Corona
@@ -1107,14 +896,21 @@ void Renderer::renderAtmosphereShell(
     glUniform3fv(m_uAtmoColorLoc, 1, glm::value_ptr(vBody.atmosphereColor));
     glUniform1f(m_uAtmoDensityLoc, vBody.atmosphereDensity);
     glUniform3fv(m_uAtmoCameraPosLoc, 1, glm::value_ptr(camPos));
+    glUniform1f(m_uAtmoScaleHeightLoc, (float)vBody.scaleHeightKm);
+    glUniform1f(m_uAtmoMieFactorLoc, vBody.mieHazeFactor);
+    glUniform1f(m_uAtmoPlanetRadiusLoc, vBody.renderRadius);
 
-    int numLights = (int)std::min(stars.size(), (size_t)4);
-    glUniform1i(m_uAtmoNumLightsLoc, numLights);
-    for (int i = 0; i < numLights; ++i) {
+    int numLights = 0;
+    for (size_t i = 0; i < stars.size() && numLights < 4; ++i) {
+        if (glm::distance(stars[i].positionAU, vBody.positionAU) < 0.0001f) {
+            continue;
+        }
         glm::vec3 relLightPos = stars[i].positionAU - cameraTarget;
-        glUniform3fv(m_uAtmoLightPosLoc[i], 1, glm::value_ptr(relLightPos));
-        glUniform3fv(m_uAtmoLightColorLoc[i], 1, glm::value_ptr(stars[i].color));
+        glUniform3fv(m_uAtmoLightPosLoc[numLights], 1, glm::value_ptr(relLightPos));
+        glUniform3fv(m_uAtmoLightColorLoc[numLights], 1, glm::value_ptr(stars[i].color));
+        numLights++;
     }
+    glUniform1i(m_uAtmoNumLightsLoc, numLights);
 
     glBindVertexArray(m_sphereMesh.vao);
     glDrawElements(GL_TRIANGLES, m_sphereMesh.indexCount, GL_UNSIGNED_INT, 0);
@@ -1155,12 +951,16 @@ void Renderer::renderCloudLayer(
     glUniform1f(m_uCloudCoverageLoc, vBody.cloudCoverage);
     glUniform1f(m_uCloudSimTimeLoc, vBody.cloudRotationAngle);
 
-    int numLights = (int)std::min(stars.size(), (size_t)4);
-    glUniform1i(m_uCloudNumLightsLoc, numLights);
-    for (int i = 0; i < numLights; ++i) {
+    int numLights = 0;
+    for (size_t i = 0; i < stars.size() && numLights < 4; ++i) {
+        if (glm::distance(stars[i].positionAU, vBody.positionAU) < 0.0001f) {
+            continue;
+        }
         glm::vec3 relLightPos = stars[i].positionAU - cameraTarget;
-        glUniform3fv(m_uCloudLightPosLoc[i], 1, glm::value_ptr(relLightPos));
+        glUniform3fv(m_uCloudLightPosLoc[numLights], 1, glm::value_ptr(relLightPos));
+        numLights++;
     }
+    glUniform1i(m_uCloudNumLightsLoc, numLights);
 
     glBindVertexArray(m_sphereMesh.vao);
     glDrawElements(GL_TRIANGLES, m_sphereMesh.indexCount, GL_UNSIGNED_INT, 0);
@@ -1352,7 +1152,7 @@ void Renderer::renderSkybox(const Camera& camera, float aspect) {
 
     glUseProgram(m_skyboxProgram);
 
-    glm::mat4 proj = glm::perspective(glm::radians(45.0f), std::max(aspect, 0.1f), 0.1f, 1000.0f);
+    glm::mat4 proj = glm::perspective(glm::radians(camera.getFOV()), std::max(aspect, 0.1f), 0.1f, 1000.0f);
     glm::mat4 view = glm::mat4(glm::mat3(camera.getViewMatrix()));
     glm::mat4 model = glm::scale(glm::mat4(1.0f), glm::vec3(100.0f));
     glm::mat4 vp = proj * view * model;
@@ -1367,6 +1167,7 @@ void Renderer::renderSkybox(const Camera& camera, float aspect) {
     } else {
         if (m_skyHasTexLoc != -1) glUniform1i(m_skyHasTexLoc, 0);
     }
+    if (m_skyCinematicModeLoc != -1) glUniform1i(m_skyCinematicModeLoc, m_cinematicEnabled ? 1 : 0);
 
     glBindVertexArray(m_sphereMesh.vao);
     glDrawElements(GL_TRIANGLES, m_sphereMesh.indexCount, GL_UNSIGNED_INT, 0);
@@ -1375,8 +1176,9 @@ void Renderer::renderSkybox(const Camera& camera, float aspect) {
     glEnable(GL_DEPTH_TEST);
 }
 
-void Renderer::renderTrails(const Camera& camera, float aspect, const std::vector<CelestialBody>& bodies, const glm::vec3& cameraTarget, int selectedIndex) {
+void Renderer::renderTrails(const Camera& camera, float aspect, const std::vector<CelestialBody>& bodies, const glm::vec3& cameraTarget, int selectedIndex, bool showOrbitLines, bool showMotionTrails) {
     if (bodies.empty() || m_trailProgram == 0 || m_trailVAO == 0) return;
+    if (!showOrbitLines && !showMotionTrails) return;
     if (selectedIndex < 0 || selectedIndex >= (int)bodies.size()) selectedIndex = 0;
 
     glm::mat4 proj = camera.getProjectionMatrix(aspect);
@@ -1401,93 +1203,96 @@ void Renderer::renderTrails(const Camera& camera, float aspect, const std::vecto
     }
 
     // 1. Render dynamic 3D Keplerian osculating orbit curve
-    for (int i = 0; i < (int)bodies.size(); ++i) {
-        const auto& body = bodies[i];
-        if (body.id == "sol" || body.type.find("Star") != std::string::npos) continue;
+    if (showOrbitLines) {
+        for (int i = 0; i < (int)bodies.size(); ++i) {
+            const auto& body = bodies[i];
+            if (body.id == "sol" || body.type.find("Star") != std::string::npos) continue;
 
-        bool isSelected = (i == selectedIndex);
-        float guideAlpha = isSelected ? 0.48f : 0.24f;
-        glm::vec3 ringColor = body.color * (isSelected ? 1.30f : 0.88f);
+            bool isSelected = (i == selectedIndex);
+            float guideAlpha = isSelected ? 0.48f : 0.24f;
+            glm::vec3 ringColor = body.color * (isSelected ? 1.30f : 0.88f);
 
-        glm::vec3 centerPos = starPos;
-        if (body.parentObjectId.has_value()) {
-            for (const auto& p : bodies) {
-                if (p.dbId == body.parentObjectId.value()) {
-                    centerPos = p.position;
-                    break;
-                }
-            }
-        } else {
-            bool isMoon = (body.type.find("Moon") != std::string::npos || body.type.find("Satellite") != std::string::npos ||
-                           body.id == "moon" || body.id == "ganymede" || body.id == "europa" || body.id == "io" || body.id == "callisto" || body.id == "titan" ||
-                           body.id == "phobos" || body.id == "deimos" || body.id == "enceladus" || body.id == "triton" || body.id == "charon");
-
-            if (isMoon) {
+            glm::vec3 centerPos = starPos;
+            if (body.parentObjectId.has_value()) {
                 for (const auto& p : bodies) {
-                    if ((body.id == "moon" && p.id == "earth") ||
-                        ((body.id == "ganymede" || body.id == "europa" || body.id == "io" || body.id == "callisto") && p.id == "jupiter") ||
-                        ((body.id == "titan" || body.id == "enceladus" || body.id == "mimas") && p.id == "saturn") ||
-                        ((body.id == "phobos" || body.id == "deimos") && p.id == "mars") ||
-                        ((body.id == "triton" || body.id == "proteus") && p.id == "neptune") ||
-                        (body.id == "charon" && p.id == "pluto")) {
+                    if (p.dbId == body.parentObjectId.value()) {
                         centerPos = p.position;
                         break;
                     }
                 }
-            }
-        }
-        glm::vec3 relCenterPos = centerPos - cameraTarget;
+            } else {
+                bool isMoon = (body.type.find("Moon") != std::string::npos || body.type.find("Satellite") != std::string::npos ||
+                               body.id == "moon" || body.id == "ganymede" || body.id == "europa" || body.id == "io" || body.id == "callisto" || body.id == "titan" ||
+                               body.id == "phobos" || body.id == "deimos" || body.id == "enceladus" || body.id == "triton" || body.id == "charon");
 
-        std::vector<TrailVertex> orbitVerts;
-        if (body.dynamicOrbitCurve.size() >= 2) {
-            orbitVerts.reserve(body.dynamicOrbitCurve.size());
-            for (size_t s = 0; s < body.dynamicOrbitCurve.size(); ++s) {
-                const auto& pt = body.dynamicOrbitCurve[s];
-                if (!std::isnan(pt.x) && !std::isnan(pt.y) && !std::isnan(pt.z) &&
-                    !std::isinf(pt.x) && !std::isinf(pt.y) && !std::isinf(pt.z) &&
-                    glm::length(pt) < 500.0f) {
-                    glm::vec3 p = relCenterPos + pt;
-                    orbitVerts.push_back({ p, glm::vec4(ringColor, guideAlpha) });
+                if (isMoon) {
+                    for (const auto& p : bodies) {
+                        if ((body.id == "moon" && p.id == "earth") ||
+                            ((body.id == "ganymede" || body.id == "europa" || body.id == "io" || body.id == "callisto") && p.id == "jupiter") ||
+                            ((body.id == "titan" || body.id == "enceladus" || body.id == "mimas") && p.id == "saturn") ||
+                            ((body.id == "phobos" || body.id == "deimos") && p.id == "mars") ||
+                            ((body.id == "triton" || body.id == "proteus") && p.id == "neptune") ||
+                            (body.id == "charon" && p.id == "pluto")) {
+                            centerPos = p.position;
+                            break;
+                        }
+                    }
                 }
             }
-        } else {
-            double orbitRadiusAU = (body.realOrbitRadiusAU > 0.0) ? body.realOrbitRadiusAU : (body.semiMajorAxisAU > 0.0 ? body.semiMajorAxisAU : (double)glm::length(body.position - centerPos));
-            if (orbitRadiusAU > 0.00005 && orbitRadiusAU < 500.0) {
-                const int circleSegments = 256;
-                orbitVerts.reserve(circleSegments + 1);
-                for (int s = 0; s <= circleSegments; ++s) {
-                    float theta = 2.0f * PI * (float)s / (float)circleSegments;
-                    glm::vec3 p = centerPos + glm::vec3((float)(orbitRadiusAU * std::cos(theta)), 0.0f, (float)(orbitRadiusAU * std::sin(theta))) - cameraTarget;
-                    orbitVerts.push_back({ p, glm::vec4(ringColor, guideAlpha) });
+            glm::vec3 relCenterPos = centerPos - cameraTarget;
+
+            std::vector<TrailVertex> orbitVerts;
+            if (body.dynamicOrbitCurve.size() >= 2) {
+                orbitVerts.reserve(body.dynamicOrbitCurve.size());
+                for (size_t s = 0; s < body.dynamicOrbitCurve.size(); ++s) {
+                    const auto& pt = body.dynamicOrbitCurve[s];
+                    if (!std::isnan(pt.x) && !std::isnan(pt.y) && !std::isnan(pt.z) &&
+                        !std::isinf(pt.x) && !std::isinf(pt.y) && !std::isinf(pt.z) &&
+                        glm::length(pt) < 500.0f) {
+                        glm::vec3 p = relCenterPos + pt;
+                        orbitVerts.push_back({ p, glm::vec4(ringColor, guideAlpha) });
+                    }
+                }
+            } else {
+                double orbitRadiusAU = (body.realOrbitRadiusAU > 0.0) ? body.realOrbitRadiusAU : (body.semiMajorAxisAU > 0.0 ? body.semiMajorAxisAU : (double)glm::length(body.position - centerPos));
+                if (orbitRadiusAU > 0.00005 && orbitRadiusAU < 500.0) {
+                    const int circleSegments = 256;
+                    orbitVerts.reserve(circleSegments + 1);
+                    for (int s = 0; s <= circleSegments; ++s) {
+                        float theta = 2.0f * PI * (float)s / (float)circleSegments;
+                        glm::vec3 p = centerPos + glm::vec3((float)(orbitRadiusAU * std::cos(theta)), 0.0f, (float)(orbitRadiusAU * std::sin(theta))) - cameraTarget;
+                        orbitVerts.push_back({ p, glm::vec4(ringColor, guideAlpha) });
+                    }
                 }
             }
-        }
 
-        if (!orbitVerts.empty()) {
-            glBindVertexArray(m_trailVAO);
-            glBindBuffer(GL_ARRAY_BUFFER, m_trailVBO);
-            glBufferData(GL_ARRAY_BUFFER, orbitVerts.size() * sizeof(TrailVertex), orbitVerts.data(), GL_DYNAMIC_DRAW);
-            glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)orbitVerts.size());
+            if (!orbitVerts.empty()) {
+                glBindVertexArray(m_trailVAO);
+                glBindBuffer(GL_ARRAY_BUFFER, m_trailVBO);
+                glBufferData(GL_ARRAY_BUFFER, orbitVerts.size() * sizeof(TrailVertex), orbitVerts.data(), GL_DYNAMIC_DRAW);
+                glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)orbitVerts.size());
+            }
         }
     }
 
     // 2. Render dynamic fading motion trails
-    auto catmullRom = [](const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, float t) -> glm::vec3 {
-        float t2 = t * t;
-        float t3 = t2 * t;
-        return 0.5f * ((2.0f * p1) +
-                       (-p0 + p2) * t +
-                       (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3) * t2 +
-                       (-p0 + 3.0f * p1 - 3.0f * p2 + p3) * t3);
-    };
+    if (showMotionTrails) {
+        auto catmullRom = [](const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, float t) -> glm::vec3 {
+            float t2 = t * t;
+            float t3 = t2 * t;
+            return 0.5f * ((2.0f * p1) +
+                           (-p0 + p2) * t +
+                           (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3) * t2 +
+                           (-p0 + 3.0f * p1 - 3.0f * p2 + p3) * t3);
+        };
 
-    glm::vec3 camEye = cameraTarget + camera.getEyePosition();
+        glm::vec3 camEye = cameraTarget + camera.getEyePosition();
 
-    for (int i = 0; i < (int)bodies.size(); ++i) {
-        const auto& body = bodies[i];
-        if (body.id == "sol" || body.type.find("Star") != std::string::npos || body.trailHistory.size() < 2) continue;
+        for (int i = 0; i < (int)bodies.size(); ++i) {
+            const auto& body = bodies[i];
+            if (body.id == "sol" || body.type.find("Star") != std::string::npos || body.trailHistory.size() < 2) continue;
 
-        bool isSelected = (i == selectedIndex);
+            bool isSelected = (i == selectedIndex);
 
         std::vector<glm::vec3> pts;
         pts.reserve(body.trailHistory.size() + 1);
@@ -1570,6 +1375,7 @@ void Renderer::renderTrails(const Camera& camera, float aspect, const std::vecto
             }
         }
     }
+    }
 
     glBindVertexArray(0);
     glDepthMask(GL_TRUE);
@@ -1630,6 +1436,7 @@ void Renderer::renderRings(const Camera& camera, float aspect, const std::vector
         glUniform3fv(m_uRingPlanetCenterLoc, 1, glm::value_ptr(relativePlanetCenter));
         glUniform1f(m_uRingPlanetRadiusLoc, body.radius3D);
         glUniform3fv(m_uRingColorLoc, 1, glm::value_ptr(body.ring.baseColor));
+        glUniform1i(glGetUniformLocation(m_ringProgram, "uCinematicMode"), m_cinematicEnabled ? 1 : 0);
 
         glBindVertexArray(m_ringMesh.vao);
         glDrawElements(GL_TRIANGLES, m_ringMesh.indexCount, GL_UNSIGNED_INT, 0);

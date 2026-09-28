@@ -78,6 +78,25 @@ void Camera::processMouseOrbit(float deltaX, float deltaY) {
     m_pitch = std::clamp(m_pitch, -maxPitch, maxPitch);
 }
 
+void Camera::processMousePan(float deltaX, float deltaY) {
+    float cosPitch = std::cos(m_pitch);
+    float sinPitch = std::sin(m_pitch);
+    float cosYaw   = std::cos(m_yaw);
+    float sinYaw   = std::sin(m_yaw);
+
+    glm::vec3 forward(-cosPitch * sinYaw, -sinPitch, -cosPitch * cosYaw);
+    glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
+    glm::vec3 right = glm::normalize(glm::cross(forward, worldUp));
+    glm::vec3 up    = glm::normalize(glm::cross(right, forward));
+
+    float panSpeed = m_distance * 0.0015f;
+    glm::vec3 panOffset = (-right * deltaX + up * deltaY) * panSpeed;
+
+    m_desiredTarget += panOffset;
+    m_currentTarget += panOffset;
+    m_startPos += panOffset;
+}
+
 void Camera::processMouseZoom(float deltaZoom) {
     if (deltaZoom == 0.0f) return;
 
@@ -94,6 +113,7 @@ void Camera::processMouseZoom(float deltaZoom) {
 void Camera::resetCenter() {
     m_yaw = 0.0f;
     m_pitch = 0.3f;
+    m_roll = 0.0f;
     m_distance = std::max(0.0000001f, m_targetRadius * 3.5f);
 }
 
@@ -103,6 +123,7 @@ void Camera::resetOverview(const glm::vec3& targetPos, float distance) {
     m_startPos = targetPos;
     m_yaw = 0.0f;
     m_pitch = 0.45f;
+    m_roll = 0.0f;
     m_distance = distance;
     m_targetDistance = distance;
     m_isTransitioning = false;
@@ -126,8 +147,20 @@ glm::vec3 Camera::getEyePosition() const {
 
 glm::mat4 Camera::getViewMatrix() const {
     glm::vec3 eye = getEyePosition();
-    // Camera always looks at origin (0,0,0) — the focused body is placed there
-    return glm::lookAt(eye, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    // Camera looks at origin (0,0,0) — the focused body is placed there
+    glm::vec3 up(0.0f, 1.0f, 0.0f);
+    if (std::abs(m_roll) > 0.0001f) {
+        glm::vec3 forward = glm::normalize(glm::vec3(0.0f) - eye);
+        glm::vec3 defaultUp(0.0f, 1.0f, 0.0f);
+        if (std::abs(glm::dot(forward, defaultUp)) > 0.999f) {
+            defaultUp = glm::vec3(0.0f, 0.0f, 1.0f);
+        }
+        glm::vec3 right = glm::normalize(glm::cross(forward, defaultUp));
+        glm::vec3 baseUp = glm::normalize(glm::cross(right, forward));
+        glm::mat4 rollRot = glm::rotate(glm::mat4(1.0f), m_roll, forward);
+        up = glm::normalize(glm::vec3(rollRot * glm::vec4(baseUp, 0.0f)));
+    }
+    return glm::lookAt(eye, glm::vec3(0.0f), up);
 }
 
 glm::mat4 Camera::getProjectionMatrix(float aspectRatio) const {
@@ -173,6 +206,89 @@ bool Camera::projectToScreen(const glm::vec3& worldPos, const glm::vec3& cameraT
     outScreenRadius = (bodyRadius3D / distToCam) * (vpH * 0.5f / tanHalfFov);
 
     return true;
+}
+
+void Camera::screenToWorldRay(float screenX, float screenY, float vpX, float vpY, float vpW, float vpH,
+                              glm::vec3& outRayOrigin, glm::vec3& outRayDir) const {
+    if (vpW <= 0.0f || vpH <= 0.0f) {
+        outRayOrigin = m_currentTarget;
+        outRayDir = glm::vec3(0.0f, 0.0f, -1.0f);
+        return;
+    }
+
+    float aspect = vpW / vpH;
+    glm::mat4 proj = getProjectionMatrix(aspect);
+    glm::mat4 view = getViewMatrix();
+    glm::mat4 invVP = glm::inverse(proj * view);
+
+    float ndcX = ((screenX - vpX) / vpW) * 2.0f - 1.0f;
+    float ndcY = 1.0f - ((screenY - vpY) / vpH) * 2.0f;
+
+    glm::vec4 pNear = invVP * glm::vec4(ndcX, ndcY, -1.0f, 1.0f);
+    glm::vec4 pFar  = invVP * glm::vec4(ndcX, ndcY,  1.0f, 1.0f);
+
+    if (std::abs(pNear.w) > 1e-7f) pNear /= pNear.w;
+    if (std::abs(pFar.w) > 1e-7f)  pFar  /= pFar.w;
+
+    glm::vec3 relNear = glm::vec3(pNear);
+    glm::vec3 relFar  = glm::vec3(pFar);
+
+    outRayOrigin = m_currentTarget + relNear;
+    outRayDir = glm::normalize(relFar - relNear);
+}
+
+bool Camera::intersectPlane(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
+                            const glm::vec3& planePoint, const glm::vec3& planeNormal,
+                            glm::vec3& outIntersection) const {
+    float denom = glm::dot(planeNormal, rayDir);
+    if (std::abs(denom) < 1e-5f) return false;
+
+    float t = glm::dot(planePoint - rayOrigin, planeNormal) / denom;
+    if (t < 0.0f) return false;
+
+    outIntersection = rayOrigin + t * rayDir;
+    return true;
+}
+
+int Camera::pickBody(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
+                     const std::vector<glm::vec3>& positions,
+                     const std::vector<float>& radii3D,
+                     float vpH, float pixelTolerance) const {
+    if (positions.empty() || positions.size() != radii3D.size() || vpH <= 0.0f) {
+        return -1;
+    }
+
+    int bestIdx = -1;
+    float bestDepth = 1e12f;
+    float tanHalfFov = std::tan(glm::radians(m_fov * 0.5f));
+
+    for (size_t i = 0; i < positions.size(); ++i) {
+        glm::vec3 toCenter = positions[i] - rayOrigin;
+        float tClose = glm::dot(toCenter, rayDir);
+        if (tClose <= 0.001f) continue; // Behind camera ray
+
+        glm::vec3 pClose = rayOrigin + tClose * rayDir;
+        float perpDist = glm::length(positions[i] - pClose);
+
+        float physRadius = std::max(0.0001f, radii3D[i]);
+        // Minimum pixel hitbox translated to world units at distance tClose
+        float minWorldRadius = (pixelTolerance / (vpH * 0.5f)) * tClose * tanHalfFov;
+        float effectiveRadius = std::max(physRadius, minWorldRadius);
+
+        if (perpDist <= effectiveRadius) {
+            float depth = tClose;
+            // If physical hit on the sphere, find the entry point
+            if (perpDist <= physRadius) {
+                depth = tClose - std::sqrt(physRadius * physRadius - perpDist * perpDist);
+            }
+            if (depth < bestDepth) {
+                bestDepth = depth;
+                bestIdx = (int)i;
+            }
+        }
+    }
+
+    return bestIdx;
 }
 
 } // namespace AstroGenesis

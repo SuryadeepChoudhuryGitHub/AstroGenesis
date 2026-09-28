@@ -48,6 +48,7 @@ public:
 
     void stepFrameForward();
     void stepFrameBackward();
+    void stepSingleFrame(float deltaSec = 1.0f / 60.0f) { stepFrameForward(); }
 
     std::string getSimulationTimeStr() const;
     std::string getSimVsRealTimeStr() const;
@@ -92,12 +93,54 @@ public:
     double getRealTimeElapsedSeconds() const { return m_realTimeElapsedSeconds; }
     void updateBodyScales();
 
+    // Interactive Physical Manipulation & Universe Sandbox Controls
+    void setBodyPositionAU(int bodyIdx, const glm::vec3& newPosAU, bool preserveVelocity = true);
+    bool removeBody(int bodyIdx);
+    int duplicateBody(int bodyIdx, const glm::vec3& offsetAU = glm::vec3(0.05f, 0.0f, 0.05f));
+    void calculateOrbitalVelocity(int bodyIdx, int parentIdx = 0);
+    int spawnCelestialBody(const std::string& templateClass, const glm::vec3& posAU, int parentIdx = 0, bool autoOrbit = true);
+
+    void setBodyVelocity(int bodyIdx, const glm::dvec3& velMps);
+    void scaleBodyVelocity(int bodyIdx, double factor);
+    void applyProgradeDeltaV(int bodyIdx, double deltaVMps);
+    void applyNormalDeltaV(int bodyIdx, double deltaVMps);
+    void circularizeOrbit(int bodyIdx);
+    void setBodyOrbitRadiusAU(int bodyIdx, double newRadiusAU);
+    void setBodyEccentricity(int bodyIdx, double newEccentricity);
+
+    // Thermal, Radiative & Atmospheric Controls
+    void setBodyCustomTemperature(int bodyIdx, double tempK);
+    void resetBodyToThermalEquilibrium(int bodyIdx);
+    void setStarLuminositySolar(int bodyIdx, double solarLuminosities);
+    void recalculateStellarLuminosity(int bodyIdx);
+    void setBodyGreenhouseDeltaK(int bodyIdx, float greenhouseDeltaK);
+    void setBodyAtmosphere(int bodyIdx, bool enabled);
+    void setBodyGasPercentage(int bodyIdx, const std::string& speciesId, float newPercentage);
+    void setBodySurfacePressureKpa(int bodyIdx, double pressureKpa);
+    void setBodyBareAlbedo(int bodyIdx, double baseAlbedo);
+    void resetBodyAtmosphereToBaseline(int bodyIdx);
+    void forceUpdatePhysicalQuantities();
+
+    // Collision Detection & Events
+    struct CelestialCollisionEvent {
+        std::string survivorName;
+        std::string absorbedName;
+        glm::vec3 positionAU{0.0f};
+        glm::vec3 normal{0.0f, 1.0f, 0.0f};
+        double impactEnergyJoules = 0.0;
+        float thermalTempK = 0.0f;
+        std::string description;
+    };
+    const std::vector<CelestialCollisionEvent>& getRecentCollisions() const { return m_recentCollisions; }
+    void clearRecentCollisions() { m_recentCollisions.clear(); }
+
 private:
     void computeAccelerations(const std::vector<glm::dvec3>& positions,
                               const std::vector<glm::dvec3>& velocities,
                               std::vector<glm::dvec3>& outAccelerations);
 
     void integrateNBody(double deltaSeconds);
+    void checkAndResolveCollisions();
     void updatePhysicalQuantities();
     void updateRingHydrodynamics(double deltaSeconds);
     void computeSystemConservationStats();
@@ -105,6 +148,7 @@ private:
     void generateOrbitalTrails();
 
     std::vector<CelestialBody> m_bodies;
+    std::vector<CelestialCollisionEvent> m_recentCollisions;
     int m_selectedBodyIndex = 0;
     std::string m_currentCategory = "Solar System";
 

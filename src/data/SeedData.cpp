@@ -215,7 +215,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               0.00005, 174.9, 288.1, 357.517,
               0.306, 33.0, 23.44, 23.93446,
               "78% N₂, 21% O₂", "101.3 kPa", "25.0–65.0 µT", "399",
-              { {0,0,"Nitrogen",78.08f,{0.0f,0.7f,0.9f,1.0f}}, {0,0,"Oxygen",20.95f,{0.0f,0.85f,0.4f,1.0f}}, {0,0,"Argon",0.93f,{0.94f,0.75f,0.12f,1.0f}}, {0,0,"Carbon Dioxide",0.04f,{0.86f,0.31f,0.31f,1.0f}} },
+              { {0,0,"Nitrogen",77.08f,{0.0f,0.7f,0.9f,1.0f}}, {0,0,"Oxygen",20.75f,{0.0f,0.85f,0.4f,1.0f}}, {0,0,"Water Vapor",1.20f,{0.4f,0.7f,1.0f,1.0f}}, {0,0,"Argon",0.93f,{0.94f,0.75f,0.12f,1.0f}}, {0,0,"Carbon Dioxide",0.04f,{0.86f,0.31f,0.31f,1.0f}} },
               glm::vec3(0.0f, 0.83f, 1.0f), "assets/textures/earth_daymap.jpg");
 
     // 4b. Moon (Luna)

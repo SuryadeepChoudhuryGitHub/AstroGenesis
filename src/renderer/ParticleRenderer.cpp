@@ -1,4 +1,5 @@
 #include "renderer/ParticleRenderer.hpp"
+#include "renderer/ShaderLoader.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <cmath>
@@ -6,51 +7,6 @@
 #include <algorithm>
 
 namespace AstroGenesis {
-
-static const char* particleVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;           // Mesh vertex position
-layout(location = 1) in vec3 aNormal;        // Mesh vertex normal
-layout(location = 2) in vec3 aInstancePos;   // Instance camera-relative position (AU)
-layout(location = 3) in float aInstanceScale;// Instance scale
-layout(location = 4) in vec4 aInstanceColor; // Instance color + opacity
-
-out vec3 FragPos;
-out vec3 Normal;
-out vec4 InstanceColor;
-
-uniform mat4 uVP;
-
-void main() {
-    vec3 worldPos = aInstancePos + aPos * aInstanceScale;
-    FragPos = worldPos;
-    Normal = aNormal;
-    InstanceColor = aInstanceColor;
-    gl_Position = uVP * vec4(worldPos, 1.0);
-}
-)GLSL";
-
-static const char* particleFragSrc = R"GLSL(
-#version 330 core
-out vec4 FragColor;
-
-in vec3 FragPos;
-in vec3 Normal;
-in vec4 InstanceColor;
-
-uniform vec3 uLightPos; // Camera-relative Sol position
-
-void main() {
-    vec3 lightDir = normalize(uLightPos - FragPos);
-    vec3 norm = normalize(Normal);
-
-    // Directional point diffuse from Sol + ambient
-    float diff = max(dot(norm, lightDir), 0.20);
-    vec3 color = InstanceColor.rgb * diff;
-
-    FragColor = vec4(color, InstanceColor.a);
-}
-)GLSL";
 
 static GLuint compileShader(GLenum type, const char* src) {
     GLuint s = glCreateShader(type);
@@ -73,8 +29,10 @@ ParticleRenderer::~ParticleRenderer() {
 }
 
 bool ParticleRenderer::initialize() {
-    GLuint vShader = compileShader(GL_VERTEX_SHADER, particleVertSrc);
-    GLuint fShader = compileShader(GL_FRAGMENT_SHADER, particleFragSrc);
+    std::string vSrc = loadShaderSource("assets/shaders/particle.vert");
+    std::string fSrc = loadShaderSource("assets/shaders/particle.frag");
+    GLuint vShader = compileShader(GL_VERTEX_SHADER, vSrc.c_str());
+    GLuint fShader = compileShader(GL_FRAGMENT_SHADER, fSrc.c_str());
     m_program = glCreateProgram();
     glAttachShader(m_program, vShader);
     glAttachShader(m_program, fShader);
