@@ -48,6 +48,7 @@ public:
 
     void stepFrameForward();
     void stepFrameBackward();
+    void stepSingleFrame(float deltaSec = 1.0f / 60.0f) { stepFrameForward(); }
 
     std::string getSimulationTimeStr() const;
     std::string getSimVsRealTimeStr() const;
@@ -93,6 +94,12 @@ public:
     void updateBodyScales();
 
     // Interactive Physical Manipulation & Universe Sandbox Controls
+    void setBodyPositionAU(int bodyIdx, const glm::vec3& newPosAU, bool preserveVelocity = true);
+    bool removeBody(int bodyIdx);
+    int duplicateBody(int bodyIdx, const glm::vec3& offsetAU = glm::vec3(0.05f, 0.0f, 0.05f));
+    void calculateOrbitalVelocity(int bodyIdx, int parentIdx = 0);
+    int spawnCelestialBody(const std::string& templateClass, const glm::vec3& posAU, int parentIdx = 0, bool autoOrbit = true);
+
     void setBodyVelocity(int bodyIdx, const glm::dvec3& velMps);
     void scaleBodyVelocity(int bodyIdx, double factor);
     void applyProgradeDeltaV(int bodyIdx, double deltaVMps);

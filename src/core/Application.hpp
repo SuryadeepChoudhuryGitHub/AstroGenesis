@@ -54,6 +54,7 @@ private:
     double m_lastMouseX = 0.0;
     double m_lastMouseY = 0.0;
     bool m_isDraggingViewport = false;
+    bool m_isPanningViewport = false;
 };
 
 } // namespace AstroGenesis

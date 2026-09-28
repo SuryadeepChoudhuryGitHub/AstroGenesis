@@ -152,21 +152,74 @@ void Application::processInput(float deltaTime) {
     m_lastMouseY = mouseY;
 
     bool isViewportHovered = m_uiManager.isViewportHovered();
-    bool canInteract3D = isViewportHovered && !io.WantCaptureMouse;
+    bool isManipulatingGizmo = m_uiManager.isManipulatingObject();
+    bool canInteract3D = isViewportHovered && !io.WantCaptureMouse && !isManipulatingGizmo;
 
-    bool leftDown  = (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT)  == GLFW_PRESS);
-    bool rightDown = (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
+    bool leftDown   = (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT)   == GLFW_PRESS);
+    bool rightDown  = (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT)  == GLFW_PRESS);
+    bool middleDown = (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS);
 
-    if (leftDown || rightDown) {
-        if (!m_isDraggingViewport && canInteract3D) {
-            m_isDraggingViewport = true;
+    int activeTab = m_uiManager.getActiveTopTab();
+
+    if (activeTab == 1) { // ── EDIT WORKSPACE ──
+        // Right-drag: Dedicated camera orbit in EDIT mode so left-drag can manipulate objects
+        if (rightDown && !middleDown) {
+            if (!m_isDraggingViewport && canInteract3D) {
+                m_isDraggingViewport = true;
+            }
+        } else {
+            m_isDraggingViewport = false;
         }
-    } else {
-        m_isDraggingViewport = false;
-    }
+        if (m_isDraggingViewport) {
+            m_camera.processMouseOrbit(deltaX, deltaY);
+        }
 
-    if (m_isDraggingViewport) {
-        m_camera.processMouseOrbit(deltaX, deltaY);
+        // Middle-drag: Camera pan in EDIT mode
+        if (middleDown) {
+            if (!m_isPanningViewport && canInteract3D) {
+                m_isPanningViewport = true;
+            }
+        } else {
+            m_isPanningViewport = false;
+        }
+        if (m_isPanningViewport) {
+            m_camera.processMousePan(deltaX, deltaY);
+        }
+
+        // Left-drag: Dedicated to object manipulation / gizmo.
+        // Only orbit if Select tool is active on empty space (no gizmo, no hovered body)
+        if (leftDown && !rightDown && !middleDown) {
+            bool toolBusy = m_uiManager.isMoveToolActive() || m_uiManager.isPlaceToolActive() ||
+                            m_uiManager.isManipulatingObject() || (m_uiManager.getHoveredBodyIndex() >= 0) ||
+                            m_uiManager.isGizmoHovered();
+            if (!toolBusy && canInteract3D) {
+                m_camera.processMouseOrbit(deltaX, deltaY);
+            }
+        }
+    } else { // ── UNIVERSE & OTHER WORKSPACES ──
+        // Right-drag OR Middle-drag: Pan camera (scaled by target distance)
+        if (rightDown || middleDown) {
+            if (!m_isPanningViewport && canInteract3D) {
+                m_isPanningViewport = true;
+            }
+        } else {
+            m_isPanningViewport = false;
+        }
+        if (m_isPanningViewport) {
+            m_camera.processMousePan(deltaX, deltaY);
+        }
+
+        // Left-drag on empty viewport: Orbit camera (when not clicking body or UI)
+        if (leftDown && !rightDown && !middleDown) {
+            if (!m_isDraggingViewport && canInteract3D && m_uiManager.getHoveredBodyIndex() < 0) {
+                m_isDraggingViewport = true;
+            }
+        } else {
+            m_isDraggingViewport = false;
+        }
+        if (m_isDraggingViewport) {
+            m_camera.processMouseOrbit(deltaX, deltaY);
+        }
     }
 
     if (canInteract3D && io.MouseWheel != 0.0f) {
@@ -190,10 +243,12 @@ void Application::processInput(float deltaTime) {
     }
 
     if (!io.WantTextInput && !io.WantCaptureKeyboard) {
+        // Space: Pause/Resume simulation
         if (ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
             m_physics.togglePause();
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_R, false)) {
+        // R: Reset simulation workspace
+        if (ImGui::IsKeyPressed(ImGuiKey_R, false) && !io.KeyCtrl) {
             m_physics.resetSimulation(m_objRepo);
             m_camera.resetOverview(glm::vec3(0.0f), 6.0f);
             m_uiManager.addEventLog("Simulation workspace reset to fresh start (Hotkey: R)");
@@ -214,25 +269,90 @@ void Application::processInput(float deltaTime) {
             m_visualAdapter.toggleUIHidden();
             m_uiManager.addEventLog(m_visualAdapter.isUIHidden() ? "UI hidden for clean capture (Hotkey: F12)" : "UI restored (Hotkey: F12)");
         }
-        // Escape: unhide UI or exit Photo Mode
+
+        // ── SANDBOX SHORTCUTS & ACTIONS ─────────────────────────────────────────
+        // Ctrl+Z: Undo, Ctrl+Y / Ctrl+Shift+Z: Redo
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
+            if (io.KeyShift) {
+                m_uiManager.redo(m_physics);
+            } else {
+                m_uiManager.undo(m_physics);
+            }
+        } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y, false)) {
+            m_uiManager.redo(m_physics);
+        }
+        // Ctrl+D: Duplicate selected object
+        else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D, false)) {
+            m_uiManager.duplicateSelectedObject(m_physics);
+        }
+
+        // Delete / Backspace: Delete selected object
+        if (ImGui::IsKeyPressed(ImGuiKey_Delete, false) || ImGui::IsKeyPressed(ImGuiKey_Backspace, false)) {
+            m_uiManager.deleteSelectedObject(m_physics);
+        }
+
+        // V or S: Select Tool
+        if ((ImGui::IsKeyPressed(ImGuiKey_V, false) || ImGui::IsKeyPressed(ImGuiKey_S, false)) && !io.KeyCtrl) {
+            m_uiManager.setActiveTool(SandboxTool::Select);
+            m_uiManager.cancelPlacement();
+        }
+
+        // M or G: Toggle 3D Move Tool (Gizmo)
+        if ((ImGui::IsKeyPressed(ImGuiKey_M, false) || ImGui::IsKeyPressed(ImGuiKey_G, false)) && !io.KeyCtrl) {
+            m_uiManager.toggleMoveTool();
+        }
+
+        // A: Toggle Add Object palette
+        if (ImGui::IsKeyPressed(ImGuiKey_A, false) && !io.KeyCtrl) {
+            m_uiManager.m_showAddPalette = !m_uiManager.m_showAddPalette;
+        }
+
+        // H: Toggle hierarchy (in EDIT: drawer, in UNIVERSE: left panel)
+        if (ImGui::IsKeyPressed(ImGuiKey_H, false) && !io.KeyCtrl) {
+            if (m_uiManager.getActiveTopTab() == 0) {
+                m_uiManager.toggleUniverseLeft();
+            } else {
+                m_uiManager.toggleHierarchy();
+            }
+        }
+
+        // I: Toggle Scientific Details Inspector
+        if (ImGui::IsKeyPressed(ImGuiKey_I, false) && !io.KeyCtrl) {
+            m_uiManager.toggleDetails();
+        }
+
+        // Escape: Smart Contextual Cancel / Deselect / Unhide
         if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
             if (m_visualAdapter.isUIHidden()) {
                 m_visualAdapter.setUIHidden(false);
             } else if (m_visualAdapter.isPhotoModeActive()) {
                 m_visualAdapter.setPhotoModeActive(false);
+            } else if (m_uiManager.m_placementActive) {
+                m_uiManager.cancelPlacement();
+            } else if (m_uiManager.m_showAddPalette) {
+                m_uiManager.m_showAddPalette = false;
+            } else if (m_uiManager.m_showDetailsModal) {
+                m_uiManager.m_showDetailsModal = false;
+            } else if (m_uiManager.m_activeTool == SandboxTool::Move) {
+                m_uiManager.setActiveTool(SandboxTool::Select);
+            } else if (m_physics.getSelectedBodyIndex() >= 0) {
+                m_physics.selectBody(-1);
             }
         }
-        // Z: Reset camera roll
-        if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
+
+        // Z without Ctrl: Reset camera roll
+        if (ImGui::IsKeyPressed(ImGuiKey_Z, false) && !io.KeyCtrl) {
             m_camera.resetRoll();
         }
-        // Number keys 1-6 switch top-level workspaces
-        if (ImGui::IsKeyPressed(ImGuiKey_1, false)) m_uiManager.setActiveTopTab(0);
-        if (ImGui::IsKeyPressed(ImGuiKey_2, false)) m_uiManager.setActiveTopTab(1);
-        if (ImGui::IsKeyPressed(ImGuiKey_3, false)) m_uiManager.setActiveTopTab(2);
-        if (ImGui::IsKeyPressed(ImGuiKey_4, false)) m_uiManager.setActiveTopTab(3);
-        if (ImGui::IsKeyPressed(ImGuiKey_5, false)) m_uiManager.setActiveTopTab(4);
-        if (ImGui::IsKeyPressed(ImGuiKey_6, false)) m_uiManager.setActiveTopTab(5);
+
+        // Number keys 1-7 switch top-level workspaces
+        if (ImGui::IsKeyPressed(ImGuiKey_1, false)) m_uiManager.setActiveTopTab(0); // UNIVERSE
+        if (ImGui::IsKeyPressed(ImGuiKey_2, false)) m_uiManager.setActiveTopTab(1); // EDIT
+        if (ImGui::IsKeyPressed(ImGuiKey_3, false)) m_uiManager.setActiveTopTab(2); // SYSTEM
+        if (ImGui::IsKeyPressed(ImGuiKey_4, false)) m_uiManager.setActiveTopTab(3); // OBJECTS
+        if (ImGui::IsKeyPressed(ImGuiKey_5, false)) m_uiManager.setActiveTopTab(4); // EXPLORE
+        if (ImGui::IsKeyPressed(ImGuiKey_6, false)) m_uiManager.setActiveTopTab(5); // SIMULATION
+        if (ImGui::IsKeyPressed(ImGuiKey_7, false)) m_uiManager.setActiveTopTab(6); // AI ASSISTANT
 
         // F: Focus camera on selected object
         if (ImGui::IsKeyPressed(ImGuiKey_F, false)) {

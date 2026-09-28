@@ -13,6 +13,7 @@ public:
 
     // Inputs
     void processMouseOrbit(float deltaX, float deltaY);
+    void processMousePan(float deltaX, float deltaY);
     void processMouseZoom(float deltaZoom);
     void resetCenter();
     void resetOverview(const glm::vec3& targetPos = glm::vec3(0.0f), float distance = 6.0f);
@@ -28,10 +29,22 @@ public:
     glm::mat4 getViewMatrix() const;
     glm::mat4 getProjectionMatrix(float aspectRatio) const;
 
-    // Screen projection
+    // Screen projection & Raycasting
     bool projectToScreen(const glm::vec3& worldPos, const glm::vec3& cameraTarget,
                          float vpX, float vpY, float vpW, float vpH,
                          glm::vec2& outScreenPos, float& outScreenRadius, float bodyRadius3D = 1.0f) const;
+
+    void screenToWorldRay(float screenX, float screenY, float vpX, float vpY, float vpW, float vpH,
+                          glm::vec3& outRayOrigin, glm::vec3& outRayDir) const;
+
+    bool intersectPlane(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
+                        const glm::vec3& planePoint, const glm::vec3& planeNormal,
+                        glm::vec3& outIntersection) const;
+
+    int pickBody(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
+                 const std::vector<glm::vec3>& positions,
+                 const std::vector<float>& radii3D,
+                 float vpH, float pixelTolerance = 18.0f) const;
 
     float getFOV() const { return m_fov; }
     void setFOV(float fovDeg) { m_fov = glm::clamp(fovDeg, 10.0f, 120.0f); }

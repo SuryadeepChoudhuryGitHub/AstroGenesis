@@ -927,6 +927,197 @@ void PhysicsEngine::checkAndResolveCollisions() {
     }
 }
 
+void PhysicsEngine::setBodyPositionAU(int bodyIdx, const glm::vec3& newPosAU, bool preserveVelocity) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    auto& b = m_bodies[bodyIdx];
+    b.position = newPosAU;
+    b.positionM = glm::dvec3(newPosAU) * AU_METERS;
+
+    if (!preserveVelocity) {
+        circularizeOrbit(bodyIdx);
+    }
+
+    b.trailHistory.clear();
+    b.trailHistory.push_back(newPosAU);
+    updateBodyScales();
+    updatePhysicalQuantities();
+}
+
+bool PhysicsEngine::removeBody(int bodyIdx) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return false;
+    int64_t removedDbId = m_bodies[bodyIdx].dbId;
+
+    // Reset parent ID for any bodies that had this body as parent
+    for (auto& b : m_bodies) {
+        if (b.parentObjectId.has_value() && b.parentObjectId.value() == removedDbId) {
+            b.parentObjectId = std::nullopt;
+        }
+    }
+
+    m_bodies.erase(m_bodies.begin() + bodyIdx);
+
+    if (m_bodies.empty()) {
+        m_selectedBodyIndex = -1;
+    } else {
+        if (m_selectedBodyIndex >= (int)m_bodies.size()) {
+            m_selectedBodyIndex = (int)m_bodies.size() - 1;
+        }
+    }
+
+    updateBodyScales();
+    updatePhysicalQuantities();
+    return true;
+}
+
+int PhysicsEngine::duplicateBody(int bodyIdx, const glm::vec3& offsetAU) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return -1;
+    CelestialBody clone = m_bodies[bodyIdx];
+
+    clone.name += " (Copy)";
+    clone.id += "_copy_" + std::to_string(std::rand() % 10000);
+    clone.dbId = 0;
+    clone.position += offsetAU;
+    clone.positionM = glm::dvec3(clone.position) * AU_METERS;
+    clone.trailHistory.clear();
+    clone.trailHistory.push_back(clone.position);
+
+    m_bodies.push_back(clone);
+    int newIdx = (int)m_bodies.size() - 1;
+
+    if (m_bodies[bodyIdx].parentObjectId.has_value() || (bodyIdx != 0 && (clone.id != "sol" && clone.type.find("Star") == std::string::npos))) {
+        circularizeOrbit(newIdx);
+    }
+
+    updateBodyScales();
+    updatePhysicalQuantities();
+    selectBody(newIdx);
+    return newIdx;
+}
+
+void PhysicsEngine::calculateOrbitalVelocity(int bodyIdx, int parentIdx) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    if (parentIdx < 0 || parentIdx >= (int)m_bodies.size() || bodyIdx == parentIdx) {
+        parentIdx = 0;
+    }
+    const auto& parent = m_bodies[parentIdx];
+    glm::dvec3 rVec = m_bodies[bodyIdx].positionM - parent.positionM;
+    double rM = glm::length(rVec);
+    if (rM < 1000.0) return;
+
+    double muTotal = G_CONST * (parent.massKg + m_bodies[bodyIdx].massKg);
+    double vCirc = std::sqrt(muTotal / rM);
+
+    glm::dvec3 normal(0.0, 1.0, 0.0);
+    glm::dvec3 tangent = glm::cross(normal, rVec);
+    double tLen = glm::length(tangent);
+    if (tLen > 1e-4) {
+        tangent /= tLen;
+    } else {
+        tangent = glm::dvec3(1.0, 0.0, 0.0);
+    }
+
+    m_bodies[bodyIdx].velocityMps = parent.velocityMps + vCirc * tangent;
+    m_bodies[bodyIdx].velocity = glm::vec3((float)(m_bodies[bodyIdx].velocityMps.x / AU_METERS),
+                                           (float)(m_bodies[bodyIdx].velocityMps.y / AU_METERS),
+                                           (float)(m_bodies[bodyIdx].velocityMps.z / AU_METERS));
+    m_bodies[bodyIdx].trailHistory.clear();
+    m_bodies[bodyIdx].trailHistory.push_back(m_bodies[bodyIdx].position);
+    updatePhysicalQuantities();
+}
+
+int PhysicsEngine::spawnCelestialBody(const std::string& templateClass, const glm::vec3& posAU, int parentIdx, bool autoOrbit) {
+    CelestialBody body;
+    body.dbId = 0;
+    body.category = "Custom";
+    body.sourceName = "Simulation Sandbox Editor";
+    body.position = posAU;
+    body.positionM = glm::dvec3(posAU) * AU_METERS;
+
+    static int spawnCounter = 1;
+    int curNum = spawnCounter++;
+
+    if (templateClass == "Star") {
+        body.id = "custom_star_" + std::to_string(curNum);
+        body.name = "New Star " + std::to_string(curNum);
+        body.type = "G2V Main Sequence Star";
+        body.color = glm::vec3(1.0f, 0.82f, 0.35f);
+        body.massKg = UnitConverter::SOLAR_MASS_KG;
+        body.radiusM = UnitConverter::SOLAR_RADIUS_M;
+        body.surfaceTempK = 5778.0;
+        body.luminosityW = UnitConverter::SOLAR_LUMINOSITY_W;
+        body.rotationPeriodHours = 609.12;
+    } else if (templateClass == "GasGiant") {
+        body.id = "custom_gas_giant_" + std::to_string(curNum);
+        body.name = "Gas Giant " + std::to_string(curNum);
+        body.type = "Gas Giant";
+        body.color = glm::vec3(0.85f, 0.65f, 0.40f);
+        body.massKg = UnitConverter::JUPITER_MASS_KG;
+        body.radiusM = UnitConverter::JUPITER_RADIUS_M;
+        body.surfaceTempK = 165.0;
+        body.rotationPeriodHours = 9.93;
+        body.axialTiltDeg = 3.13f;
+    } else if (templateClass == "Moon") {
+        body.id = "custom_moon_" + std::to_string(curNum);
+        body.name = "New Moon " + std::to_string(curNum);
+        body.type = "Natural Satellite (Moon)";
+        body.color = glm::vec3(0.72f, 0.72f, 0.75f);
+        body.massKg = UnitConverter::LUNAR_MASS_KG;
+        body.radiusM = UnitConverter::LUNAR_RADIUS_M;
+        body.surfaceTempK = 220.0;
+        if (parentIdx >= 0 && parentIdx < (int)m_bodies.size()) {
+            body.parentObjectId = m_bodies[parentIdx].dbId;
+        }
+    } else if (templateClass == "Asteroid" || templateClass == "Comet") {
+        body.id = "custom_asteroid_" + std::to_string(curNum);
+        body.name = (templateClass == "Comet") ? ("Comet " + std::to_string(curNum)) : ("Asteroid " + std::to_string(curNum));
+        body.type = (templateClass == "Comet") ? "Comet" : "C-Type Asteroid";
+        body.color = glm::vec3(0.6f, 0.5f, 0.4f);
+        body.massKg = 1.0e18;
+        body.radiusM = 80000.0;
+        body.surfaceTempK = 180.0;
+    } else if (templateClass == "BlackHole") {
+        body.id = "custom_black_hole_" + std::to_string(curNum);
+        body.name = "Singularity " + std::to_string(curNum);
+        body.type = "Stellar Mass Black Hole";
+        body.color = glm::vec3(0.7f, 0.2f, 0.95f);
+        body.massKg = 10.0 * UnitConverter::SOLAR_MASS_KG;
+        body.radiusM = 29530.0;
+        body.surfaceTempK = 6.17e-9;
+    } else {
+        body.id = "custom_planet_" + std::to_string(curNum);
+        body.name = "New Planet " + std::to_string(curNum);
+        body.type = "Terrestrial Planet";
+        body.color = glm::vec3(0.2f, 0.75f, 0.9f);
+        body.massKg = UnitConverter::EARTH_MASS_KG;
+        body.radiusM = UnitConverter::EARTH_RADIUS_M;
+        body.surfaceTempK = 288.0;
+        body.rotationPeriodHours = 24.0;
+        body.axialTiltDeg = 23.44f;
+    }
+
+    body.realRadiusAU = (body.radiusM > 0.0) ? (body.radiusM / UnitConverter::AU_TO_METERS) : 0.0;
+    body.radius3D = VisualStateAdapter::calculateRenderRadius(body.radiusM, body.realRadiusAU, m_isTrueScaleMode, m_sizeMultiplier, 1.0f);
+    char radBuf[64];
+    snprintf(radBuf, sizeof(radBuf), "%'.1f km", body.radiusM / 1000.0);
+    body.radiusStr = radBuf;
+    body.massStr = UnitConverter::formatMass(body.massKg);
+
+    body.trailHistory.clear();
+    body.trailHistory.push_back(body.position);
+
+    m_bodies.push_back(body);
+    int newIdx = (int)m_bodies.size() - 1;
+
+    if (autoOrbit && (templateClass != "Star")) {
+        calculateOrbitalVelocity(newIdx, parentIdx);
+    }
+
+    updateBodyScales();
+    updatePhysicalQuantities();
+    selectBody(newIdx);
+    return newIdx;
+}
+
 void PhysicsEngine::setBodyVelocity(int bodyIdx, const glm::dvec3& velMps) {
     if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
     m_bodies[bodyIdx].velocityMps = velMps;
