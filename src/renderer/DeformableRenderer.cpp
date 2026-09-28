@@ -1,4 +1,5 @@
 #include "renderer/DeformableRenderer.hpp"
+#include "renderer/ShaderLoader.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <cmath>
@@ -8,120 +9,6 @@
 namespace AstroGenesis {
 
 static const double AU_METERS = 149597870700.0;
-
-static const char* deformVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNormal;
-layout(location = 2) in vec4 aColor;
-layout(location = 3) in float aScalar;
-
-out vec3 FragPos;
-out vec3 Normal;
-out vec4 VertexColor;
-out float ScalarVal;
-
-uniform mat4 uVP;
-
-void main() {
-    FragPos = aPos;
-    Normal = aNormal;
-    VertexColor = aColor;
-    ScalarVal = aScalar;
-    gl_Position = uVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* deformFragSrc = R"GLSL(
-#version 330 core
-out vec4 FragColor;
-
-in vec3 FragPos;
-in vec3 Normal;
-in vec4 VertexColor;
-in float ScalarVal;
-
-uniform vec3 uLightPos;
-uniform int uVisMode;
-uniform vec3 uBaseColor;
-uniform float uMetallic;
-uniform float uRoughness;
-
-vec3 colormapTurbo(float x) {
-    x = clamp(x, 0.0, 1.0);
-    return clamp(vec3(
-        1.6 * x - 0.3,
-        sin(x * 3.14159),
-        1.1 - 1.6 * x
-    ), 0.0, 1.0);
-}
-
-vec3 colormapTemperature(float t) {
-    t = clamp(t, 0.0, 1.0);
-    if (t < 0.33) {
-        return mix(vec3(0.05, 0.05, 0.1), vec3(0.85, 0.15, 0.0), t * 3.0);
-    } else if (t < 0.66) {
-        return mix(vec3(0.85, 0.15, 0.0), vec3(1.0, 0.75, 0.1), (t - 0.33) * 3.0);
-    } else {
-        return mix(vec3(1.0, 0.75, 0.1), vec3(1.0, 1.0, 1.0), (t - 0.66) * 3.0);
-    }
-}
-
-vec3 colormapDamage(float d) {
-    d = clamp(d, 0.0, 1.0);
-    return mix(vec3(0.18, 0.72, 0.28), vec3(0.95, 0.12, 0.08), d);
-}
-
-void main() {
-    vec3 N = normalize(Normal);
-    vec3 L = normalize(uLightPos - FragPos);
-    float diff = max(dot(N, L), 0.22);
-
-    vec3 finalColor = uBaseColor * diff;
-
-    if (uVisMode == 1) { // Von Mises Stress
-        finalColor = colormapTurbo(ScalarVal) * diff;
-    } else if (uVisMode == 2) { // Mechanical Strain
-        finalColor = mix(vec3(0.1, 0.4, 0.8), vec3(1.0, 0.2, 0.8), ScalarVal) * diff;
-    } else if (uVisMode == 3) { // Temperature Heatmap
-        vec3 heatCol = colormapTemperature(ScalarVal);
-        finalColor = heatCol * diff + heatCol * max(0.0, ScalarVal - 0.35) * 1.8; // Blackbody incandescence glow
-    } else if (uVisMode == 4) { // Damage & Fracture
-        finalColor = colormapDamage(ScalarVal) * diff;
-    } else if (uVisMode == 5) { // Plastic Strain
-        finalColor = mix(vec3(0.35, 0.35, 0.40), vec3(0.95, 0.45, 0.85), ScalarVal) * diff;
-    } else if (uVisMode == 6) { // Tidal Gravity Field
-        finalColor = mix(vec3(0.15, 0.30, 0.85), vec3(1.0, 0.90, 0.15), ScalarVal) * diff;
-    }
-
-    FragColor = vec4(finalColor, 1.0);
-}
-)GLSL";
-
-static const char* lineVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec4 aColor;
-
-out vec4 LineColor;
-
-uniform mat4 uVP;
-
-void main() {
-    LineColor = aColor;
-    gl_Position = uVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* lineFragSrc = R"GLSL(
-#version 330 core
-out vec4 FragColor;
-in vec4 LineColor;
-
-void main() {
-    FragColor = LineColor;
-}
-)GLSL";
 
 static GLuint compileShader(GLenum type, const char* src) {
     GLuint s = glCreateShader(type);
@@ -145,8 +32,10 @@ DeformableRenderer::~DeformableRenderer() {
 
 bool DeformableRenderer::initialize() {
     // 1. Surface Shader
-    GLuint vShader = compileShader(GL_VERTEX_SHADER, deformVertSrc);
-    GLuint fShader = compileShader(GL_FRAGMENT_SHADER, deformFragSrc);
+    std::string deformVertSrc = loadShaderSource("assets/shaders/deformable.vert");
+    std::string deformFragSrc = loadShaderSource("assets/shaders/deformable.frag");
+    GLuint vShader = compileShader(GL_VERTEX_SHADER, deformVertSrc.c_str());
+    GLuint fShader = compileShader(GL_FRAGMENT_SHADER, deformFragSrc.c_str());
     m_program = glCreateProgram();
     glAttachShader(m_program, vShader);
     glAttachShader(m_program, fShader);
@@ -162,8 +51,10 @@ bool DeformableRenderer::initialize() {
     m_uRoughnessLoc = glGetUniformLocation(m_program, "uRoughness");
 
     // 2. Wireframe / Constraint Line Shader
-    GLuint lvShader = compileShader(GL_VERTEX_SHADER, lineVertSrc);
-    GLuint lfShader = compileShader(GL_FRAGMENT_SHADER, lineFragSrc);
+    std::string lineVertSrc = loadShaderSource("assets/shaders/line.vert");
+    std::string lineFragSrc = loadShaderSource("assets/shaders/line.frag");
+    GLuint lvShader = compileShader(GL_VERTEX_SHADER, lineVertSrc.c_str());
+    GLuint lfShader = compileShader(GL_FRAGMENT_SHADER, lineFragSrc.c_str());
     m_lineProgram = glCreateProgram();
     glAttachShader(m_lineProgram, lvShader);
     glAttachShader(m_lineProgram, lfShader);

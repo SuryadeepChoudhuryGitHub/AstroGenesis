@@ -187,3 +187,7 @@ add_custom_command(TARGET AstroGenesis POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:AstroGenesis>/assets
 )
+add_custom_command(TARGET test_cinematic_mode POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:test_cinematic_mode>/assets
+)

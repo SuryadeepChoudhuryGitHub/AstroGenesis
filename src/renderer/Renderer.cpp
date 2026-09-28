@@ -1,4 +1,5 @@
 #include "renderer/Renderer.hpp"
+#include "renderer/ShaderLoader.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <vector>
@@ -17,835 +18,6 @@ struct TrailVertex {
     glm::vec3 pos;
     glm::vec4 col;
 };
-
-// =========================================================================
-// 1. Celestial Body PBR Uber-Shader (Multi-Star Lighting & Thermal Magma)
-// =========================================================================
-static const char* celestialVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNormal;
-layout(location = 2) in vec2 aTexCoord;
-
-out vec3 FragPos;
-out vec3 Normal;
-out vec2 TexCoord;
-out vec3 LocalPos;
-
-uniform mat4 uMVP;
-uniform mat4 uModel;
-uniform mat3 uNormalMat;
-
-void main() {
-    LocalPos = aPos;
-    FragPos = vec3(uModel * vec4(aPos, 1.0));
-    Normal = normalize(uNormalMat * aNormal);
-    TexCoord = aTexCoord;
-    gl_Position = uMVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* celestialFragSrc = R"GLSL(
-#version 330 core
-layout(location = 0) out vec4 FragColor;
-layout(location = 1) out vec4 BrightColor;
-
-in vec3 FragPos;
-in vec3 Normal;
-in vec2 TexCoord;
-in vec3 LocalPos;
-
-uniform vec3 uColor;
-uniform sampler2D uTexture;
-uniform bool uUseTexture;
-uniform vec3 uEmissionColor;
-uniform float uEmissionIntensity;
-uniform float uThermalGlow;
-uniform bool uIsSun;
-uniform float uSimTime;
-uniform vec3 uCameraPos;
-
-// Multi-Star Lighting (up to 4 stellar sources)
-uniform int uNumLights;
-uniform vec3 uLightPos[4];
-uniform vec3 uLightColor[4];
-uniform float uLightIntensity[4];
-
-// Debug Physical Overlays
-uniform int uDebugOverlay; // 0 = None, 1 = Stress, 2 = Strain, 3 = Damage, 4 = Temp, 5 = Vel, 6 = GR, 7 = Phase
-uniform vec3 uDebugColor;
-uniform float uDebugScalar;
-
-// Physical Material & Cloud Shadows
-uniform float uWaterFraction;
-uniform float uIceFraction;
-uniform float uRoughness;
-uniform float uCloudShadowCoverage;
-uniform float uCloudShadowRotAngle;
-
-// Cinematic Mode & Geometric Shadows
-uniform bool uCinematicMode;
-uniform bool uHasRing;
-uniform vec3 uRingNormal;
-uniform vec3 uPlanetCenter;
-uniform float uRingInnerRadius;
-uniform float uRingOuterRadius;
-
-void main() {
-    vec3 baseColor = uColor;
-    if (uUseTexture) {
-        vec3 rawColor = texture(uTexture, TexCoord).rgb;
-        baseColor = uCinematicMode ? pow(rawColor, vec3(2.2)) : rawColor;
-    }
-
-    // Dynamic temperature-dependent ice albedo brightening
-    if (uIceFraction > 0.01) {
-        baseColor = mix(baseColor, vec3(0.92, 0.95, 1.0), uIceFraction * 0.82);
-    }
-
-    vec3 norm = normalize(Normal);
-    vec3 viewDir = normalize(uCameraPos - FragPos);
-
-    // 1. Stellar Rendering (Blackbody Emission + Limb Darkening + Convection Granulation)
-    if (uIsSun) {
-        float NdotV = max(dot(norm, viewDir), 0.0);
-        // Eddington approximation limb darkening: I(mu) = I0 * (0.35 + 0.65 * mu^0.7)
-        float limb = 0.35 + 0.65 * pow(NdotV, 0.70);
-        
-        // Solar granulation surface modulation
-        float granulation = 1.0 + 0.04 * sin(LocalPos.x * 45.0 + uSimTime * 1.5) * cos(LocalPos.y * 45.0 + uSimTime * 1.2);
-        
-        vec3 starColor = baseColor * uEmissionColor * limb * granulation * uEmissionIntensity;
-        FragColor = vec4(starColor, 1.0);
-        BrightColor = vec4(starColor * 1.5, 1.0);
-        return;
-    }
-
-    // 2. Multi-Star Illumination (Physical inverse-square attenuation + Diffuse + Specular)
-    vec3 diffuseLight = vec3(0.0);
-    vec3 specularLight = vec3(0.0);
-    
-    int numL = clamp(uNumLights, 0, 4);
-    for (int i = 0; i < numL; ++i) {
-        vec3 lightDir = normalize(uLightPos[i] - FragPos);
-        float dist = length(uLightPos[i] - FragPos);
-        // Physical inverse-square attenuation with near softening
-        float atten = 1.0 / (1.0 + 0.06 * dist + 0.012 * dist * dist);
-
-        float shadowFactor = 1.0;
-
-        // Planetary Ring Shadow: fragments test intersection of light ray with the tilted ring plane
-        if (uHasRing) {
-            float LdotP = dot(lightDir, uRingNormal);
-            if (abs(LdotP) > 1e-4) {
-                float t = dot(uPlanetCenter - FragPos, uRingNormal) / LdotP;
-                if (t > 0.0) {
-                    vec3 hitPoint = FragPos + t * lightDir;
-                    float rHit = length(hitPoint - uPlanetCenter);
-                    if (rHit >= uRingInnerRadius && rHit <= uRingOuterRadius) {
-                        shadowFactor *= 0.08; // Sharp dark ring shadow on planet surface
-                    }
-                }
-            }
-        }
-
-        // Diffuse (Lambertian with smooth physical terminator)
-        float diff = max(dot(norm, lightDir), 0.0);
-        diffuseLight += uLightColor[i] * diff * uLightIntensity[i] * atten * shadowFactor;
-
-        // Specular (Roughness-dependent Blinn-Phong + Water Fresnel sunglint)
-        vec3 halfDir = normalize(lightDir + viewDir);
-        float specExponent = mix(128.0, 16.0, uRoughness);
-        float specStrength = mix(0.50, 0.10, uRoughness);
-        float spec = pow(max(dot(norm, halfDir), 0.0), specExponent);
-        specularLight += uLightColor[i] * spec * specStrength * uLightIntensity[i] * atten * shadowFactor;
-
-        // Liquid Water Specular Reflection (Ocean sunglint + Fresnel)
-        if (uWaterFraction > 0.02) {
-            float NdotV = max(dot(norm, viewDir), 0.0);
-            float fresnel = 0.02 + 0.98 * pow(1.0 - NdotV, 5.0);
-            vec3 waveNorm = normalize(norm + 0.015 * vec3(sin(LocalPos.y * 50.0 + uSimTime * 2.5), cos(LocalPos.x * 50.0 + uSimTime * 2.0), 0.0));
-            vec3 waveHalf = normalize(lightDir + viewDir);
-            float oceanSpec = pow(max(dot(waveNorm, waveHalf), 0.0), 160.0) * fresnel * 2.2;
-            specularLight += uLightColor[i] * oceanSpec * uLightIntensity[i] * atten * uWaterFraction * shadowFactor;
-        }
-    }
-
-    // Deep space: NO artificial ambient floor in cinematic mode. Night sides are genuinely dark.
-    // In normal mode, subtle baseline ambient is kept for scientific clarity.
-    vec3 ambient = uCinematicMode ? vec3(0.0) : (baseColor * 0.08);
-    vec3 surfaceColor = ambient + baseColor * diffuseLight + specularLight;
-
-    // 3. Thermal Incandescence (Magma fissures for T > 600 K)
-    if (uThermalGlow > 0.01) {
-        float fissurePattern = pow(sin(LocalPos.x * 25.0) * sin(LocalPos.y * 25.0) * sin(LocalPos.z * 25.0), 2.0);
-        float magmaIntensity = uThermalGlow * (0.65 + 0.35 * fissurePattern);
-        vec3 magmaGlow = uEmissionColor * magmaIntensity;
-        surfaceColor += magmaGlow;
-    }
-
-    // 4. Debug False-Color Overlay
-    if (uDebugOverlay > 0) {
-        surfaceColor = mix(surfaceColor, uDebugColor * 1.3, 0.70);
-    }
-
-    FragColor = vec4(surfaceColor, 1.0);
-
-    // 5. Luminance Bright-Pass Extraction (for Bloom)
-    // Only true stars, incandescent magma, and extreme sunglint bloom. Ordinary surfaces NEVER bloom.
-    float luminance = dot(surfaceColor, vec3(0.2126, 0.7152, 0.0722));
-    if (uThermalGlow > 0.35) {
-        BrightColor = vec4(uEmissionColor * uThermalGlow * 0.4, 1.0);
-    } else if (luminance > 3.0) {
-        BrightColor = vec4((surfaceColor - vec3(3.0)) * 0.4, 1.0);
-    } else {
-        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
-    }
-}
-)GLSL";
-
-// =========================================================================
-// 2. Atmospheric Scattering Shader (Rayleigh & Mie Scattering Shell)
-// =========================================================================
-static const char* atmoVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNormal;
-
-out vec3 FragPos;
-out vec3 Normal;
-
-uniform mat4 uMVP;
-uniform mat4 uModel;
-
-void main() {
-    FragPos = vec3(uModel * vec4(aPos, 1.0));
-    Normal = normalize(mat3(uModel) * aNormal);
-    gl_Position = uMVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* atmoFragSrc = R"GLSL(
-#version 330 core
-layout(location = 0) out vec4 FragColor;
-layout(location = 1) out vec4 BrightColor;
-
-in vec3 FragPos;
-in vec3 Normal;
-
-uniform vec3 uAtmoColor;
-uniform float uAtmoDensity;
-uniform vec3 uCameraPos;
-
-uniform int uNumLights;
-uniform vec3 uLightPos[4];
-uniform vec3 uLightColor[4];
-uniform float uAtmoScaleHeight;
-uniform float uAtmoMieFactor;
-uniform float uPlanetRadius;
-
-void main() {
-    vec3 norm = normalize(Normal);
-    vec3 viewDir = normalize(uCameraPos - FragPos);
-
-    // Fresnel limb optical path length (Chapman function approximation: thin, subtle limb)
-    float NdotV = max(dot(norm, viewDir), 0.0);
-    float rim = pow(1.0 - NdotV, 3.8);
-
-    // Multi-light directional phase function (Rayleigh + Mie forward scattering)
-    vec3 totalScattered = vec3(0.0);
-    int numL = clamp(uNumLights, 0, 4);
-    for (int i = 0; i < numL; ++i) {
-        vec3 lightDir = normalize(uLightPos[i] - FragPos);
-        float cosTheta = dot(norm, lightDir);
-        
-        // Twilight illumination: atmosphere scatters slightly past surface terminator
-        // (geometric solar depression angle at upper atmospheric altitude)
-        float twilight = smoothstep(-0.12, 0.20, cosTheta);
-        if (twilight <= 0.0) continue;
-
-        // Viewing phase angle for forward/backward scattering
-        float cosViewLight = dot(viewDir, -lightDir);
-
-        // Rayleigh phase function: 3/(16*PI) * (1 + cos^2(theta))
-        float rayleighPhase = 0.75 * (1.0 + cosViewLight * cosViewLight);
-
-        // Mie forward scattering phase function (Henyey-Greenstein for aerosols/dust)
-        float g = 0.80;
-        float miePhase = (1.0 - g * g) / pow(max(1.0 + g * g - 2.0 * g * cosViewLight, 0.01), 1.5) * 0.18;
-
-        float combinedPhase = mix(rayleighPhase, miePhase, clamp(uAtmoMieFactor, 0.0, 1.0));
-        vec3 lightCol = uLightColor[i];
-        totalScattered += lightCol * combinedPhase * twilight;
-    }
-
-    // Unilluminated night side must be completely pitch black (zero scatter)
-    float scatterMagnitude = length(totalScattered);
-    if (scatterMagnitude < 0.0005) {
-        discard;
-    }
-
-    // Controlled, restrained alpha: visible only along illuminated limb
-    float alpha = clamp(rim * uAtmoDensity * 0.85 * smoothstep(0.0, 0.30, scatterMagnitude), 0.0, 0.90);
-    if (alpha < 0.002) discard;
-
-    // Linear color output (composition-dependent tint * light) - NO artificial ambient +0.08 glow
-    vec3 color = uAtmoColor * totalScattered * (0.80 + 0.50 * rim);
-
-    FragColor = vec4(color, alpha);
-    
-    // Atmospheric limb does NOT bloom
-    BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
-}
-)GLSL";
-
-// =========================================================================
-// 3. Dynamic Rotating Cloud Layer Shader
-// =========================================================================
-static const char* cloudVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNormal;
-layout(location = 2) in vec2 aTexCoord;
-
-out vec3 FragPos;
-out vec3 Normal;
-out vec2 TexCoord;
-out vec3 LocalPos;
-
-uniform mat4 uMVP;
-uniform mat4 uModel;
-
-void main() {
-    LocalPos = aPos;
-    FragPos = vec3(uModel * vec4(aPos, 1.0));
-    Normal = normalize(mat3(uModel) * aNormal);
-    TexCoord = aTexCoord;
-    gl_Position = uMVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* cloudFragSrc = R"GLSL(
-#version 330 core
-layout(location = 0) out vec4 FragColor;
-layout(location = 1) out vec4 BrightColor;
-
-in vec3 FragPos;
-in vec3 Normal;
-in vec2 TexCoord;
-in vec3 LocalPos;
-
-uniform float uCloudCoverage;
-uniform float uSimTime;
-uniform int uNumLights;
-uniform vec3 uLightPos[4];
-
-void main() {
-    vec3 norm = normalize(Normal);
-    
-    // Procedural multi-frequency cloud fractal pattern
-    float c1 = sin(LocalPos.x * 12.0 + uSimTime * 0.02) * cos(LocalPos.y * 12.0);
-    float c2 = sin(LocalPos.y * 24.0 + LocalPos.z * 18.0) * cos(LocalPos.x * 24.0);
-    float c3 = sin(LocalPos.z * 48.0 - LocalPos.x * 32.0) * cos(LocalPos.y * 48.0);
-    float cloudNoise = (c1 * 0.50 + c2 * 0.35 + c3 * 0.15) * 0.5 + 0.5;
-
-    float cloudAlpha = smoothstep(1.0 - uCloudCoverage, 1.0, cloudNoise);
-    if (cloudAlpha < 0.04) discard;
-
-    // Multi-light cloud diffuse shading with silver-lining forward scattering
-    float lightSum = 0.0;
-    int numL = clamp(uNumLights, 0, 4);
-    for (int i = 0; i < numL; ++i) {
-        vec3 lightDir = normalize(uLightPos[i] - FragPos);
-        float NdotL = max(dot(norm, lightDir), 0.0);
-        float rim = pow(1.0 - max(dot(norm, vec3(0.0, 0.0, 1.0)), 0.0), 3.0) * 0.35;
-        lightSum += NdotL + rim;
-    }
-    vec3 cloudColor = vec3(0.96, 0.98, 1.0) * clamp(lightSum, 0.22, 1.25);
-
-    FragColor = vec4(cloudColor, cloudAlpha * 0.88);
-    BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
-}
-)GLSL";
-
-// =========================================================================
-// 4. Stellar Corona & Solar Flare Prominence Shader
-// =========================================================================
-static const char* coronaVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNormal;
-layout(location = 2) in vec2 aTexCoord;
-
-out vec2 TexCoord;
-out vec3 Normal;
-out vec3 LocalPos;
-
-uniform mat4 uMVP;
-
-void main() {
-    LocalPos = aPos;
-    TexCoord = aTexCoord;
-    Normal = aNormal;
-    gl_Position = uMVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* coronaFragSrc = R"GLSL(
-#version 330 core
-layout(location = 0) out vec4 FragColor;
-layout(location = 1) out vec4 BrightColor;
-
-in vec2 TexCoord;
-in vec3 Normal;
-in vec3 LocalPos;
-
-uniform vec3 uCoronaColor;
-uniform float uCoronaIntensity;
-uniform float uSimTime;
-
-void main() {
-    float distFromCenter = length(LocalPos.xy);
-    if (distFromCenter > 1.0) discard;
-
-    // Radial exponential falloff
-    float radial = pow(1.0 - distFromCenter, 2.2);
-
-    // Dynamic solar flare prominences
-    float angle = atan(LocalPos.y, LocalPos.x);
-    float flare = sin(angle * 9.0 + uSimTime * 2.0) * cos(angle * 14.0 - uSimTime * 1.5);
-    float flareIntensity = 1.0 + 0.30 * flare;
-
-    float alpha = clamp(radial * flareIntensity * uCoronaIntensity * 0.65, 0.0, 1.0);
-    vec3 col = uCoronaColor * (1.3 + 0.4 * flare);
-
-    FragColor = vec4(col, alpha);
-    BrightColor = vec4(col * alpha * 2.2, 1.0);
-}
-)GLSL";
-
-// =========================================================================
-// 5. Relativistic Black Hole Shader (Event Horizon & Accretion Ring)
-// =========================================================================
-static const char* bhVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNormal;
-layout(location = 2) in vec2 aTexCoord;
-
-out vec3 FragPos;
-out vec3 Normal;
-out vec3 LocalPos;
-
-uniform mat4 uMVP;
-uniform mat4 uModel;
-
-void main() {
-    LocalPos = aPos;
-    FragPos = vec3(uModel * vec4(aPos, 1.0));
-    Normal = normalize(mat3(uModel) * aNormal);
-    gl_Position = uMVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* bhFragSrc = R"GLSL(
-#version 330 core
-layout(location = 0) out vec4 FragColor;
-layout(location = 1) out vec4 BrightColor;
-
-in vec3 FragPos;
-in vec3 Normal;
-in vec3 LocalPos;
-
-uniform vec3 uCameraPos;
-uniform float uSimTime;
-
-void main() {
-    vec3 norm = normalize(Normal);
-    vec3 viewDir = normalize(uCameraPos - FragPos);
-
-    float NdotV = max(dot(norm, viewDir), 0.0);
-    
-    // Pure black Schwarzschild Event Horizon shadow at center
-    if (NdotV > 0.16) {
-        FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
-    } else {
-        // Relativistic Photon Sphere Ring & Accretion Disk with Doppler beaming
-        float photonRing = pow(1.0 - NdotV, 12.0);
-        float doppler = 1.0 + 0.60 * clamp(LocalPos.x, -1.0, 1.0);
-        vec3 ringColor = mix(vec3(1.0, 0.55, 0.15), vec3(0.35, 0.75, 1.3), clamp((doppler - 0.5) * 0.8, 0.0, 1.0));
-        ringColor *= (photonRing * 2.8 * doppler);
-        FragColor = vec4(ringColor, photonRing);
-        BrightColor = vec4(ringColor * 1.8, 1.0);
-    }
-}
-)GLSL";
-
-// =========================================================================
-// 6. Collision & Impact Shockwave FX Shader
-// =========================================================================
-static const char* impactVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-
-uniform mat4 uVP;
-uniform vec3 uImpactCenter;
-uniform vec3 uImpactNormal;
-uniform float uFlashRadius;
-
-void main() {
-    vec3 pos = uImpactCenter + aPos * uFlashRadius;
-    gl_Position = uVP * vec4(pos, 1.0);
-}
-)GLSL";
-
-static const char* impactFragSrc = R"GLSL(
-#version 330 core
-layout(location = 0) out vec4 FragColor;
-layout(location = 1) out vec4 BrightColor;
-
-uniform vec3 uImpactColor;
-uniform float uIntensity;
-uniform float uAge;
-
-void main() {
-    float alpha = uIntensity * (1.0 - uAge * 0.33);
-    vec3 col = uImpactColor * 2.0;
-    FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
-    BrightColor = vec4(col * alpha * 1.5, 1.0);
-}
-)GLSL";
-
-// =========================================================================
-// Skybox, Trail, Ring Shaders
-// =========================================================================
-static const char* skyboxVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 2) in vec2 aTexCoord;
-out vec2 TexCoord;
-uniform mat4 uVP;
-void main() {
-    TexCoord = aTexCoord;
-    gl_Position = uVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* skyboxFragSrc = R"GLSL(
-#version 330 core
-layout(location = 0) out vec4 FragColor;
-layout(location = 1) out vec4 BrightColor;
-in vec2 TexCoord;
-uniform sampler2D uTexture;
-uniform bool uHasTexture;
-uniform bool uCinematicMode;
-
-void main() {
-    if (uHasTexture) {
-        vec3 rawCol = texture(uTexture, TexCoord).rgb;
-        if (uCinematicMode) {
-            // Linearize from sRGB to radiometric space
-            vec3 linearSky = pow(rawCol, vec3(2.2));
-            float lum = dot(linearSky, vec3(0.2126, 0.7152, 0.0722));
-            
-            // Deep space void drops to black, while subtle Milky Way and pinpoint stars remain
-            vec3 skyCol = pow(linearSky, vec3(1.25)) * 0.25;
-            if (lum > 0.40) {
-                skyCol += linearSky * (lum - 0.40) * 0.75; // Crisp pinpoint stars
-            }
-            FragColor = vec4(skyCol, 1.0);
-        } else {
-            FragColor = vec4(rawCol, 1.0);
-        }
-    } else {
-        FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-    }
-    BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
-}
-)GLSL";
-
-static const char* trailVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec4 aColor;
-out vec4 vColor;
-uniform mat4 uVP;
-void main() {
-    vColor = aColor;
-    gl_Position = uVP * vec4(aPos, 1.0);
-}
-)GLSL";
-
-static const char* trailFragSrc = R"GLSL(
-#version 330 core
-in vec4 vColor;
-layout(location = 0) out vec4 FragColor;
-layout(location = 1) out vec4 BrightColor;
-void main() {
-    FragColor = vColor;
-    BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
-}
-)GLSL";
-
-static const char* ringVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec2 aTexCoord;
-
-out vec3 FragPos;
-out vec3 WorldNormal;
-out vec2 TexCoord;
-out float NormalizedRadius;
-
-uniform mat4 uMVP;
-uniform mat4 uModel;
-uniform mat3 uNormalMat;
-uniform float uInnerRadius;
-uniform float uOuterRadius;
-
-void main() {
-    float r = mix(uInnerRadius, uOuterRadius, aTexCoord.x);
-    vec3 pos = vec3(aPos.x * r, aPos.y, aPos.z * r);
-    FragPos = vec3(uModel * vec4(pos, 1.0));
-    WorldNormal = normalize(uNormalMat * vec3(0.0, 1.0, 0.0));
-    TexCoord = aTexCoord;
-    NormalizedRadius = aTexCoord.x;
-    gl_Position = uMVP * vec4(pos, 1.0);
-}
-)GLSL";
-
-static const char* ringFragSrc = R"GLSL(
-#version 330 core
-layout(location = 0) out vec4 FragColor;
-layout(location = 1) out vec4 BrightColor;
-
-in vec3 FragPos;
-in vec3 WorldNormal;
-in vec2 TexCoord;
-in float NormalizedRadius;
-
-uniform vec3 uSunPos;
-uniform vec3 uPlanetCenter;
-uniform float uPlanetRadius;
-uniform vec3 uRingColor;
-uniform sampler2D uRingTexture;
-uniform bool uHasRingTexture;
-uniform bool uCinematicMode;
-
-float calculatePlanetShadow(vec3 fragPos, vec3 sunPos, vec3 planetCenter, float planetRadius) {
-    vec3 rayDir = normalize(sunPos - fragPos);
-    vec3 L = planetCenter - fragPos;
-    float tca = dot(L, rayDir);
-    if (tca < 0.0) return 1.0;
-    float d2 = dot(L, L) - tca * tca;
-    float r2 = planetRadius * planetRadius;
-    if (d2 > r2) return 1.0;
-    return smoothstep(r2 * 0.94, r2 * 1.02, d2);
-}
-
-void main() {
-    float u = clamp(NormalizedRadius, 0.0, 1.0);
-    vec3 baseAlbedo;
-    float baseOpacity;
-
-    if (uHasRingTexture) {
-        vec4 texCol = texture(uRingTexture, vec2(u, 0.5));
-        baseAlbedo = uCinematicMode ? pow(texCol.rgb, vec3(2.2)) : texCol.rgb;
-        baseOpacity = texCol.a;
-    } else {
-        baseOpacity = 0.70;
-        baseAlbedo = uCinematicMode ? pow(uRingColor, vec3(2.2)) : uRingColor;
-    }
-
-    float shadow = calculatePlanetShadow(FragPos, uSunPos, uPlanetCenter, uPlanetRadius);
-    vec3 lightDir = normalize(uSunPos - FragPos);
-    
-    // Physical diffuse scattering on ring particles with zero arbitrary ambient clamp
-    float cosIncidence = abs(dot(WorldNormal, lightDir));
-    float diff = uCinematicMode ? max(cosIncidence, 0.02) : max(cosIncidence, 0.20);
-
-    // In shadow, ring particles receive zero direct starlight
-    vec3 finalCol = baseAlbedo * diff * shadow;
-    
-    // In cinematic mode, unlit ring particles inside planet shadow do not glow
-    float opacity = uCinematicMode ? (baseOpacity * (0.05 + 0.95 * shadow)) : (baseOpacity * (0.35 + 0.65 * shadow));
-    FragColor = vec4(finalCol, opacity);
-    BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
-}
-)GLSL";
-
-// =========================================================================
-// 7. Bloom Separable Gaussian Blur & Cinematic Post-Processing Shaders
-// =========================================================================
-static const char* bloomBlurVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 2) in vec2 aTexCoord;
-out vec2 TexCoord;
-void main() {
-    TexCoord = aTexCoord;
-    gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);
-}
-)GLSL";
-
-static const char* bloomBlurFragSrc = R"GLSL(
-#version 330 core
-out vec4 FragColor;
-in vec2 TexCoord;
-
-uniform sampler2D uImage;
-uniform bool uHorizontal;
-
-// 9-tap Gaussian weights (normalized)
-const float weight[5] = float[](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
-
-void main() {
-    vec2 tex_offset = 1.0 / vec2(textureSize(uImage, 0));
-    vec3 result = texture(uImage, TexCoord).rgb * weight[0];
-    if (uHorizontal) {
-        for (int i = 1; i < 5; ++i) {
-            result += texture(uImage, TexCoord + vec2(tex_offset.x * float(i), 0.0)).rgb * weight[i];
-            result += texture(uImage, TexCoord - vec2(tex_offset.x * float(i), 0.0)).rgb * weight[i];
-        }
-    } else {
-        for (int i = 1; i < 5; ++i) {
-            result += texture(uImage, TexCoord + vec2(0.0, tex_offset.y * float(i))).rgb * weight[i];
-            result += texture(uImage, TexCoord - vec2(0.0, tex_offset.y * float(i))).rgb * weight[i];
-        }
-    }
-    FragColor = vec4(result, 1.0);
-}
-)GLSL";
-
-static const char* postProcessVertSrc = R"GLSL(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 2) in vec2 aTexCoord;
-out vec2 TexCoord;
-void main() {
-    TexCoord = aTexCoord;
-    gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);
-}
-)GLSL";
-
-static const char* postProcessFragSrc = R"GLSL(
-#version 330 core
-out vec4 FragColor;
-in vec2 TexCoord;
-
-uniform sampler2D uSceneTex;
-uniform sampler2D uBloomTex;
-uniform sampler2D uDepthTex;
-
-uniform float uExposure;
-uniform float uBloomIntensity;
-uniform int uToneMapMode;
-uniform bool uEnableDoF;
-uniform float uFocusDist;
-uniform float uDoFAperture;
-uniform float uNearPlane;
-uniform float uFarPlane;
-uniform bool uEnableVignette;
-uniform bool uEnableCA;
-
-// ACES Filmic Tone Mapping Curve
-vec3 ACESFilm(vec3 x) {
-    float a = 2.51;
-    float b = 0.03;
-    float c = 2.43;
-    float d = 0.59;
-    float e = 0.14;
-    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
-}
-
-vec3 Reinhard(vec3 x) {
-    return x / (x + vec3(1.0));
-}
-
-vec3 Filmic(vec3 x) {
-    vec3 X = max(vec3(0.0), x - 0.004);
-    return (X * (6.2 * X + 0.5)) / (X * (6.2 * X + 1.7) + 0.06);
-}
-
-float linearizeDepth(float depth) {
-    float z = depth * 2.0 - 1.0;
-    return (2.0 * uNearPlane * uFarPlane) / (uFarPlane + uNearPlane - z * (uFarPlane - uNearPlane));
-}
-
-void main() {
-    vec2 uv = TexCoord;
-
-    // 1. Subtle Chromatic Aberration
-    vec3 sceneColor;
-    if (uEnableCA) {
-        vec2 distFromCenter = uv - 0.5;
-        float distSq = dot(distFromCenter, distFromCenter);
-        vec2 caOffset = distFromCenter * distSq * 0.012;
-        float r = texture(uSceneTex, uv - caOffset).r;
-        float g = texture(uSceneTex, uv).g;
-        float b = texture(uSceneTex, uv + caOffset).b;
-        sceneColor = vec3(r, g, b);
-    } else {
-        sceneColor = texture(uSceneTex, uv).rgb;
-    }
-
-    // 2. Depth of Field (Photo / Cinematic Mode close shots)
-    if (uEnableDoF) {
-        float depthVal = texture(uDepthTex, uv).r;
-        if (depthVal < 0.9999) {
-            float linDepth = linearizeDepth(depthVal);
-            float coc = clamp(abs(linDepth - uFocusDist) * uDoFAperture, 0.0, 0.015);
-            if (coc > 0.001) {
-                vec3 blurCol = vec3(0.0);
-                float totalW = 0.0;
-                for (int x = -2; x <= 2; ++x) {
-                    for (int y = -2; y <= 2; ++y) {
-                        vec2 offset = vec2(float(x), float(y)) * coc * 0.5;
-                        blurCol += texture(uSceneTex, uv + offset).rgb;
-                        totalW += 1.0;
-                    }
-                }
-                sceneColor = mix(sceneColor, blurCol / totalW, smoothstep(0.001, 0.006, coc));
-            }
-        }
-    }
-
-    // 3. Luminance Bloom Composite
-    vec3 bloom = texture(uBloomTex, uv).rgb;
-    sceneColor += bloom * uBloomIntensity;
-
-    // 4. Exposure Scaling
-    vec3 exposed = sceneColor * uExposure;
-
-    // 5. Tone Mapping
-    vec3 mapped;
-    if (uToneMapMode == 0) {
-        mapped = ACESFilm(exposed);
-    } else if (uToneMapMode == 1) {
-        mapped = Reinhard(exposed);
-    } else {
-        mapped = Filmic(exposed);
-    }
-
-    // 6. Subtle Vignette
-    if (uEnableVignette) {
-        vec2 vUV = uv * (1.0 - uv.yx);
-        float vig = vUV.x * vUV.y * 15.0;
-        vig = clamp(pow(vig, 0.18), 0.0, 1.0);
-        mapped *= vig;
-    }
-
-    // 7. Gamma Correction into sRGB space
-    mapped = pow(mapped, vec3(1.0 / 2.2));
-
-    // 8. Subtle Film Grain (suppressed in deep space so pitch black remains pristine)
-    float grain = fract(sin(dot(uv * 1000.0, vec2(12.9898, 78.233))) * 43758.5453);
-    mapped += (grain - 0.5) * 0.006 * smoothstep(0.01, 0.25, length(mapped));
-
-    FragColor = vec4(clamp(mapped, 0.0, 1.0), 1.0);
-}
-)GLSL";
 
 static GLuint compileShader(GLenum type, const char* src) {
     GLuint s = glCreateShader(type);
@@ -869,8 +41,10 @@ Renderer::~Renderer() {
 
 bool Renderer::initialize() {
     // 1. Compile Celestial PBR Shader
-    GLuint vShader = compileShader(GL_VERTEX_SHADER, celestialVertSrc);
-    GLuint fShader = compileShader(GL_FRAGMENT_SHADER, celestialFragSrc);
+    std::string celestialVertSrc = loadShaderSource("assets/shaders/celestial.vert");
+    std::string celestialFragSrc = loadShaderSource("assets/shaders/celestial.frag");
+    GLuint vShader = compileShader(GL_VERTEX_SHADER, celestialVertSrc.c_str());
+    GLuint fShader = compileShader(GL_FRAGMENT_SHADER, celestialFragSrc.c_str());
     m_shaderProgram = glCreateProgram();
     glAttachShader(m_shaderProgram, vShader);
     glAttachShader(m_shaderProgram, fShader);
@@ -919,8 +93,10 @@ bool Renderer::initialize() {
     }
 
     // 2. Compile Atmosphere Shader
-    GLuint atmoV = compileShader(GL_VERTEX_SHADER, atmoVertSrc);
-    GLuint atmoF = compileShader(GL_FRAGMENT_SHADER, atmoFragSrc);
+    std::string atmoVertSrc = loadShaderSource("assets/shaders/atmosphere.vert");
+    std::string atmoFragSrc = loadShaderSource("assets/shaders/atmosphere.frag");
+    GLuint atmoV = compileShader(GL_VERTEX_SHADER, atmoVertSrc.c_str());
+    GLuint atmoF = compileShader(GL_FRAGMENT_SHADER, atmoFragSrc.c_str());
     m_atmosphereProgram = glCreateProgram();
     glAttachShader(m_atmosphereProgram, atmoV);
     glAttachShader(m_atmosphereProgram, atmoF);
@@ -947,8 +123,10 @@ bool Renderer::initialize() {
     }
 
     // 3. Compile Cloud Shader
-    GLuint cloudV = compileShader(GL_VERTEX_SHADER, cloudVertSrc);
-    GLuint cloudF = compileShader(GL_FRAGMENT_SHADER, cloudFragSrc);
+    std::string cloudVertSrc = loadShaderSource("assets/shaders/cloud.vert");
+    std::string cloudFragSrc = loadShaderSource("assets/shaders/cloud.frag");
+    GLuint cloudV = compileShader(GL_VERTEX_SHADER, cloudVertSrc.c_str());
+    GLuint cloudF = compileShader(GL_FRAGMENT_SHADER, cloudFragSrc.c_str());
     m_cloudProgram = glCreateProgram();
     glAttachShader(m_cloudProgram, cloudV);
     glAttachShader(m_cloudProgram, cloudF);
@@ -968,8 +146,10 @@ bool Renderer::initialize() {
     }
 
     // 4. Compile Corona Shader
-    GLuint corV = compileShader(GL_VERTEX_SHADER, coronaVertSrc);
-    GLuint corF = compileShader(GL_FRAGMENT_SHADER, coronaFragSrc);
+    std::string coronaVertSrc = loadShaderSource("assets/shaders/corona.vert");
+    std::string coronaFragSrc = loadShaderSource("assets/shaders/corona.frag");
+    GLuint corV = compileShader(GL_VERTEX_SHADER, coronaVertSrc.c_str());
+    GLuint corF = compileShader(GL_FRAGMENT_SHADER, coronaFragSrc.c_str());
     m_coronaProgram = glCreateProgram();
     glAttachShader(m_coronaProgram, corV);
     glAttachShader(m_coronaProgram, corF);
@@ -983,8 +163,10 @@ bool Renderer::initialize() {
     m_uCoronaSimTimeLoc   = glGetUniformLocation(m_coronaProgram, "uSimTime");
 
     // 5. Compile Black Hole Shader
-    GLuint bhV = compileShader(GL_VERTEX_SHADER, bhVertSrc);
-    GLuint bhF = compileShader(GL_FRAGMENT_SHADER, bhFragSrc);
+    std::string bhVertSrc = loadShaderSource("assets/shaders/black_hole.vert");
+    std::string bhFragSrc = loadShaderSource("assets/shaders/black_hole.frag");
+    GLuint bhV = compileShader(GL_VERTEX_SHADER, bhVertSrc.c_str());
+    GLuint bhF = compileShader(GL_FRAGMENT_SHADER, bhFragSrc.c_str());
     m_blackHoleProgram = glCreateProgram();
     glAttachShader(m_blackHoleProgram, bhV);
     glAttachShader(m_blackHoleProgram, bhF);
@@ -1000,8 +182,10 @@ bool Renderer::initialize() {
     m_uBhSimTimeLoc     = glGetUniformLocation(m_blackHoleProgram, "uSimTime");
 
     // 6. Compile Impact FX Shader
-    GLuint impV = compileShader(GL_VERTEX_SHADER, impactVertSrc);
-    GLuint impF = compileShader(GL_FRAGMENT_SHADER, impactFragSrc);
+    std::string impactVertSrc = loadShaderSource("assets/shaders/impact.vert");
+    std::string impactFragSrc = loadShaderSource("assets/shaders/impact.frag");
+    GLuint impV = compileShader(GL_VERTEX_SHADER, impactVertSrc.c_str());
+    GLuint impF = compileShader(GL_FRAGMENT_SHADER, impactFragSrc.c_str());
     m_impactProgram = glCreateProgram();
     glAttachShader(m_impactProgram, impV);
     glAttachShader(m_impactProgram, impF);
@@ -1018,8 +202,10 @@ bool Renderer::initialize() {
     m_uImpAgeLoc       = glGetUniformLocation(m_impactProgram, "uAge");
 
     // 7. Compile Skybox, Trail, Ring Shaders
-    GLuint skyV = compileShader(GL_VERTEX_SHADER, skyboxVertSrc);
-    GLuint skyF = compileShader(GL_FRAGMENT_SHADER, skyboxFragSrc);
+    std::string skyboxVertSrc = loadShaderSource("assets/shaders/skybox.vert");
+    std::string skyboxFragSrc = loadShaderSource("assets/shaders/skybox.frag");
+    GLuint skyV = compileShader(GL_VERTEX_SHADER, skyboxVertSrc.c_str());
+    GLuint skyF = compileShader(GL_FRAGMENT_SHADER, skyboxFragSrc.c_str());
     m_skyboxProgram = glCreateProgram();
     glAttachShader(m_skyboxProgram, skyV);
     glAttachShader(m_skyboxProgram, skyF);
@@ -1031,8 +217,10 @@ bool Renderer::initialize() {
     m_skyHasTexLoc = glGetUniformLocation(m_skyboxProgram, "uHasTexture");
     m_skyCinematicModeLoc = glGetUniformLocation(m_skyboxProgram, "uCinematicMode");
 
-    GLuint trailV = compileShader(GL_VERTEX_SHADER, trailVertSrc);
-    GLuint trailF = compileShader(GL_FRAGMENT_SHADER, trailFragSrc);
+    std::string trailVertSrc = loadShaderSource("assets/shaders/trail.vert");
+    std::string trailFragSrc = loadShaderSource("assets/shaders/trail.frag");
+    GLuint trailV = compileShader(GL_VERTEX_SHADER, trailVertSrc.c_str());
+    GLuint trailF = compileShader(GL_FRAGMENT_SHADER, trailFragSrc.c_str());
     m_trailProgram = glCreateProgram();
     glAttachShader(m_trailProgram, trailV);
     glAttachShader(m_trailProgram, trailF);
@@ -1051,8 +239,10 @@ bool Renderer::initialize() {
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(TrailVertex), (void*)offsetof(TrailVertex, col));
     glBindVertexArray(0);
 
-    GLuint ringV = compileShader(GL_VERTEX_SHADER, ringVertSrc);
-    GLuint ringF = compileShader(GL_FRAGMENT_SHADER, ringFragSrc);
+    std::string ringVertSrc = loadShaderSource("assets/shaders/ring.vert");
+    std::string ringFragSrc = loadShaderSource("assets/shaders/ring.frag");
+    GLuint ringV = compileShader(GL_VERTEX_SHADER, ringVertSrc.c_str());
+    GLuint ringF = compileShader(GL_FRAGMENT_SHADER, ringFragSrc.c_str());
     m_ringProgram = glCreateProgram();
     glAttachShader(m_ringProgram, ringV);
     glAttachShader(m_ringProgram, ringF);
@@ -1071,8 +261,10 @@ bool Renderer::initialize() {
     m_uRingHasTexLoc       = glGetUniformLocation(m_ringProgram, "uHasRingTexture");
 
     // 8. Compile Bloom Blur Program
-    GLuint bloomV = compileShader(GL_VERTEX_SHADER, bloomBlurVertSrc);
-    GLuint bloomF = compileShader(GL_FRAGMENT_SHADER, bloomBlurFragSrc);
+    std::string bloomBlurVertSrc = loadShaderSource("assets/shaders/bloom_blur.vert");
+    std::string bloomBlurFragSrc = loadShaderSource("assets/shaders/bloom_blur.frag");
+    GLuint bloomV = compileShader(GL_VERTEX_SHADER, bloomBlurVertSrc.c_str());
+    GLuint bloomF = compileShader(GL_FRAGMENT_SHADER, bloomBlurFragSrc.c_str());
     m_bloomBlurProgram = glCreateProgram();
     glAttachShader(m_bloomBlurProgram, bloomV);
     glAttachShader(m_bloomBlurProgram, bloomF);
@@ -1083,8 +275,10 @@ bool Renderer::initialize() {
     m_uBloomBlurHorizLoc = glGetUniformLocation(m_bloomBlurProgram, "uHorizontal");
 
     // 9. Compile Cinematic Post-Processing Program
-    GLuint postV = compileShader(GL_VERTEX_SHADER, postProcessVertSrc);
-    GLuint postF = compileShader(GL_FRAGMENT_SHADER, postProcessFragSrc);
+    std::string postProcessVertSrc = loadShaderSource("assets/shaders/post_process.vert");
+    std::string postProcessFragSrc = loadShaderSource("assets/shaders/post_process.frag");
+    GLuint postV = compileShader(GL_VERTEX_SHADER, postProcessVertSrc.c_str());
+    GLuint postF = compileShader(GL_FRAGMENT_SHADER, postProcessFragSrc.c_str());
     m_postProcessProgram = glCreateProgram();
     glAttachShader(m_postProcessProgram, postV);
     glAttachShader(m_postProcessProgram, postF);
