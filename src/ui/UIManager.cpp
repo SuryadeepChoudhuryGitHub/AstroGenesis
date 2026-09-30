@@ -233,11 +233,11 @@ void UIManager::renderUI(PhysicsEngine& physics,
         m_viewportHovered = (mousePos.x >= m_viewportX && mousePos.x <= m_viewportX + m_viewportW &&
                              mousePos.y >= m_viewportY && mousePos.y <= m_viewportY + m_viewportH) && !io.WantCaptureMouse;
 
+        // Interactive 3D Move Gizmo (when Move tool is active or dragging body - updates hover and drag state first)
+        drawInteractiveGizmo(physics, camera, m_viewportX, m_viewportY, m_viewportW, m_viewportH);
+
         // Viewport HUD (selection, hover targeting, reticle)
         drawViewportHUD(physics, camera, visualAdapter, m_viewportX, m_viewportY, m_viewportW, m_viewportH);
-
-        // Interactive 3D Move Gizmo (when Move tool is active or dragging body)
-        drawInteractiveGizmo(physics, camera, m_viewportX, m_viewportY, m_viewportW, m_viewportH);
 
         // Placement Guide (when adding a new celestial body)
         drawPlacementGuide(physics, camera, m_viewportX, m_viewportY, m_viewportW, m_viewportH);
@@ -2193,23 +2193,36 @@ void UIManager::drawEditPropertiesPanel(PhysicsEngine& physics, Camera& camera, 
 
 void UIManager::drawInteractiveGizmo(PhysicsEngine& physics, Camera& camera, float vpX, float vpY, float vpW, float vpH) {
     if (m_activeTool != SandboxTool::Move) {
+        if (m_dragState != DragState::Idle) {
+            physics.setManipulatedBodyIndex(-1);
+            m_dragState = DragState::Idle;
+        }
         m_activeGizmoHandle = GizmoHandle::None;
+        m_lockedGizmoHandle = GizmoHandle::None;
         m_isDraggingGizmo = false;
         return;
     }
+
     int selIdx = physics.getSelectedBodyIndex();
     if (selIdx < 0 || selIdx >= (int)physics.getBodies().size()) {
+        if (m_dragState != DragState::Idle) {
+            physics.setManipulatedBodyIndex(-1);
+            m_dragState = DragState::Idle;
+        }
         m_activeGizmoHandle = GizmoHandle::None;
+        m_lockedGizmoHandle = GizmoHandle::None;
         m_isDraggingGizmo = false;
         return;
     }
+
     CelestialBody& body = physics.getBodies()[selIdx];
 
     glm::vec2 screenCenter;
-    float screenRadius;
+    float screenRadius = 0.0f;
     bool inFrustum = camera.projectToScreen(body.position, camera.getTargetPosition(),
                                             vpX, vpY, vpW, vpH, screenCenter, screenRadius, body.radius3D);
-    if (!inFrustum && !m_isDraggingGizmo) {
+
+    if (!inFrustum && m_dragState == DragState::Idle) {
         m_activeGizmoHandle = GizmoHandle::None;
         return;
     }
@@ -2218,25 +2231,64 @@ void UIManager::drawInteractiveGizmo(PhysicsEngine& physics, Camera& camera, flo
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 mousePos = io.MousePos;
 
-    float camDist = camera.getDistance();
-    float gizmoArmAU = std::max(body.radius3D * 1.5f, std::max(0.04f, camDist * 0.12f));
-    float handlePixelRadius = 10.0f;
+    // World camera eye calculation (Target + EyeOffset)
+    glm::vec3 camEyeWorld = camera.getTargetPosition() + camera.getEyePosition();
+    float camDistToBody = glm::length(camEyeWorld - body.position);
+    if (camDistToBody < 1e-6f) camDistToBody = camera.getDistance();
 
-    // Center Plane XZ Drag Ring / Body grab area
-    float centerDiscRadius = std::max(24.0f, screenRadius + 8.0f);
-    bool hoveredPlane = glm::length(glm::vec2(mousePos.x, mousePos.y) - screenCenter) <= centerDiscRadius;
+    // Adaptive Gizmo sizing in AU: Target constant screen arm length ~92px
+    float tanHalfFov = std::tan(glm::radians(camera.getFOV() * 0.5f));
+    float targetArmPixels = 92.0f;
+    float gizmoArmAU = (targetArmPixels * camDistToBody * (2.0f * tanHalfFov)) / std::max(vpH, 100.0f);
 
-    // Projected Axis Tips
+    // Keep arm at least 1.45x body visual radius so it never clips inside giant bodies
+    gizmoArmAU = std::max(gizmoArmAU, body.radius3D * 1.45f);
+    gizmoArmAU = std::max(gizmoArmAU, 0.00001f);
+
+    float planeArmAU = gizmoArmAU * 0.38f;
+    float handlePixelRadius = 11.0f;
+    float centerDiscRadius = std::max(14.0f, std::min(screenRadius + 4.0f, 26.0f));
+
+    // Project Axis Endpoints
     glm::vec3 xTipAU = body.position + glm::vec3(gizmoArmAU, 0.0f, 0.0f);
     glm::vec3 yTipAU = body.position + glm::vec3(0.0f, gizmoArmAU, 0.0f);
     glm::vec3 zTipAU = body.position + glm::vec3(0.0f, 0.0f, gizmoArmAU);
 
-    glm::vec2 sTipX, sTipY, sTipZ;
-    float rX, rY, rZ;
+    glm::vec2 sTipX(0.0f), sTipY(0.0f), sTipZ(0.0f);
+    float rX = 0.0f, rY = 0.0f, rZ = 0.0f;
     bool xOk = camera.projectToScreen(xTipAU, camera.getTargetPosition(), vpX, vpY, vpW, vpH, sTipX, rX, 0.01f);
     bool yOk = camera.projectToScreen(yTipAU, camera.getTargetPosition(), vpX, vpY, vpW, vpH, sTipY, rY, 0.01f);
     bool zOk = camera.projectToScreen(zTipAU, camera.getTargetPosition(), vpX, vpY, vpW, vpH, sTipZ, rZ, 0.01f);
 
+    // Subtle negative axis projections for 3D depth cue
+    glm::vec2 sNegX(0.0f), sNegY(0.0f), sNegZ(0.0f);
+    bool negXOk = camera.projectToScreen(body.position - glm::vec3(gizmoArmAU * 0.30f, 0, 0), camera.getTargetPosition(), vpX, vpY, vpW, vpH, sNegX, rX, 0.01f);
+    bool negYOk = camera.projectToScreen(body.position - glm::vec3(0, gizmoArmAU * 0.30f, 0), camera.getTargetPosition(), vpX, vpY, vpW, vpH, sNegY, rY, 0.01f);
+    bool negZOk = camera.projectToScreen(body.position - glm::vec3(0, 0, gizmoArmAU * 0.30f), camera.getTargetPosition(), vpX, vpY, vpW, vpH, sNegZ, rZ, 0.01f);
+
+    // Project Planar Quads (XZ, XY, YZ)
+    // Quad XZ (Orbital Plane)
+    glm::vec2 sQ_XZ[4];
+    bool qXZOk = camera.projectToScreen(body.position, camera.getTargetPosition(), vpX, vpY, vpW, vpH, sQ_XZ[0], rX) &&
+                 camera.projectToScreen(body.position + glm::vec3(planeArmAU, 0.0f, 0.0f), camera.getTargetPosition(), vpX, vpY, vpW, vpH, sQ_XZ[1], rX) &&
+                 camera.projectToScreen(body.position + glm::vec3(planeArmAU, 0.0f, planeArmAU), camera.getTargetPosition(), vpX, vpY, vpW, vpH, sQ_XZ[2], rX) &&
+                 camera.projectToScreen(body.position + glm::vec3(0.0f, 0.0f, planeArmAU), camera.getTargetPosition(), vpX, vpY, vpW, vpH, sQ_XZ[3], rX);
+
+    // Quad XY (Front Plane)
+    glm::vec2 sQ_XY[4];
+    bool qXYOk = camera.projectToScreen(body.position, camera.getTargetPosition(), vpX, vpY, vpW, vpH, sQ_XY[0], rY) &&
+                 camera.projectToScreen(body.position + glm::vec3(planeArmAU, 0.0f, 0.0f), camera.getTargetPosition(), vpX, vpY, vpW, vpH, sQ_XY[1], rY) &&
+                 camera.projectToScreen(body.position + glm::vec3(planeArmAU, planeArmAU, 0.0f), camera.getTargetPosition(), vpX, vpY, vpW, vpH, sQ_XY[2], rY) &&
+                 camera.projectToScreen(body.position + glm::vec3(0.0f, planeArmAU, 0.0f), camera.getTargetPosition(), vpX, vpY, vpW, vpH, sQ_XY[3], rY);
+
+    // Quad YZ (Side Plane)
+    glm::vec2 sQ_YZ[4];
+    bool qYZOk = camera.projectToScreen(body.position, camera.getTargetPosition(), vpX, vpY, vpW, vpH, sQ_YZ[0], rZ) &&
+                 camera.projectToScreen(body.position + glm::vec3(0.0f, planeArmAU, 0.0f), camera.getTargetPosition(), vpX, vpY, vpW, vpH, sQ_YZ[1], rZ) &&
+                 camera.projectToScreen(body.position + glm::vec3(0.0f, planeArmAU, planeArmAU), camera.getTargetPosition(), vpX, vpY, vpW, vpH, sQ_YZ[2], rZ) &&
+                 camera.projectToScreen(body.position + glm::vec3(0.0f, 0.0f, planeArmAU), camera.getTargetPosition(), vpX, vpY, vpW, vpH, sQ_YZ[3], rZ);
+
+    // Distance to segment lambda
     auto distToSegment = [](const ImVec2& p, const glm::vec2& a, const glm::vec2& b) -> float {
         float l2 = (b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y);
         if (l2 < 1e-4f) return std::sqrt((p.x - a.x) * (p.x - a.x) + (p.y - a.y) * (p.y - a.y));
@@ -2246,153 +2298,357 @@ void UIManager::drawInteractiveGizmo(PhysicsEngine& physics, Camera& camera, flo
         return std::sqrt((p.x - px) * (p.x - px) + (p.y - py) * (p.y - py));
     };
 
-    bool hoveredX = xOk && ((glm::length(glm::vec2(mousePos.x, mousePos.y) - sTipX) <= handlePixelRadius) ||
-                            (distToSegment(mousePos, screenCenter, sTipX) <= 6.0f));
-    bool hoveredY = yOk && ((glm::length(glm::vec2(mousePos.x, mousePos.y) - sTipY) <= handlePixelRadius) ||
-                            (distToSegment(mousePos, screenCenter, sTipY) <= 6.0f));
-    bool hoveredZ = zOk && ((glm::length(glm::vec2(mousePos.x, mousePos.y) - sTipZ) <= handlePixelRadius) ||
-                            (distToSegment(mousePos, screenCenter, sTipZ) <= 6.0f));
+    // Point in convex quad lambda
+    auto pointInQuad = [](const ImVec2& pt, const glm::vec2* q) -> bool {
+        auto cross2D = [](const ImVec2& p, const glm::vec2& a, const glm::vec2& b) -> float {
+            return (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x);
+        };
+        float d0 = cross2D(pt, q[0], q[1]);
+        float d1 = cross2D(pt, q[1], q[2]);
+        float d2 = cross2D(pt, q[2], q[3]);
+        float d3 = cross2D(pt, q[3], q[0]);
+        bool hasNeg = (d0 < 0.0f) || (d1 < 0.0f) || (d2 < 0.0f) || (d3 < 0.0f);
+        bool hasPos = (d0 > 0.0f) || (d1 > 0.0f) || (d2 > 0.0f) || (d3 > 0.0f);
+        return !(hasNeg && hasPos);
+    };
 
-    if (!m_isDraggingGizmo) {
-        if (hoveredX) m_activeGizmoHandle = GizmoHandle::AxisX;
-        else if (hoveredY) m_activeGizmoHandle = GizmoHandle::AxisY;
-        else if (hoveredZ) m_activeGizmoHandle = GizmoHandle::AxisZ;
-        else if (hoveredPlane) m_activeGizmoHandle = GizmoHandle::PlaneXZ;
+    // ── HIT TESTING (When not dragging) ──
+    if (m_dragState == DragState::Idle) {
+        float distToCenter = glm::length(glm::vec2(mousePos.x, mousePos.y) - screenCenter);
+        bool hoveredCenter = distToCenter <= centerDiscRadius;
+
+        bool hoveredTipX = xOk && (glm::length(glm::vec2(mousePos.x, mousePos.y) - sTipX) <= handlePixelRadius);
+        bool hoveredTipY = yOk && (glm::length(glm::vec2(mousePos.x, mousePos.y) - sTipY) <= handlePixelRadius);
+        bool hoveredTipZ = zOk && (glm::length(glm::vec2(mousePos.x, mousePos.y) - sTipZ) <= handlePixelRadius);
+
+        bool hoveredStemX = xOk && (distToSegment(mousePos, screenCenter, sTipX) <= 6.5f);
+        bool hoveredStemY = yOk && (distToSegment(mousePos, screenCenter, sTipY) <= 6.5f);
+        bool hoveredStemZ = zOk && (distToSegment(mousePos, screenCenter, sTipZ) <= 6.5f);
+
+        bool hoveredQuadXZ = qXZOk && pointInQuad(mousePos, sQ_XZ);
+        bool hoveredQuadXY = qXYOk && pointInQuad(mousePos, sQ_XY);
+        bool hoveredQuadYZ = qYZOk && pointInQuad(mousePos, sQ_YZ);
+
+        // Priority order: Center -> Tips -> Quads -> Stems
+        if (hoveredCenter) m_activeGizmoHandle = GizmoHandle::CenterFree;
+        else if (hoveredTipX) m_activeGizmoHandle = GizmoHandle::AxisX;
+        else if (hoveredTipY) m_activeGizmoHandle = GizmoHandle::AxisY;
+        else if (hoveredTipZ) m_activeGizmoHandle = GizmoHandle::AxisZ;
+        else if (hoveredQuadXZ) m_activeGizmoHandle = GizmoHandle::PlaneXZ;
+        else if (hoveredQuadXY) m_activeGizmoHandle = GizmoHandle::PlaneXY;
+        else if (hoveredQuadYZ) m_activeGizmoHandle = GizmoHandle::PlaneYZ;
+        else if (hoveredStemX) m_activeGizmoHandle = GizmoHandle::AxisX;
+        else if (hoveredStemY) m_activeGizmoHandle = GizmoHandle::AxisY;
+        else if (hoveredStemZ) m_activeGizmoHandle = GizmoHandle::AxisZ;
         else m_activeGizmoHandle = GizmoHandle::None;
     }
 
-    if (io.MouseClicked[0] && m_viewportHovered && m_activeGizmoHandle != GizmoHandle::None) {
-        m_isDraggingGizmo = true;
-        m_dragStartBodyPosAU = body.position;
-        m_dragStartBodyVelMps = body.velocityMps;
+    // Interactive mouse cursor feedback
+    if (m_activeGizmoHandle != GizmoHandle::None || m_dragState != DragState::Idle) {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+    }
 
-        glm::vec3 rayOrig, rayDir;
-        camera.screenToWorldRay(mousePos.x, mousePos.y, vpX, vpY, vpW, vpH, rayOrig, rayDir);
+    // ── STATE MACHINE: DRAG LIFECYCLE ──
+    // 1. Idle -> DragPending
+    if (m_dragState == DragState::Idle) {
+        if (io.MouseClicked[0] && m_viewportHovered && m_activeGizmoHandle != GizmoHandle::None) {
+            m_dragState = DragState::DragPending;
+            m_lockedGizmoHandle = m_activeGizmoHandle;
+            m_dragStartMousePos = mousePos;
+            m_dragStartBodyPosAU = body.position;
+            m_dragStartBodyVelMps = body.velocityMps;
+            m_dragHasMoved = false;
 
-        glm::vec3 initialHitAU(0.0f);
-        if (m_activeGizmoHandle == GizmoHandle::PlaneXZ) {
-            if (camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, glm::vec3(0, 1, 0), initialHitAU)) {
-                m_dragOffsetAU = m_dragStartBodyPosAU - initialHitAU;
-            } else {
-                m_dragOffsetAU = glm::vec3(0.0f);
+            // Lock body integration in physics engine so background steps don't fight user manipulation
+            physics.setManipulatedBodyIndex(selIdx);
+
+            glm::vec3 rayOrig, rayDir;
+            camera.screenToWorldRay(mousePos.x, mousePos.y, vpX, vpY, vpW, vpH, rayOrig, rayDir);
+
+            if (m_lockedGizmoHandle == GizmoHandle::AxisX ||
+                m_lockedGizmoHandle == GizmoHandle::AxisY ||
+                m_lockedGizmoHandle == GizmoHandle::AxisZ) {
+
+                if (m_lockedGizmoHandle == GizmoHandle::AxisX) m_dragAxisDir = glm::vec3(1.0f, 0.0f, 0.0f);
+                else if (m_lockedGizmoHandle == GizmoHandle::AxisY) m_dragAxisDir = glm::vec3(0.0f, 1.0f, 0.0f);
+                else m_dragAxisDir = glm::vec3(0.0f, 0.0f, 1.0f);
+
+                glm::vec3 camToBody = camEyeWorld - m_dragStartBodyPosAU;
+                glm::vec3 pNorm = camToBody - glm::dot(camToBody, m_dragAxisDir) * m_dragAxisDir;
+                if (glm::length(pNorm) > 1e-5f) {
+                    pNorm = glm::normalize(pNorm);
+                } else {
+                    pNorm = (std::abs(m_dragAxisDir.y) < 0.9f) ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(0.0f, 0.0f, 1.0f);
+                }
+                m_dragConstraintPlaneNormal = pNorm;
+
+                if (camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, m_dragConstraintPlaneNormal, m_dragStartHitAU)) {
+                    m_dragStartAxisT = glm::dot(m_dragStartHitAU - m_dragStartBodyPosAU, m_dragAxisDir);
+                } else {
+                    m_dragStartHitAU = m_dragStartBodyPosAU;
+                    m_dragStartAxisT = 0.0f;
+                }
+            } else if (m_lockedGizmoHandle == GizmoHandle::PlaneXZ) {
+                m_dragConstraintPlaneNormal = glm::vec3(0.0f, 1.0f, 0.0f);
+                if (!camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, m_dragConstraintPlaneNormal, m_dragStartHitAU)) {
+                    m_dragStartHitAU = m_dragStartBodyPosAU;
+                }
+            } else if (m_lockedGizmoHandle == GizmoHandle::PlaneXY) {
+                m_dragConstraintPlaneNormal = glm::vec3(0.0f, 0.0f, 1.0f);
+                if (!camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, m_dragConstraintPlaneNormal, m_dragStartHitAU)) {
+                    m_dragStartHitAU = m_dragStartBodyPosAU;
+                }
+            } else if (m_lockedGizmoHandle == GizmoHandle::PlaneYZ) {
+                m_dragConstraintPlaneNormal = glm::vec3(1.0f, 0.0f, 0.0f);
+                if (!camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, m_dragConstraintPlaneNormal, m_dragStartHitAU)) {
+                    m_dragStartHitAU = m_dragStartBodyPosAU;
+                }
+            } else if (m_lockedGizmoHandle == GizmoHandle::CenterFree) {
+                glm::vec3 camToBody = camEyeWorld - m_dragStartBodyPosAU;
+                if (glm::length(camToBody) > 1e-5f) {
+                    m_dragConstraintPlaneNormal = glm::normalize(camToBody);
+                } else {
+                    m_dragConstraintPlaneNormal = glm::vec3(0.0f, 1.0f, 0.0f);
+                }
+                if (!camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, m_dragConstraintPlaneNormal, m_dragStartHitAU)) {
+                    m_dragStartHitAU = m_dragStartBodyPosAU;
+                }
             }
-        } else if (m_activeGizmoHandle == GizmoHandle::AxisX) {
-            glm::vec3 camToBody = camera.getEyePosition() - m_dragStartBodyPosAU;
-            glm::vec3 pNorm(0.0f, camToBody.y, camToBody.z);
-            if (glm::length(pNorm) > 1e-4f) pNorm = glm::normalize(pNorm); else pNorm = glm::vec3(0, 0, 1);
-            if (camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, pNorm, initialHitAU)) {
-                m_dragOffsetAU.x = m_dragStartBodyPosAU.x - initialHitAU.x;
-            } else {
-                m_dragOffsetAU.x = 0.0f;
+        }
+    }
+    // 2. DragPending -> Dragging OR Cancel/Click
+    else if (m_dragState == DragState::DragPending) {
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape) || io.MouseClicked[1]) {
+            physics.setManipulatedBodyIndex(-1);
+            m_dragState = DragState::Idle;
+            m_isDraggingGizmo = false;
+            m_lockedGizmoHandle = GizmoHandle::None;
+            return;
+        }
+
+        if (!io.MouseDown[0] || io.MouseReleased[0]) {
+            // Simple click without movement - no displacement, release cleanly
+            physics.setManipulatedBodyIndex(-1);
+            m_dragState = DragState::Idle;
+            m_isDraggingGizmo = false;
+            m_lockedGizmoHandle = GizmoHandle::None;
+            return;
+        }
+
+        float mouseDisp = glm::length(glm::vec2(mousePos.x - m_dragStartMousePos.x, mousePos.y - m_dragStartMousePos.y));
+        if (mouseDisp >= 3.5f) {
+            m_dragState = DragState::Dragging;
+            m_isDraggingGizmo = true;
+        }
+    }
+    // 3. Dragging
+    else if (m_dragState == DragState::Dragging) {
+        m_activeGizmoHandle = m_lockedGizmoHandle;
+
+        // Escape or Right-click cancellation: REVERT to pre-drag state
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape) || io.MouseClicked[1]) {
+            physics.setBodyPositionAU(selIdx, m_dragStartBodyPosAU, true);
+            physics.getBodies()[selIdx].velocityMps = m_dragStartBodyVelMps;
+            physics.setManipulatedBodyIndex(-1);
+
+            m_dragState = DragState::Idle;
+            m_isDraggingGizmo = false;
+            m_activeGizmoHandle = GizmoHandle::None;
+            m_lockedGizmoHandle = GizmoHandle::None;
+            m_dragHasMoved = false;
+
+            addEventLog("Move cancelled — reverted " + body.name);
+            return;
+        }
+
+        // Mouse released: Commit transactional change
+        if (!io.MouseDown[0] || io.MouseReleased[0]) {
+            if (m_dragHasMoved) {
+                m_undoRedo.recordReposition(selIdx, m_dragStartBodyPosAU, body.position, m_dragStartBodyVelMps, body.velocityMps);
+                addEventLog("Moved " + body.name + " to " + body.distanceStr);
             }
-        } else if (m_activeGizmoHandle == GizmoHandle::AxisY) {
-            glm::vec3 camToBody = camera.getEyePosition() - m_dragStartBodyPosAU;
-            glm::vec3 pNorm(camToBody.x, 0.0f, camToBody.z);
-            if (glm::length(pNorm) > 1e-4f) pNorm = glm::normalize(pNorm); else pNorm = glm::vec3(0, 0, 1);
-            if (camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, pNorm, initialHitAU)) {
-                m_dragOffsetAU.y = m_dragStartBodyPosAU.y - initialHitAU.y;
-            } else {
-                m_dragOffsetAU.y = 0.0f;
-            }
-        } else if (m_activeGizmoHandle == GizmoHandle::AxisZ) {
-            glm::vec3 camToBody = camera.getEyePosition() - m_dragStartBodyPosAU;
-            glm::vec3 pNorm(camToBody.x, camToBody.y, 0.0f);
-            if (glm::length(pNorm) > 1e-4f) pNorm = glm::normalize(pNorm); else pNorm = glm::vec3(1, 0, 0);
-            if (camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, pNorm, initialHitAU)) {
-                m_dragOffsetAU.z = m_dragStartBodyPosAU.z - initialHitAU.z;
-            } else {
-                m_dragOffsetAU.z = 0.0f;
+
+            physics.setManipulatedBodyIndex(-1);
+            m_dragState = DragState::Idle;
+            m_isDraggingGizmo = false;
+            m_activeGizmoHandle = GizmoHandle::None;
+            m_lockedGizmoHandle = GizmoHandle::None;
+            m_dragHasMoved = false;
+            return;
+        }
+
+        // Only compute displacement if mouse cursor actually moved (PRESS != MOVEMENT)
+        if (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f) {
+            glm::vec3 rayOrig, rayDir;
+            camera.screenToWorldRay(mousePos.x, mousePos.y, vpX, vpY, vpW, vpH, rayOrig, rayDir);
+
+            glm::vec3 curHitAU(0.0f);
+            if (camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, m_dragConstraintPlaneNormal, curHitAU)) {
+                if (m_lockedGizmoHandle == GizmoHandle::AxisX ||
+                    m_lockedGizmoHandle == GizmoHandle::AxisY ||
+                    m_lockedGizmoHandle == GizmoHandle::AxisZ) {
+
+                    float curT = glm::dot(curHitAU - m_dragStartBodyPosAU, m_dragAxisDir);
+                    float deltaT = curT - m_dragStartAxisT;
+                    glm::vec3 newPos = m_dragStartBodyPosAU + deltaT * m_dragAxisDir;
+                    physics.setBodyPositionAU(selIdx, newPos, true);
+                    m_dragHasMoved = true;
+                } else if (m_lockedGizmoHandle == GizmoHandle::PlaneXZ) {
+                    glm::vec3 deltaP = curHitAU - m_dragStartHitAU;
+                    glm::vec3 newPos = m_dragStartBodyPosAU + glm::vec3(deltaP.x, 0.0f, deltaP.z);
+                    physics.setBodyPositionAU(selIdx, newPos, true);
+                    m_dragHasMoved = true;
+                } else if (m_lockedGizmoHandle == GizmoHandle::PlaneXY) {
+                    glm::vec3 deltaP = curHitAU - m_dragStartHitAU;
+                    glm::vec3 newPos = m_dragStartBodyPosAU + glm::vec3(deltaP.x, deltaP.y, 0.0f);
+                    physics.setBodyPositionAU(selIdx, newPos, true);
+                    m_dragHasMoved = true;
+                } else if (m_lockedGizmoHandle == GizmoHandle::PlaneYZ) {
+                    glm::vec3 deltaP = curHitAU - m_dragStartHitAU;
+                    glm::vec3 newPos = m_dragStartBodyPosAU + glm::vec3(0.0f, deltaP.y, deltaP.z);
+                    physics.setBodyPositionAU(selIdx, newPos, true);
+                    m_dragHasMoved = true;
+                } else if (m_lockedGizmoHandle == GizmoHandle::CenterFree) {
+                    glm::vec3 deltaP = curHitAU - m_dragStartHitAU;
+                    glm::vec3 newPos = m_dragStartBodyPosAU + deltaP;
+                    physics.setBodyPositionAU(selIdx, newPos, true);
+                    m_dragHasMoved = true;
+                }
             }
         }
     }
 
-    if (m_isDraggingGizmo && io.MouseDown[0]) {
-        glm::vec3 rayOrig, rayDir;
-        camera.screenToWorldRay(mousePos.x, mousePos.y, vpX, vpY, vpW, vpH, rayOrig, rayDir);
+    // ── GIZMO VISUAL RENDERING ──
+    GizmoHandle curHandle = (m_dragState != DragState::Idle) ? m_lockedGizmoHandle : m_activeGizmoHandle;
 
-        if (m_activeGizmoHandle == GizmoHandle::PlaneXZ) {
-            glm::vec3 hitAU(0.0f);
-            if (camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, glm::vec3(0, 1, 0), hitAU)) {
-                glm::vec3 newPos = hitAU + m_dragOffsetAU;
-                newPos.y = m_dragStartBodyPosAU.y; // Keep Y height on orbital plane
-                physics.setBodyPositionAU(selIdx, newPos, true);
-            }
-        } else if (m_activeGizmoHandle == GizmoHandle::AxisX) {
-            glm::vec3 camToBody = camera.getEyePosition() - m_dragStartBodyPosAU;
-            glm::vec3 pNorm(0.0f, camToBody.y, camToBody.z);
-            if (glm::length(pNorm) > 1e-4f) pNorm = glm::normalize(pNorm); else pNorm = glm::vec3(0, 0, 1);
-            glm::vec3 hitAU(0.0f);
-            if (camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, pNorm, hitAU)) {
-                glm::vec3 newPos = body.position;
-                newPos.x = hitAU.x + m_dragOffsetAU.x;
-                physics.setBodyPositionAU(selIdx, newPos, true);
-            }
-        } else if (m_activeGizmoHandle == GizmoHandle::AxisY) {
-            glm::vec3 camToBody = camera.getEyePosition() - m_dragStartBodyPosAU;
-            glm::vec3 pNorm(camToBody.x, 0.0f, camToBody.z);
-            if (glm::length(pNorm) > 1e-4f) pNorm = glm::normalize(pNorm); else pNorm = glm::vec3(0, 0, 1);
-            glm::vec3 hitAU(0.0f);
-            if (camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, pNorm, hitAU)) {
-                glm::vec3 newPos = body.position;
-                newPos.y = hitAU.y + m_dragOffsetAU.y;
-                physics.setBodyPositionAU(selIdx, newPos, true);
-            }
-        } else if (m_activeGizmoHandle == GizmoHandle::AxisZ) {
-            glm::vec3 camToBody = camera.getEyePosition() - m_dragStartBodyPosAU;
-            glm::vec3 pNorm(camToBody.x, camToBody.y, 0.0f);
-            if (glm::length(pNorm) > 1e-4f) pNorm = glm::normalize(pNorm); else pNorm = glm::vec3(1, 0, 0);
-            glm::vec3 hitAU(0.0f);
-            if (camera.intersectPlane(rayOrig, rayDir, m_dragStartBodyPosAU, pNorm, hitAU)) {
-                glm::vec3 newPos = body.position;
-                newPos.z = hitAU.z + m_dragOffsetAU.z;
-                physics.setBodyPositionAU(selIdx, newPos, true);
-            }
+    // Displacement guide line connecting start position to current position while dragging
+    if (m_dragState == DragState::Dragging && m_dragHasMoved) {
+        glm::vec2 sStartPos;
+        float rStart = 0.0f;
+        if (camera.projectToScreen(m_dragStartBodyPosAU, camera.getTargetPosition(), vpX, vpY, vpW, vpH, sStartPos, rStart)) {
+            dl->AddLine(ImVec2(sStartPos.x, sStartPos.y), ImVec2(screenCenter.x, screenCenter.y),
+                        ImColor(255, 230, 80, 200), 1.5f);
+            dl->AddCircleFilled(ImVec2(sStartPos.x, sStartPos.y), 4.0f, ImColor(255, 230, 80, 240));
         }
-    } else if (m_isDraggingGizmo && !io.MouseDown[0]) {
-        m_undoRedo.recordReposition(selIdx, m_dragStartBodyPosAU, body.position, m_dragStartBodyVelMps, body.velocityMps);
-        m_isDraggingGizmo = false;
-        m_activeGizmoHandle = GizmoHandle::None;
-        addEventLog("Moved " + body.name + " to " + body.distanceStr);
     }
 
-    // Render Gizmo Visuals
-    ImU32 colPlane = (m_activeGizmoHandle == GizmoHandle::PlaneXZ || hoveredPlane)
-        ? ImColor(255, 230, 80, 240) : ImColor(100, 200, 255, 140);
-    dl->AddCircle(ImVec2(screenCenter.x, screenCenter.y), centerDiscRadius, colPlane, 32, 2.0f);
-    dl->AddCircleFilled(ImVec2(screenCenter.x, screenCenter.y), centerDiscRadius * 0.5f,
-        (m_activeGizmoHandle == GizmoHandle::PlaneXZ || hoveredPlane) ? ImColor(255, 230, 80, 90) : ImColor(100, 200, 255, 40));
+    // Infinite axis guideline while dragging an axis
+    if (m_dragState == DragState::Dragging &&
+        (m_lockedGizmoHandle == GizmoHandle::AxisX || m_lockedGizmoHandle == GizmoHandle::AxisY || m_lockedGizmoHandle == GizmoHandle::AxisZ)) {
+        glm::vec3 pFarNeg = m_dragStartBodyPosAU - m_dragAxisDir * (gizmoArmAU * 8.0f);
+        glm::vec3 pFarPos = m_dragStartBodyPosAU + m_dragAxisDir * (gizmoArmAU * 8.0f);
+        glm::vec2 sFarNeg, sFarPos;
+        float rN = 0.0f, rP = 0.0f;
+        if (camera.projectToScreen(pFarNeg, camera.getTargetPosition(), vpX, vpY, vpW, vpH, sFarNeg, rN) &&
+            camera.projectToScreen(pFarPos, camera.getTargetPosition(), vpX, vpY, vpW, vpH, sFarPos, rP)) {
+            ImU32 colGuide = (m_lockedGizmoHandle == GizmoHandle::AxisX) ? ImColor(255, 90, 90, 100) :
+                             (m_lockedGizmoHandle == GizmoHandle::AxisY) ? ImColor(90, 255, 110, 100) :
+                                                                          ImColor(90, 170, 255, 100);
+            dl->AddLine(ImVec2(sFarNeg.x, sFarNeg.y), ImVec2(sFarPos.x, sFarPos.y), colGuide, 1.0f);
+        }
+    }
 
+    // Negative subtle axis arms
+    if (negXOk) dl->AddLine(ImVec2(screenCenter.x, screenCenter.y), ImVec2(sNegX.x, sNegX.y), ImColor(220, 60, 60, 50), 1.0f);
+    if (negYOk) dl->AddLine(ImVec2(screenCenter.x, screenCenter.y), ImVec2(sNegY.x, sNegY.y), ImColor(50, 220, 60, 50), 1.0f);
+    if (negZOk) dl->AddLine(ImVec2(screenCenter.x, screenCenter.y), ImVec2(sNegZ.x, sNegZ.y), ImColor(50, 120, 240, 50), 1.0f);
+
+    // Planar Quads: Draw behind axis lines
+    if (qXZOk) {
+        bool act = (curHandle == GizmoHandle::PlaneXZ);
+        ImU32 fill = act ? ImColor(255, 230, 80, 140) : ImColor(100, 220, 255, 45);
+        ImU32 line = act ? ImColor(255, 255, 120, 255) : ImColor(100, 220, 255, 150);
+        dl->AddQuadFilled(ImVec2(sQ_XZ[0].x, sQ_XZ[0].y), ImVec2(sQ_XZ[1].x, sQ_XZ[1].y),
+                          ImVec2(sQ_XZ[2].x, sQ_XZ[2].y), ImVec2(sQ_XZ[3].x, sQ_XZ[3].y), fill);
+        dl->AddQuad(ImVec2(sQ_XZ[0].x, sQ_XZ[0].y), ImVec2(sQ_XZ[1].x, sQ_XZ[1].y),
+                    ImVec2(sQ_XZ[2].x, sQ_XZ[2].y), ImVec2(sQ_XZ[3].x, sQ_XZ[3].y), line, act ? 2.0f : 1.2f);
+    }
+    if (qXYOk) {
+        bool act = (curHandle == GizmoHandle::PlaneXY);
+        ImU32 fill = act ? ImColor(255, 190, 50, 140) : ImColor(255, 180, 60, 40);
+        ImU32 line = act ? ImColor(255, 220, 90, 255) : ImColor(255, 180, 60, 140);
+        dl->AddQuadFilled(ImVec2(sQ_XY[0].x, sQ_XY[0].y), ImVec2(sQ_XY[1].x, sQ_XY[1].y),
+                          ImVec2(sQ_XY[2].x, sQ_XY[2].y), ImVec2(sQ_XY[3].x, sQ_XY[3].y), fill);
+        dl->AddQuad(ImVec2(sQ_XY[0].x, sQ_XY[0].y), ImVec2(sQ_XY[1].x, sQ_XY[1].y),
+                    ImVec2(sQ_XY[2].x, sQ_XY[2].y), ImVec2(sQ_XY[3].x, sQ_XY[3].y), line, act ? 2.0f : 1.2f);
+    }
+    if (qYZOk) {
+        bool act = (curHandle == GizmoHandle::PlaneYZ);
+        ImU32 fill = act ? ImColor(50, 220, 255, 140) : ImColor(50, 200, 255, 40);
+        ImU32 line = act ? ImColor(100, 245, 255, 255) : ImColor(50, 200, 255, 140);
+        dl->AddQuadFilled(ImVec2(sQ_YZ[0].x, sQ_YZ[0].y), ImVec2(sQ_YZ[1].x, sQ_YZ[1].y),
+                          ImVec2(sQ_YZ[2].x, sQ_YZ[2].y), ImVec2(sQ_YZ[3].x, sQ_YZ[3].y), fill);
+        dl->AddQuad(ImVec2(sQ_YZ[0].x, sQ_YZ[0].y), ImVec2(sQ_YZ[1].x, sQ_YZ[1].y),
+                    ImVec2(sQ_YZ[2].x, sQ_YZ[2].y), ImVec2(sQ_YZ[3].x, sQ_YZ[3].y), line, act ? 2.0f : 1.2f);
+    }
+
+    // Center Free View-Plane Disc
+    bool centerAct = (curHandle == GizmoHandle::CenterFree);
+    ImU32 colCenterRing = centerAct ? ImColor(255, 255, 255, 255) : ImColor(180, 220, 255, 140);
+    ImU32 colCenterFill = centerAct ? ImColor(255, 230, 80, 110) : ImColor(100, 190, 255, 30);
+    dl->AddCircle(ImVec2(screenCenter.x, screenCenter.y), centerDiscRadius, colCenterRing, 32, centerAct ? 2.2f : 1.5f);
+    dl->AddCircleFilled(ImVec2(screenCenter.x, screenCenter.y), centerDiscRadius * 0.55f, colCenterFill, 32);
+
+    // Primary Axis Lines and Tip Handles
     if (xOk) {
-        ImU32 colX = (m_activeGizmoHandle == GizmoHandle::AxisX || hoveredX) ? ImColor(255, 80, 80, 255) : ImColor(220, 50, 50, 190);
-        dl->AddLine(ImVec2(screenCenter.x, screenCenter.y), ImVec2(sTipX.x, sTipX.y), colX, 2.5f);
-        dl->AddCircleFilled(ImVec2(sTipX.x, sTipX.y), handlePixelRadius, colX);
-        dl->AddText(ImVec2(sTipX.x + 6, sTipX.y - 6), colX, "X");
+        bool act = (curHandle == GizmoHandle::AxisX);
+        ImU32 col = act ? ImColor(255, 80, 80, 255) : ImColor(220, 50, 50, 200);
+        dl->AddLine(ImVec2(screenCenter.x, screenCenter.y), ImVec2(sTipX.x, sTipX.y), col, act ? 3.5f : 2.2f);
+        dl->AddCircleFilled(ImVec2(sTipX.x, sTipX.y), act ? handlePixelRadius + 1.5f : handlePixelRadius, col);
+        if (act) dl->AddCircle(ImVec2(sTipX.x, sTipX.y), handlePixelRadius + 3.0f, ImColor(255, 255, 255, 240), 16, 1.5f);
+        dl->AddText(ImVec2(sTipX.x + 7, sTipX.y - 7), col, "X");
     }
     if (yOk) {
-        ImU32 colY = (m_activeGizmoHandle == GizmoHandle::AxisY || hoveredY) ? ImColor(80, 255, 80, 255) : ImColor(50, 220, 50, 190);
-        dl->AddLine(ImVec2(screenCenter.x, screenCenter.y), ImVec2(sTipY.x, sTipY.y), colY, 2.5f);
-        dl->AddCircleFilled(ImVec2(sTipY.x, sTipY.y), handlePixelRadius, colY);
-        dl->AddText(ImVec2(sTipY.x + 6, sTipY.y - 6), colY, "Y");
+        bool act = (curHandle == GizmoHandle::AxisY);
+        ImU32 col = act ? ImColor(80, 255, 80, 255) : ImColor(50, 220, 50, 200);
+        dl->AddLine(ImVec2(screenCenter.x, screenCenter.y), ImVec2(sTipY.x, sTipY.y), col, act ? 3.5f : 2.2f);
+        dl->AddCircleFilled(ImVec2(sTipY.x, sTipY.y), act ? handlePixelRadius + 1.5f : handlePixelRadius, col);
+        if (act) dl->AddCircle(ImVec2(sTipY.x, sTipY.y), handlePixelRadius + 3.0f, ImColor(255, 255, 255, 240), 16, 1.5f);
+        dl->AddText(ImVec2(sTipY.x + 7, sTipY.y - 7), col, "Y");
     }
     if (zOk) {
-        ImU32 colZ = (m_activeGizmoHandle == GizmoHandle::AxisZ || hoveredZ) ? ImColor(100, 160, 255, 255) : ImColor(50, 100, 240, 190);
-        dl->AddLine(ImVec2(screenCenter.x, screenCenter.y), ImVec2(sTipZ.x, sTipZ.y), colZ, 2.5f);
-        dl->AddCircleFilled(ImVec2(sTipZ.x, sTipZ.y), handlePixelRadius, colZ);
-        dl->AddText(ImVec2(sTipZ.x + 6, sTipZ.y - 6), colZ, "Z");
+        bool act = (curHandle == GizmoHandle::AxisZ);
+        ImU32 col = act ? ImColor(100, 170, 255, 255) : ImColor(50, 110, 240, 200);
+        dl->AddLine(ImVec2(screenCenter.x, screenCenter.y), ImVec2(sTipZ.x, sTipZ.y), col, act ? 3.5f : 2.2f);
+        dl->AddCircleFilled(ImVec2(sTipZ.x, sTipZ.y), act ? handlePixelRadius + 1.5f : handlePixelRadius, col);
+        if (act) dl->AddCircle(ImVec2(sTipZ.x, sTipZ.y), handlePixelRadius + 3.0f, ImColor(255, 255, 255, 240), 16, 1.5f);
+        dl->AddText(ImVec2(sTipZ.x + 7, sTipZ.y - 7), col, "Z");
     }
 
-    // Live Coordinate Badge while dragging
-    if (m_isDraggingGizmo) {
-        char coordBuf[128];
-        snprintf(coordBuf, sizeof(coordBuf), "X: %+.3f AU | Y: %+.3f AU | Z: %+.3f AU\nDistance: %s",
-                 body.position.x, body.position.y, body.position.z, body.distanceStr.c_str());
+    // ── LIVE HUD COORDINATE BADGE WHILE DRAGGING ──
+    if (m_dragState == DragState::Dragging) {
+        const char* handleName = "FREE MOVE";
+        if (m_lockedGizmoHandle == GizmoHandle::AxisX) handleName = "X AXIS";
+        else if (m_lockedGizmoHandle == GizmoHandle::AxisY) handleName = "Y AXIS (VERTICAL)";
+        else if (m_lockedGizmoHandle == GizmoHandle::AxisZ) handleName = "Z AXIS";
+        else if (m_lockedGizmoHandle == GizmoHandle::PlaneXZ) handleName = "XZ ORBITAL PLANE";
+        else if (m_lockedGizmoHandle == GizmoHandle::PlaneXY) handleName = "XY FRONT PLANE";
+        else if (m_lockedGizmoHandle == GizmoHandle::PlaneYZ) handleName = "YZ SIDE PLANE";
+
+        glm::vec3 deltaPos = body.position - m_dragStartBodyPosAU;
+        char coordBuf[256];
+        snprintf(coordBuf, sizeof(coordBuf),
+                 "TRANSLATE: %s [%s]\n"
+                 "Pos: X: %+.3f  Y: %+.3f  Z: %+.3f AU\n"
+                 "Off: dX: %+.3f  dY: %+.3f  dZ: %+.3f AU\n"
+                 "Dist: %s  |  [Esc] Cancel  [Release] Confirm",
+                 body.name.c_str(), handleName,
+                 body.position.x, body.position.y, body.position.z,
+                 deltaPos.x, deltaPos.y, deltaPos.z,
+                 body.distanceStr.c_str());
+
         ImVec2 tSize = ImGui::CalcTextSize(coordBuf);
         ImVec2 pBox(mousePos.x + 18, mousePos.y + 18);
-        dl->AddRectFilled(pBox, ImVec2(pBox.x + tSize.x + 16, pBox.y + tSize.y + 12),
-                          ImColor(10, 15, 25, 230), 6.0f);
-        dl->AddRect(pBox, ImVec2(pBox.x + tSize.x + 16, pBox.y + tSize.y + 12),
+
+        // Keep inside viewport bounds
+        if (pBox.x + tSize.x + 20 > vpX + vpW) pBox.x = mousePos.x - tSize.x - 24;
+        if (pBox.y + tSize.y + 20 > vpY + vpH) pBox.y = mousePos.y - tSize.y - 20;
+
+        dl->AddRectFilled(pBox, ImVec2(pBox.x + tSize.x + 16, pBox.y + tSize.y + 14),
+                          ImColor(8, 14, 24, 235), 6.0f);
+        dl->AddRect(pBox, ImVec2(pBox.x + tSize.x + 16, pBox.y + tSize.y + 14),
                     ImColor(255, 220, 80, 220), 6.0f, 0, 1.5f);
-        dl->AddText(ImVec2(pBox.x + 8, pBox.y + 6), ImColor(255, 255, 255, 255), coordBuf);
+        dl->AddText(ImVec2(pBox.x + 8, pBox.y + 7), ImColor(255, 255, 255, 255), coordBuf);
     }
 }
 
@@ -2496,7 +2752,7 @@ void UIManager::drawFloatingSimBar(PhysicsEngine& physics, Camera& camera, Objec
             m_placementActive = false;
         }
         if (isSelect) ImGui::PopStyleColor();
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Select tool: Click body to select (Hotkey: Q)");
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Select tool: Click body to select (Hotkey: V / S)");
 
         ImGui::SameLine();
         bool isMove = (m_activeTool == SandboxTool::Move);
@@ -3374,7 +3630,9 @@ void UIManager::drawViewportHUD(PhysicsEngine& physics, Camera& camera, VisualSt
     m_hoveredBodyIndex = bestHoverIdx;
 
     // Direct Left Click in 3D Viewport on body selects it
-    if (m_viewportHovered && m_hoveredBodyIndex >= 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+    // In EDIT mode, do not change selection if user is hovering/interacting with gizmo handles, manipulating an object, or placing
+    bool canSelectBody = m_viewportHovered && !isGizmoHovered() && !isManipulatingObject() && !m_placementActive;
+    if (canSelectBody && m_hoveredBodyIndex >= 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         physics.selectBody(m_hoveredBodyIndex);
         // Only focus camera automatically in UNIVERSE mode.
         // In EDIT mode, keep camera steady so the user can select and move without camera snapping around.

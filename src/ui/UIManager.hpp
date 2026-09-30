@@ -30,14 +30,23 @@ enum class SandboxTool {
     Place
 };
 
+enum class DragState {
+    Idle,
+    DragPending,
+    Dragging,
+    Released
+};
+
 enum class GizmoHandle {
     None,
-    CenterPlane,
-    PlaneXZ = CenterPlane,
     AxisX,
     AxisY,
     AxisZ,
-    VelocityArrow
+    PlaneXZ,    // Orbital horizontal plane
+    PlaneXY,    // Front vertical plane
+    PlaneYZ,    // Side vertical plane
+    CenterFree, // Free move along camera view plane
+    CenterPlane = PlaneXZ
 };
 
 class UIManager {
@@ -66,10 +75,14 @@ public:
     int getActiveTopTab() const { return m_activeTopTab; }
 
     // Interactive Simulation Sandbox Controls
-    bool isManipulatingObject() const { return m_isDraggingGizmo || m_placementActive; }
+    bool isManipulatingObject() const { 
+        return (m_dragState == DragState::DragPending || m_dragState == DragState::Dragging || m_isDraggingGizmo) || m_placementActive; 
+    }
     bool isMoveToolActive() const { return m_activeTool == SandboxTool::Move; }
     bool isPlaceToolActive() const { return m_placementActive || m_activeTool == SandboxTool::Place; }
-    bool isGizmoHovered() const { return m_activeGizmoHandle != GizmoHandle::None; }
+    bool isGizmoHovered() const { 
+        return (m_activeGizmoHandle != GizmoHandle::None) || (m_dragState != DragState::Idle); 
+    }
     SandboxTool getActiveTool() const { return m_activeTool; }
     void setActiveTool(SandboxTool tool) { m_activeTool = tool; }
     void toggleMoveTool() {
@@ -160,12 +173,17 @@ public:
     // Interactive Sandbox Editor State
     SandboxTool m_activeTool = SandboxTool::Select;
     GizmoHandle m_activeGizmoHandle = GizmoHandle::None;
+    GizmoHandle m_lockedGizmoHandle = GizmoHandle::None;
+    DragState m_dragState = DragState::Idle;
     bool m_isDraggingGizmo = false;
-    glm::vec3 m_dragStartMouseHitAU{0.0f};
+    ImVec2 m_dragStartMousePos{0.0f, 0.0f};
     glm::vec3 m_dragStartBodyPosAU{0.0f};
     glm::dvec3 m_dragStartBodyVelMps{0.0};
-    glm::vec3 m_dragOffsetAU{0.0f};
-    bool m_dragVelocityModified = false;
+    glm::vec3 m_dragStartHitAU{0.0f};
+    float m_dragStartAxisT = 0.0f;
+    glm::vec3 m_dragAxisDir{1.0f, 0.0f, 0.0f};
+    glm::vec3 m_dragConstraintPlaneNormal{0.0f, 1.0f, 0.0f};
+    bool m_dragHasMoved = false;
 
     // Placement State
     bool m_placementActive = false;

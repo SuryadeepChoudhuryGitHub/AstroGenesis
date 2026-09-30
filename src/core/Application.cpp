@@ -424,7 +424,19 @@ void Application::run() {
         m_physics.clearRecentCollisions();
 
         m_aiManager.update(m_physics, deltaTime);
-        m_camera.setTargetPosition(m_physics.getSelectedBody().position);
+        if (m_uiManager.getActiveTopTab() == 0) {
+            // UNIVERSE mode: camera tracks focused body
+            m_camera.setTargetPosition(m_physics.getSelectedBody().position);
+        } else if (m_uiManager.getActiveTopTab() == 1) {
+            // EDIT mode: camera target stays locked during object manipulation
+            if (!m_uiManager.isManipulatingObject()) {
+                if (m_camera.isTransitioning()) {
+                    m_camera.setTargetPosition(m_physics.getSelectedBody().position);
+                }
+            }
+        } else {
+            m_camera.setTargetPosition(m_physics.getSelectedBody().position);
+        }
         m_camera.update(deltaTime);
 
         // Update Visual State Adapter (Physics State -> Visual State)

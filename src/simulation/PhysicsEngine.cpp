@@ -229,6 +229,10 @@ void PhysicsEngine::integrateNBody(double deltaSeconds) {
 
     // Step 2: Symplectic Position update x(t + dt) = x(t) + v(t)*dt + 0.5*a(t)*dt^2
     for (size_t i = 0; i < n; ++i) {
+        if (m_manipulatedBodyIndex >= 0 && (int)i == m_manipulatedBodyIndex) {
+            // Keep manipulated body at user's authoritative position
+            continue;
+        }
         positions[i] += velocities[i] * deltaSeconds + 0.5 * acc1[i] * (deltaSeconds * deltaSeconds);
     }
 
@@ -238,9 +242,15 @@ void PhysicsEngine::integrateNBody(double deltaSeconds) {
     // Step 4: Velocity update v(t + dt) = v(t) + 0.5*(a(t) + a(t + dt))*dt
     for (size_t i = 0; i < n; ++i) {
         velocities[i] += 0.5 * (acc1[i] + acc2[i]) * deltaSeconds;
+        m_bodies[i].accelerationMps2 = acc2[i];
+
+        if (m_manipulatedBodyIndex >= 0 && (int)i == m_manipulatedBodyIndex) {
+            // Keep manipulated body position authoritative, do not overwrite with physics drift
+            continue;
+        }
+
         m_bodies[i].positionM = positions[i];
         m_bodies[i].velocityMps = velocities[i];
-        m_bodies[i].accelerationMps2 = acc2[i];
 
         // Sync AU-space rendering positions
         m_bodies[i].position = glm::vec3((float)(positions[i].x / AU_METERS),

@@ -64,6 +64,9 @@ public:
     void selectBody(int index);
     void selectBodyById(const std::string& id);
 
+    int getManipulatedBodyIndex() const { return m_manipulatedBodyIndex; }
+    void setManipulatedBodyIndex(int index) { m_manipulatedBodyIndex = index; }
+
     const CelestialBody& getSelectedBody() const;
     void clearTrails();
     void triggerRingImpact(const std::string& planetId, float normRadius, float azimuthRad, float impactRadiusM = 4000000.0f);
@@ -150,6 +153,7 @@ private:
     std::vector<CelestialBody> m_bodies;
     std::vector<CelestialCollisionEvent> m_recentCollisions;
     int m_selectedBodyIndex = 0;
+    int m_manipulatedBodyIndex = -1;
     std::string m_currentCategory = "Solar System";
 
     bool m_isPaused = false;
