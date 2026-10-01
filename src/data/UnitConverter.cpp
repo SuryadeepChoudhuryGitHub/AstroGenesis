@@ -109,7 +109,7 @@ std::string UnitConverter::formatPeriod(double seconds) {
 
 std::string UnitConverter::formatAngleDeg(double degrees) {
     char buf[64];
-    snprintf(buf, sizeof(buf), "%.2f°", degrees);
+    snprintf(buf, sizeof(buf), "%.2f deg", degrees);
     return std::string(buf);
 }
 
@@ -128,7 +128,7 @@ std::string UnitConverter::formatPressure(double pascals) {
 std::string UnitConverter::formatDensity(double kgM3) {
     char buf[64];
     if (kgM3 > 0.0) {
-        snprintf(buf, sizeof(buf), "%'.1f kg/m³", kgM3);
+        snprintf(buf, sizeof(buf), "%.1f kg/m^3", kgM3);
     } else {
         snprintf(buf, sizeof(buf), "N/A");
     }

@@ -6,6 +6,8 @@
 #include <cstdio>
 #include <algorithm>
 #include <iostream>
+#include <filesystem>
+#include "renderer/ShaderLoader.hpp"
 
 namespace AstroGenesis {
 
@@ -24,6 +26,29 @@ Application::~Application() {
 bool Application::initialize(int width, int height, const char* title) {
     m_windowWidth = width;
     m_windowHeight = height;
+
+    // Normalize working directory so relative paths (assets/, data/) resolve reliably
+    try {
+        if (!std::filesystem::exists("assets") || !std::filesystem::exists("data")) {
+            std::string exeDir = getExecutableDir();
+            std::vector<std::filesystem::path> rootCandidates = {
+                std::filesystem::current_path() / "..",
+                std::filesystem::current_path() / "../..",
+            };
+            if (!exeDir.empty()) {
+                rootCandidates.push_back(exeDir);
+                rootCandidates.push_back(std::filesystem::path(exeDir) / "..");
+                rootCandidates.push_back(std::filesystem::path(exeDir) / "../..");
+                rootCandidates.push_back(std::filesystem::path(exeDir) / "../../..");
+            }
+            for (const auto& cand : rootCandidates) {
+                if (std::filesystem::exists(cand / "assets") && std::filesystem::exists(cand / "data")) {
+                    std::filesystem::current_path(cand);
+                    break;
+                }
+            }
+        }
+    } catch (...) {}
 
     if (!glfwInit()) {
         fprintf(stderr, "Failed to initialize GLFW\n");
@@ -94,16 +119,19 @@ bool Application::initialize(int width, int height, const char* title) {
     };
 
     static const ImWchar glyphRanges[] = {
-        0x0020, 0x00FF, // Basic Latin + Latin Supplement
+        0x0020, 0x00FF, // Basic Latin + Latin Supplement (degree, sup2, sup3, plusminus, micro, etc.)
         0x0100, 0x017F, // Latin Extended-A
-        0x0370, 0x03FF, // Greek (alpha, beta, etc.)
-        0x2000, 0x206F, // General Punctuation
-        0x2070, 0x209F, // Superscripts and Subscripts (², ³, ⁴, ⁻, etc.)
-        0x2100, 0x214F, // Letterlike Symbols (℃, etc.)
-        0x2190, 0x21FF, // Arrows (←, ↑, →, ↓)
-        0x2200, 0x22FF, // Mathematical Operators (∑, ∆, ∇, √, ∞, etc.)
-        0x25A0, 0x25FF, // Geometric Shapes (■, ▲, ▼, ◆, ⬡, ⌖, etc.)
-        0x2600, 0x26FF, // Miscellaneous Symbols (★, ☉, ☄, ⚡, ⚙, etc.)
+        0x0370, 0x03FF, // Greek (alpha, beta, delta, tau, etc.)
+        0x2000, 0x206F, // General Punctuation (dash, ellipsis, etc.)
+        0x2070, 0x209F, // Superscripts and Subscripts (sup2, sup3, sup4, sup-, etc.)
+        0x2100, 0x214F, // Letterlike Symbols (deg C, etc.)
+        0x2190, 0x21FF, // Arrows (left, up, right, down, refresh, etc.)
+        0x2200, 0x22FF, // Mathematical Operators (sum, delta, nabla, sqrt, infty, etc.)
+        0x2300, 0x23FF, // Miscellaneous Technical
+        0x25A0, 0x25FF, // Geometric Shapes
+        0x2600, 0x26FF, // Miscellaneous Symbols
+        0x2700, 0x27BF, // Dingbats
+        0x2B00, 0x2BFF, // Miscellaneous Symbols and Arrows
         0
     };
 
@@ -124,7 +152,21 @@ bool Application::initialize(int width, int height, const char* title) {
             }
         }
     }
-    if (!fontLoaded) {
+
+    if (fontLoaded) {
+        // Merge Segoe UI Symbol for complete technical, mathematical, and astronomical Unicode coverage
+        const char* symbolFont = "C:/Windows/Fonts/seguisym.ttf";
+        FILE* sf = fopen(symbolFont, "rb");
+        if (sf) {
+            fclose(sf);
+            ImFontConfig mergeConfig;
+            mergeConfig.MergeMode = true;
+            mergeConfig.OversampleH = 2;
+            mergeConfig.OversampleV = 2;
+            mergeConfig.PixelSnapH = false;
+            io.Fonts->AddFontFromFileTTF(symbolFont, 15.0f, &mergeConfig, glyphRanges);
+        }
+    } else {
         io.Fonts->AddFontDefault();
     }
 

@@ -588,7 +588,7 @@ void ObjectRepository::hydrateCelestialBodyFields(CelestialBody& body,
         if (p.atmosphereSummary.has_value()) body.atmosphereStr = p.atmosphereSummary.value();
 
         char tiltBuf[32], rotBuf[32], radBuf[64], massBuf[64], gravBuf[32], escBuf[32], tempBuf[32], pressBuf[32], densBuf[32];
-        snprintf(tiltBuf, sizeof(tiltBuf), "%.2f°", body.axialTiltDeg);
+        snprintf(tiltBuf, sizeof(tiltBuf), "%.2f deg", body.axialTiltDeg);
         body.axialTiltStr = tiltBuf;
 
         if (std::abs(body.rotationPeriodHours) >= 24.0) {
@@ -602,11 +602,11 @@ void ObjectRepository::hydrateCelestialBodyFields(CelestialBody& body,
         }
         body.rotationPeriodStr = rotBuf;
 
-        snprintf(radBuf, sizeof(radBuf), "%'.1f km", body.radiusM / 1000.0);
+        snprintf(radBuf, sizeof(radBuf), "%.1f km", body.radiusM / 1000.0);
         body.radiusStr = radBuf;
 
         body.massStr = UnitConverter::formatMass(body.massKg);
-        snprintf(gravBuf, sizeof(gravBuf), "%.2f m/s²", body.surfaceGravityMps2);
+        snprintf(gravBuf, sizeof(gravBuf), "%.2f m/s^2", body.surfaceGravityMps2);
         body.gravityStr = gravBuf;
         snprintf(escBuf, sizeof(escBuf), "%.2f km/s", body.escapeVelocityKmpS);
         body.escapeVelocityStr = escBuf;
@@ -623,7 +623,7 @@ void ObjectRepository::hydrateCelestialBodyFields(CelestialBody& body,
         }
 
         if (body.meanDensityKgM3 > 0.0) {
-            snprintf(densBuf, sizeof(densBuf), "%'.1f kg/m³", body.meanDensityKgM3);
+            snprintf(densBuf, sizeof(densBuf), "%.1f kg/m^3", body.meanDensityKgM3);
             body.densityStr = densBuf;
         }
 

@@ -1,4 +1,5 @@
 #include "ui/ObjectWorkspaceUI.hpp"
+#include "ui/IconSystem.hpp"
 #include "renderer/VisualStateAdapter.hpp"
 #include "data/UnitConverter.hpp"
 #include <cstdio>
@@ -109,7 +110,7 @@ void ObjectWorkspaceUI::recomputeDerived(CelestialBody& body) {
         double vol = (4.0 / 3.0) * UnitConverter::PI * std::pow(body.radiusM, 3.0);
         body.meanDensityKgM3 = body.massKg / vol;
         char densBuf[64];
-        snprintf(densBuf, sizeof(densBuf), "%'.1f kg/m³", body.meanDensityKgM3);
+        snprintf(densBuf, sizeof(densBuf), "%.1f kg/m^3", body.meanDensityKgM3);
         body.densityStr = densBuf;
     }
 
@@ -117,7 +118,7 @@ void ObjectWorkspaceUI::recomputeDerived(CelestialBody& body) {
     if (body.radiusM > 0.0 && body.massKg > 0.0) {
         body.surfaceGravityMps2 = (UnitConverter::G_CONST * body.massKg) / (body.radiusM * body.radiusM);
         char gravBuf[64];
-        snprintf(gravBuf, sizeof(gravBuf), "%.2f m/s² (%.2f g)", body.surfaceGravityMps2, body.surfaceGravityMps2 / 9.80665);
+        snprintf(gravBuf, sizeof(gravBuf), "%.2f m/s^2 (%.2f g)", body.surfaceGravityMps2, body.surfaceGravityMps2 / 9.80665);
         body.gravityStr = gravBuf;
 
         body.escapeVelocityKmpS = std::sqrt(2.0 * UnitConverter::G_CONST * body.massKg / body.radiusM) / 1000.0;
@@ -128,12 +129,12 @@ void ObjectWorkspaceUI::recomputeDerived(CelestialBody& body) {
 
     // 3. String representations
     char radBuf[64];
-    snprintf(radBuf, sizeof(radBuf), "%'.1f km", body.radiusM / 1000.0);
+    snprintf(radBuf, sizeof(radBuf), "%.1f km", body.radiusM / 1000.0);
     body.radiusStr = radBuf;
     body.massStr = UnitConverter::formatMass(body.massKg);
 
     char tiltBuf[32];
-    snprintf(tiltBuf, sizeof(tiltBuf), "%.2f°", body.axialTiltDeg);
+    snprintf(tiltBuf, sizeof(tiltBuf), "%.2f deg", body.axialTiltDeg);
     body.axialTiltStr = tiltBuf;
 }
 
@@ -157,7 +158,9 @@ void ObjectWorkspaceUI::render(ObjectRepository& objRepo,
     ImGui::Begin("##ObjectWorkspaceRoot", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
 
     // Header
-    ImGui::TextColored(Col::Accent, "🪐 CELESTIAL OBJECT WORKSPACE");
+    UIIcon::Icon(IconId::Orbit, IconSize::Standard, UICol::Accent);
+    ImGui::SameLine(0, 8);
+    ImGui::TextColored(Col::Accent, "CELESTIAL OBJECT WORKSPACE");
     ImGui::SameLine();
     ImGui::TextColored(Col::TextSecondary, "| Individual Astronomical Object Library & Physical Property Editor");
     ImGui::Separator();
@@ -187,19 +190,19 @@ void ObjectWorkspaceUI::drawLibraryPanel(ObjectRepository& objRepo, float panelW
     ImGui::Spacing();
 
     // Create New Object Menu / Button
-    if (ImGui::Button("➕ CREATE NEW OBJECT", ImVec2(-1, 28))) {
+    if (UIIcon::Button(IconId::Add, "CREATE NEW OBJECT", ImVec2(-1, 28))) {
         ImGui::OpenPopup("CreateNewObjPopup");
     }
 
     if (ImGui::BeginPopup("CreateNewObjPopup")) {
         ImGui::TextColored(Col::Accent, "Select Celestial Object Class:");
         ImGui::Separator();
-        if (ImGui::Selectable("★ Star (Main Sequence, Red Dwarf, Giant)")) createNewObjectTemplate("Star");
-        if (ImGui::Selectable("● Planet (Terrestrial, Gas Giant, Super-Earth)")) createNewObjectTemplate("Planet");
-        if (ImGui::Selectable("◐ Moon (Major Moon, Icy Moon)")) createNewObjectTemplate("Moon");
-        if (ImGui::Selectable("☄ Asteroid (Carbonaceous, Metallic)")) createNewObjectTemplate("Asteroid");
-        if (ImGui::Selectable("☄ Comet (Active Icy Nucleus)")) createNewObjectTemplate("Comet");
-        if (ImGui::Selectable("🕳 Black Hole (Stellar Mass, Intermediate)")) createNewObjectTemplate("Black Hole");
+        if (ImGui::Selectable("Star (Main Sequence, Red Dwarf, Giant)")) createNewObjectTemplate("Star");
+        if (ImGui::Selectable("Planet (Terrestrial, Gas Giant, Super-Earth)")) createNewObjectTemplate("Planet");
+        if (ImGui::Selectable("Moon (Major Moon, Icy Moon)")) createNewObjectTemplate("Moon");
+        if (ImGui::Selectable("Asteroid (Carbonaceous, Metallic)")) createNewObjectTemplate("Asteroid");
+        if (ImGui::Selectable("Comet (Active Icy Nucleus)")) createNewObjectTemplate("Comet");
+        if (ImGui::Selectable("Black Hole (Stellar Mass, Singularity)")) createNewObjectTemplate("Black Hole");
         ImGui::EndPopup();
     }
 
@@ -256,13 +259,16 @@ void ObjectWorkspaceUI::drawLibraryPanel(ObjectRepository& objRepo, float panelW
             ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
         }
 
-        std::string icon = "●";
-        if (obj.type.find("Star") != std::string::npos) icon = "★";
-        else if (obj.type.find("Moon") != std::string::npos) icon = "◐";
-        else if (obj.type.find("Black Hole") != std::string::npos) icon = "🕳";
-        else if (obj.type.find("Asteroid") != std::string::npos) icon = "☄";
+        IconId icon = IconId::Orbit;
+        if (obj.type.find("Star") != std::string::npos) icon = IconId::Star;
+        else if (obj.type.find("Moon") != std::string::npos) icon = IconId::Moon;
+        else if (obj.type.find("Black Hole") != std::string::npos) icon = IconId::BlackHole;
+        else if (obj.type.find("Asteroid") != std::string::npos || obj.type.find("Comet") != std::string::npos) icon = IconId::Asteroid;
 
-        std::string label = icon + " " + obj.name + " (" + obj.type + ")";
+        UIIcon::Icon(icon, IconSize::Small, isSelected ? UICol::Accent : UICol::TextMuted);
+        ImGui::SameLine(0, 6);
+
+        std::string label = obj.name + " (" + obj.type + ")";
         if (ImGui::Selectable(label.c_str(), isSelected)) {
             setSelectedObjectBySlug(obj.slug, objRepo);
         }
@@ -280,8 +286,11 @@ void ObjectWorkspaceUI::drawEditorPanel(ObjectRepository& objRepo, PhysicsEngine
     ImGui::BeginChild("##ObjEditorMainPanel", ImVec2(panelW, panelH), true);
 
     ImGui::TextColored(Col::Accent, "OBJECT PROPERTY INSPECTOR & COMPOSITION");
-    ImGui::SameLine(panelW - 280.0f);
-    ImGui::TextColored(Col::TextSecondary, "Source: %s", m_editingBody.sourceName.c_str());
+    float rightSrcX = panelW - 280.0f;
+    if (rightSrcX > ImGui::GetCursorPosX() + 16.0f) {
+        ImGui::SameLine(rightSrcX);
+        ImGui::TextColored(Col::TextSecondary, "Source: %s", m_editingBody.sourceName.c_str());
+    }
     ImGui::Separator();
     ImGui::Spacing();
 
@@ -341,7 +350,7 @@ void ObjectWorkspaceUI::drawEditorPanel(ObjectRepository& objRepo, PhysicsEngine
     ImGui::Spacing();
 
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.45f, 0.25f, 0.9f));
-    if (ImGui::Button("💾 SAVE OBJECT TO LIBRARY", ImVec2(200, 30))) {
+    if (UIIcon::Button(IconId::Save, "SAVE OBJECT TO LIBRARY", ImVec2(220, 30))) {
         recomputeDerived(m_editingBody);
         int64_t newId = 0;
         objRepo.saveCelestialBody(m_editingBody, &newId);
@@ -355,7 +364,7 @@ void ObjectWorkspaceUI::drawEditorPanel(ObjectRepository& objRepo, PhysicsEngine
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.00f, 0.65f, 0.85f, 0.95f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
-    if (ImGui::Button("🚀 TEST RUN IN SIMULATION", ImVec2(200, 30))) {
+    if (UIIcon::Button(IconId::Play, "TEST RUN IN SIMULATION", ImVec2(220, 30))) {
         recomputeDerived(m_editingBody);
         objRepo.saveCelestialBody(m_editingBody);
         physics.clearBodies();

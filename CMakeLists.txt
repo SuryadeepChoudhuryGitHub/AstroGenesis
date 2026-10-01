@@ -69,6 +69,7 @@ set(ASTROGENESIS_CORE_SOURCES
     src/ui/ValidationUI.cpp
     src/ui/SystemWorkspaceUI.cpp
     src/ui/ObjectWorkspaceUI.cpp
+    src/ui/IconSystem.cpp
     src/ai/FeatureExtractor.cpp
     src/ai/ModelInference.cpp
     src/ai/OrbitalStabilityPredictor.cpp

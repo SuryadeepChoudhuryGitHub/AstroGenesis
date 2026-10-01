@@ -81,7 +81,7 @@ int main() {
     std::cout << "  - Stable Probability: " << (solarPred.stableProbability * 100.0f) << "%" << std::endl;
     std::cout << "  - Unstable Probability: " << (solarPred.unstableProbability * 100.0f) << "%" << std::endl;
     std::cout << "  - Confidence: " << solarPred.confidence << std::endl;
-    std::cout << "  - Inference Time: " << solarPred.inferenceTimeUs << " µs" << std::endl;
+    std::cout << "  - Inference Time: " << solarPred.inferenceTimeUs << " us" << std::endl;
     assert(solarPred.prediction == "STABLE" && "Solar System must be predicted STABLE");
     assert(solarPred.stableProbability >= 0.60f);
     assert(solarPred.unstableProbability <= 0.40f);
@@ -158,7 +158,7 @@ int main() {
     double totalUs = std::chrono::duration<double, std::micro>(tEnd - tStart).count();
     double avgUs = totalUs / BENCHMARK_ITERS;
     std::cout << "[Test 9] Inference Speed Benchmark -> PASS" << std::endl;
-    std::cout << "  - Average Inference Latency: " << avgUs << " µs per evaluation across "
+    std::cout << "  - Average Inference Latency: " << avgUs << " us per evaluation across "
               << BENCHMARK_ITERS << " iterations" << std::endl;
     assert(avgUs < 500.0 && "Inference should easily run in under 500 microseconds");
 

@@ -1,4 +1,5 @@
 #include "ui/ValidationUI.hpp"
+#include "ui/IconSystem.hpp"
 #include "data/UnitConverter.hpp"
 #include <cstdio>
 #include <cmath>
@@ -41,7 +42,9 @@ void ValidationUI::render(bool& showWindow,
     ImGui::PushStyleColor(ImGuiCol_Border, ValCol::Border);
 
     if (ImGui::Begin("VALIDATION DASHBOARD  —  Real Ephemeris Ground Truth vs. AstroGenesis Simulation", &showWindow, ImGuiWindowFlags_NoCollapse)) {
-        ImGui::TextColored(ValCol::Accent, "★ SCIENTIFIC ORBITAL INTEGRATION VALIDATION");
+        UIIcon::Icon(IconId::Validation, IconSize::Standard, UICol::Accent);
+        ImGui::SameLine(0, 8);
+        ImGui::TextColored(ValCol::Accent, "SCIENTIFIC ORBITAL INTEGRATION VALIDATION");
         ImGui::SameLine();
         ImGui::TextColored(ValCol::TextSecondary, "| Benchmark against NASA JPL Horizons Ground Truth Ephemeris Data");
 
@@ -76,7 +79,7 @@ void ValidationUI::render(bool& showWindow,
 
         ImGui::SameLine(0, 20);
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.40f, 0.65f, 0.90f));
-        if (ImGui::Button("▶ RUN BENCHMARK", ImVec2(150, 24))) {
+        if (UIIcon::Button(IconId::Play, "RUN BENCHMARK", ImVec2(160, 26))) {
             if (m_selectedBodyIdx < (int)allObjects.size()) {
                 std::string slug = allObjects[m_selectedBodyIdx].slug;
                 double stepDays = std::max(1.0, (double)m_durationDays / 120.0);
@@ -93,7 +96,7 @@ void ValidationUI::render(bool& showWindow,
 
         ImGui::SameLine(0, 8);
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.30f, 0.12f, 0.90f));
-        if (ImGui::Button("⚖ NEWTON VS GR TEST", ImVec2(170, 24))) {
+        if (UIIcon::Button(IconId::Physics, "NEWTON VS GR TEST", ImVec2(185, 26))) {
             if (m_selectedBodyIdx < (int)allObjects.size()) {
                 std::string slug = allObjects[m_selectedBodyIdx].slug;
                 valEngine.runNewtonianVsGRComparison(slug, m_durationDays, m_newtonPoints, m_grPoints, m_newtonSummary, m_grSummary);
@@ -164,7 +167,7 @@ void ValidationUI::render(bool& showWindow,
             ImGui::SetCursorPos(ImVec2(30, 80));
             ImGui::TextColored(ValCol::Accent, "No active validation benchmark run yet.");
             ImGui::SetCursorPos(ImVec2(30, 110));
-            ImGui::TextColored(ValCol::TextSecondary, "Click '▶ RUN BENCHMARK' above to simulate and validate orbital propagation against real JPL ephemeris data.");
+            ImGui::TextColored(ValCol::TextSecondary, "Click 'RUN BENCHMARK' above to simulate and validate orbital propagation against real JPL ephemeris data.");
             ImGui::EndChild();
         }
 
@@ -173,7 +176,9 @@ void ValidationUI::render(bool& showWindow,
             ImGui::Spacing();
             ImGui::Separator();
             ImGui::Spacing();
-            ImGui::TextColored(ValCol::Accent, "⚖ GENERAL RELATIVITY VS NEWTONIAN GRAVITY ANALYSIS (MERCURY PERIHELION TEST)");
+            UIIcon::Icon(IconId::Physics, IconSize::Standard, UICol::Accent);
+            ImGui::SameLine(0, 8);
+            ImGui::TextColored(ValCol::Accent, "GENERAL RELATIVITY VS NEWTONIAN GRAVITY ANALYSIS (MERCURY PERIHELION TEST)");
             
             if (ImGui::BeginTable("##GRComparisonTable", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg, ImVec2(0, 110))) {
                 ImGui::TableSetupColumn("Integrator Physics Model", ImGuiTableColumnFlags_WidthStretch, 0.3f);
@@ -186,7 +191,7 @@ void ValidationUI::render(bool& showWindow,
                 // Row 1: Newtonian
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("Classical Newtonian Gravity (1/r²)");
+                ImGui::Text("Classical Newtonian Gravity (1/r^2)");
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%.2f km", m_newtonSummary.maxPosErrorKm);
                 ImGui::TableSetColumnIndex(2);
@@ -207,7 +212,9 @@ void ValidationUI::render(bool& showWindow,
                 ImGui::TableSetColumnIndex(3);
                 ImGui::Text("%.2e %%", m_grSummary.maxEnergyDriftPct);
                 ImGui::TableSetColumnIndex(4);
-                ImGui::TextColored(ValCol::Green, "✔ Verified (JPL Match)");
+                UIIcon::Icon(IconId::Check, IconSize::Small, UICol::Success);
+                ImGui::SameLine(0, 6);
+                ImGui::TextColored(ValCol::Green, "Verified (JPL Match)");
 
                 ImGui::EndTable();
             }
@@ -221,10 +228,15 @@ void ValidationUI::render(bool& showWindow,
 void ValidationUI::drawTrajectoryPlot(const std::vector<ValidationComparisonPoint>& points, float w, float h) {
     ImGui::BeginChild("##TrajectoryPlot", ImVec2(w, h), true);
     ImGui::TextColored(ValCol::Accent, "ORBITAL TRAJECTORY (X-Z PLANE)");
-    ImGui::SameLine(w - 180.0f);
-    ImGui::TextColored(ValCol::SimCurveCol, "■ Sim  ");
+    float rightLegendX = w - 190.0f;
+    if (rightLegendX > ImGui::GetCursorPosX() + 16.0f) {
+        ImGui::SameLine(rightLegendX);
+    } else {
+        ImGui::SameLine(0, 16.0f);
+    }
+    ImGui::TextColored(ValCol::SimCurveCol, "-- Sim  ");
     ImGui::SameLine();
-    ImGui::TextColored(ValCol::RealCurveCol, "■ JPL Real");
+    ImGui::TextColored(ValCol::RealCurveCol, "-- JPL Real");
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
     ImVec2 screenPos = ImGui::GetCursorScreenPos();

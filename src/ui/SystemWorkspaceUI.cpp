@@ -1,4 +1,5 @@
 #include "ui/SystemWorkspaceUI.hpp"
+#include "ui/IconSystem.hpp"
 #include "data/UnitConverter.hpp"
 #include <cstdio>
 #include <cmath>
@@ -114,7 +115,7 @@ void SystemWorkspaceUI::recomputeDerivedProperties(CelestialBody& body, const Ce
         double vol = (4.0 / 3.0) * UnitConverter::PI * std::pow(body.radiusM, 3.0);
         body.meanDensityKgM3 = body.massKg / vol;
         char densBuf[64];
-        snprintf(densBuf, sizeof(densBuf), "%'.1f kg/m³", body.meanDensityKgM3);
+        snprintf(densBuf, sizeof(densBuf), "%.1f kg/m^3", body.meanDensityKgM3);
         body.densityStr = densBuf;
     }
 
@@ -122,7 +123,7 @@ void SystemWorkspaceUI::recomputeDerivedProperties(CelestialBody& body, const Ce
     if (body.radiusM > 0.0 && body.massKg > 0.0) {
         body.surfaceGravityMps2 = (UnitConverter::G_CONST * body.massKg) / (body.radiusM * body.radiusM);
         char gravBuf[64];
-        snprintf(gravBuf, sizeof(gravBuf), "%.2f m/s² (%.2f g)", body.surfaceGravityMps2, body.surfaceGravityMps2 / 9.80665);
+        snprintf(gravBuf, sizeof(gravBuf), "%.2f m/s^2 (%.2f g)", body.surfaceGravityMps2, body.surfaceGravityMps2 / 9.80665);
         body.gravityStr = gravBuf;
 
         body.escapeVelocityKmpS = std::sqrt(2.0 * UnitConverter::G_CONST * body.massKg / body.radiusM) / 1000.0;
@@ -133,7 +134,7 @@ void SystemWorkspaceUI::recomputeDerivedProperties(CelestialBody& body, const Ce
 
     // 3. Radius & Mass Presentation Strings
     char radBuf[64];
-    snprintf(radBuf, sizeof(radBuf), "%'.1f km", body.radiusM / 1000.0);
+    snprintf(radBuf, sizeof(radBuf), "%.1f km", body.radiusM / 1000.0);
     body.radiusStr = radBuf;
     body.massStr = UnitConverter::formatMass(body.massKg);
 
@@ -312,17 +313,40 @@ void SystemWorkspaceUI::render(DataManager& dataManager,
 
 void SystemWorkspaceUI::drawHeaderAndModes(float winW) {
     ImGui::BeginGroup();
-    ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
-    ImGui::Text("🌌 SYSTEM WORKSPACE");
-    ImGui::PopStyleColor();
-    ImGui::SameLine();
-    ImGui::TextColored(Col::TextSecondary, "| Create, Import & Manage Multi-Body Celestial Architectures");
+    UIIcon::Icon(IconId::Orbit, IconSize::Standard, UICol::Accent);
+    ImGui::SameLine(0, 8);
+    ImGui::TextColored(Col::Accent, "SYSTEM WORKSPACE");
+    if (winW >= 1200.0f) {
+        ImGui::SameLine();
+        ImGui::TextColored(Col::TextSecondary, "| Create, Import & Manage Multi-Body Celestial Architectures");
+    }
     ImGui::EndGroup();
 
-    ImGui::SameLine(winW - 680.0f);
+    // Mode Selector Buttons (responsive positioning)
+    struct ModeBtn {
+        IconId icon;
+        const char* label;
+        float width;
+    };
+    ModeBtn modeBtns[4] = {
+        { IconId::Database,  "IMPORT",       115.0f },
+        { IconId::Edit,      "BUILDER",      115.0f },
+        { IconId::Hierarchy, "SAVED",        105.0f },
+        { IconId::Play,      "PRESETS",      105.0f }
+    };
 
-    // Mode Selector Buttons
-    const char* modeLabels[] = { "📥 IMPORT EXISTING", "🛠 CREATE CUSTOM", "📂 SAVED SYSTEMS", "⚡ PRESETS" };
+    float totalBtnW = 0.0f;
+    for (int i = 0; i < 4; ++i) totalBtnW += modeBtns[i].width;
+    totalBtnW += 3.0f * 6.0f;
+
+    float rightPos = winW - totalBtnW - 20.0f;
+    float curX = ImGui::GetCursorPosX();
+    if (rightPos > curX + 16.0f) {
+        ImGui::SameLine(rightPos);
+    } else {
+        ImGui::SameLine(0, 16.0f);
+    }
+
     for (int i = 0; i < 4; ++i) {
         if (i > 0) ImGui::SameLine(0, 6);
         bool isActive = (m_currentMode == i);
@@ -333,7 +357,7 @@ void SystemWorkspaceUI::drawHeaderAndModes(float winW) {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.07f, 0.11f, 0.18f, 0.85f));
             ImGui::PushStyleColor(ImGuiCol_Text, Col::TextSecondary);
         }
-        if (ImGui::Button(modeLabels[i], ImVec2(150, 26))) {
+        if (UIIcon::Button(modeBtns[i].icon, modeBtns[i].label, ImVec2(modeBtns[i].width, 26))) {
             m_currentMode = i;
         }
         ImGui::PopStyleColor(2);
@@ -370,7 +394,7 @@ void SystemWorkspaceUI::drawImportMode(DataManager& dataManager, ObjectRepositor
     ImGui::PopItemWidth();
 
     ImGui::Spacing();
-    if (ImGui::Button("🔍 Search External Data", ImVec2(-1, 28)) || enterPressed) {
+    if (UIIcon::Button(IconId::Search, "Search External Data", ImVec2(-1, 28)) || enterPressed) {
         m_importPreviewBodies.clear();
         m_importSelectionFlags.clear();
         m_selectedImportSystemName = m_searchBuffer;
@@ -465,15 +489,20 @@ void SystemWorkspaceUI::drawImportMode(DataManager& dataManager, ObjectRepositor
         ImGui::TextColored(Col::TextPrimary, "Target: ");
         ImGui::SameLine();
         ImGui::TextColored(Col::Yellow, "%s", m_selectedImportSystemName.c_str());
-        ImGui::SameLine(300);
+        float curTargetX = ImGui::GetCursorPosX();
+        if (curTargetX < 280.0f) {
+            ImGui::SameLine(300.0f);
+        } else {
+            ImGui::SameLine(0, 20.0f);
+        }
         ImGui::TextColored(Col::TextSecondary, "Objects Detected: %zu", m_importPreviewBodies.size());
 
         ImGui::Spacing();
-        if (ImGui::Button("☑ Select All")) {
+        if (UIIcon::Button(IconId::Check, "Select All", ImVec2(110, 24))) {
             for (size_t k = 0; k < m_importSelectionFlags.size(); ++k) m_importSelectionFlags[k] = true;
         }
         ImGui::SameLine();
-        if (ImGui::Button("☐ Deselect All")) {
+        if (UIIcon::Button(IconId::Close, "Deselect All", ImVec2(120, 24))) {
             for (size_t k = 0; k < m_importSelectionFlags.size(); ++k) m_importSelectionFlags[k] = false;
         }
 
@@ -501,7 +530,9 @@ void SystemWorkspaceUI::drawImportMode(DataManager& dataManager, ObjectRepositor
 
                 ImGui::TableSetColumnIndex(1);
                 bool isStar = rec.object.type.find("Star") != std::string::npos;
-                ImGui::TextColored(isStar ? Col::Yellow : Col::Accent, "%s %s", isStar ? "★" : "●", rec.object.name.c_str());
+                UIIcon::Icon(isStar ? IconId::Star : IconId::Orbit, IconSize::Small, isStar ? UICol::Warning : UICol::Accent);
+                ImGui::SameLine(0, 6);
+                ImGui::TextColored(isStar ? Col::Yellow : Col::Accent, "%s", rec.object.name.c_str());
 
                 ImGui::TableSetColumnIndex(2);
                 ImGui::TextUnformatted(rec.object.type.c_str());
@@ -530,7 +561,7 @@ void SystemWorkspaceUI::drawImportMode(DataManager& dataManager, ObjectRepositor
         // Import Actions Footer
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.45f, 0.25f, 0.9f));
-        if (ImGui::Button("📥 IMPORT AS LOCAL SYSTEM", ImVec2(220, 32))) {
+        if (UIIcon::Button(IconId::Database, "IMPORT AS LOCAL SYSTEM", ImVec2(230, 32))) {
             // Save selected objects as a local system instance
             SystemRecord sysRec;
             sysRec.name = m_selectedImportSystemName;
@@ -556,7 +587,7 @@ void SystemWorkspaceUI::drawImportMode(DataManager& dataManager, ObjectRepositor
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.00f, 0.65f, 0.85f, 0.95f));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
-        if (ImGui::Button("🚀 RUN SIMULATION NOW", ImVec2(200, 32))) {
+        if (UIIcon::Button(IconId::Play, "RUN SIMULATION NOW", ImVec2(210, 32))) {
             physics.loadFromDatabase(objRepo, m_selectedImportSystemName);
             camera.resetOverview(glm::vec3(0.0f), 6.0f);
             activeTopTab = 0; // Switch to UNIVERSE live simulation
@@ -686,23 +717,26 @@ void SystemWorkspaceUI::drawBuilderSystemTree(ObjectRepository& objRepo, float p
         bool isSelected = (i == m_selectedNodeIndex);
 
         ImGui::PushID(i);
-        std::string icon = "●";
+        IconId iconId = IconId::Orbit;
         ImVec4 iconCol = Col::Accent;
-        if (b.type.find("Star") != std::string::npos) { icon = "★"; iconCol = Col::Yellow; }
-        else if (b.type.find("Moon") != std::string::npos) { icon = "◐"; iconCol = Col::TextSecondary; }
-        else if (b.type.find("Black Hole") != std::string::npos) { icon = "🕳"; iconCol = Col::Purple; }
-        else if (b.type.find("Asteroid") != std::string::npos) { icon = "☄"; iconCol = Col::Orange; }
+        if (b.type.find("Star") != std::string::npos) { iconId = IconId::Star; iconCol = Col::Yellow; }
+        else if (b.type.find("Moon") != std::string::npos) { iconId = IconId::Moon; iconCol = Col::TextSecondary; }
+        else if (b.type.find("Black Hole") != std::string::npos) { iconId = IconId::BlackHole; iconCol = Col::Purple; }
+        else if (b.type.find("Asteroid") != std::string::npos || b.type.find("Comet") != std::string::npos) { iconId = IconId::Asteroid; iconCol = Col::Orange; }
 
         if (isSelected) {
             ImGui::PushStyleColor(ImGuiCol_Header, Col::SelectedBg);
             ImGui::PushStyleColor(ImGuiCol_Text, Col::Accent);
         }
 
-        std::string label = icon + " " + b.name + " (" + b.type + ")";
         if (b.parentObjectId.has_value()) {
-            label = "  └─ " + label;
+            ImGui::TextColored(Col::TextSecondary, "  └─");
+            ImGui::SameLine(0, 4);
         }
+        UIIcon::Icon(iconId, IconSize::Small, iconCol);
+        ImGui::SameLine(0, 6);
 
+        std::string label = b.name + " (" + b.type + ")";
         if (ImGui::Selectable(label.c_str(), isSelected)) {
             m_selectedNodeIndex = i;
         }
@@ -799,9 +833,13 @@ void SystemWorkspaceUI::drawBuilderSchematicCanvas(float panelW, float panelH) {
     m_currentValidationWarnings = ObjectRepository(DatabaseManager::getInstance()).validateSystem(m_builderBodies);
 
     if (m_currentValidationWarnings.empty()) {
-        ImGui::TextColored(Col::Green, "✔ Pre-flight Validation: All orbital parameters physically consistent & simulation-ready.");
+        UIIcon::Icon(IconId::Check, IconSize::Small, UICol::Success);
+        ImGui::SameLine(0, 6);
+        ImGui::TextColored(Col::Green, "Pre-flight Validation: All orbital parameters physically consistent & simulation-ready.");
     } else {
-        ImGui::TextColored(Col::Orange, "⚠ Validation Alerts (%zu):", m_currentValidationWarnings.size());
+        UIIcon::Icon(IconId::Warning, IconSize::Small, UICol::Warning);
+        ImGui::SameLine(0, 6);
+        ImGui::TextColored(Col::Orange, "Validation Alerts (%zu):", m_currentValidationWarnings.size());
         for (size_t k = 0; k < std::min((size_t)2, m_currentValidationWarnings.size()); ++k) {
             ImGui::TextColored(Col::Yellow, "  • %s: %s", m_currentValidationWarnings[k].title.c_str(), m_currentValidationWarnings[k].message.c_str());
         }
@@ -920,7 +958,9 @@ void SystemWorkspaceUI::drawBuilderObjectEditor(ObjectRepository& objRepo, float
 
     // 3. Orbit Initializer & State Parameters
     if (ImGui::CollapsingHeader("ORBITAL MECHANICS & INITIALIZER", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::TextColored(Col::Accent, "⚙ ORBIT INITIALIZER TOOL");
+        UIIcon::Icon(IconId::Settings, IconSize::Small, UICol::Accent);
+        ImGui::SameLine(0, 6);
+        ImGui::TextColored(Col::Accent, "ORBIT INITIALIZER TOOL");
         ImGui::TextColored(Col::TextSecondary, "Calculate initial state vectors (r, v) around parent:");
 
         // Parent body selector
@@ -951,7 +991,7 @@ void SystemWorkspaceUI::drawBuilderObjectEditor(ObjectRepository& objRepo, float
             if (parentPtr) applyOrbitInitializer(body, *parentPtr, body.semiMajorAxisAU, body.eccentricity, 0.0);
         }
 
-        if (parentPtr && ImGui::Button("⚡ Initialize Perfect Circular Orbit (e=0)", ImVec2(-1, 24))) {
+        if (parentPtr && UIIcon::Button(IconId::Orbit, "Initialize Perfect Circular Orbit (e=0)", ImVec2(-1, 26))) {
             body.eccentricity = 0.0;
             applyOrbitInitializer(body, *parentPtr, body.semiMajorAxisAU, 0.0, 0.0);
         }
@@ -974,7 +1014,7 @@ void SystemWorkspaceUI::drawBuilderObjectEditor(ObjectRepository& objRepo, float
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.15f, 0.15f, 0.85f));
-    if (ImGui::Button("🗑 Remove Celestial Body", ImVec2(-1, 26))) {
+    if (UIIcon::Button(IconId::Delete, "Remove Celestial Body", ImVec2(-1, 26))) {
         if (m_builderBodies.size() > 1) {
             m_builderBodies.erase(m_builderBodies.begin() + m_selectedNodeIndex);
             m_selectedNodeIndex = std::max(0, m_selectedNodeIndex - 1);
@@ -990,7 +1030,7 @@ void SystemWorkspaceUI::drawBuilderActionFooter(ObjectRepository& objRepo, Physi
 
     // 1. SAVE SYSTEM
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.45f, 0.25f, 0.9f));
-    if (ImGui::Button("💾 SAVE SYSTEM", ImVec2(140, 30))) {
+    if (UIIcon::Button(IconId::Save, "SAVE SYSTEM", ImVec2(150, 30))) {
         m_builderSystem.name = m_systemNameBuf;
         m_builderSystem.type = "Custom";
         m_builderSystem.source = "User";
@@ -1006,7 +1046,7 @@ void SystemWorkspaceUI::drawBuilderActionFooter(ObjectRepository& objRepo, Physi
 
     // 2. DUPLICATE SYSTEM
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.20f, 0.35f, 0.55f, 0.85f));
-    if (ImGui::Button("📋 DUPLICATE", ImVec2(120, 30))) {
+    if (UIIcon::Button(IconId::Copy, "DUPLICATE", ImVec2(130, 30))) {
         std::string copyName = std::string(m_systemNameBuf) + " (Copy)";
         snprintf(m_systemNameBuf, sizeof(m_systemNameBuf), "%s", copyName.c_str());
         m_builderSystem.name = copyName;
@@ -1019,7 +1059,7 @@ void SystemWorkspaceUI::drawBuilderActionFooter(ObjectRepository& objRepo, Physi
 
     // 3. RESET / NEW
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.40f, 0.15f, 0.15f, 0.85f));
-    if (ImGui::Button("↺ RESET BUILDER", ImVec2(130, 30))) {
+    if (UIIcon::Button(IconId::Reset, "RESET BUILDER", ImVec2(140, 30))) {
         openCustomBuilderNew();
         m_actionFeedbackMsg = "Workspace reset to fresh star system template.";
     }
@@ -1030,7 +1070,7 @@ void SystemWorkspaceUI::drawBuilderActionFooter(ObjectRepository& objRepo, Physi
     // 4. RUN SIMULATION
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.00f, 0.70f, 0.90f, 0.95f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
-    if (ImGui::Button("🚀 RUN SIMULATION", ImVec2(180, 30))) {
+    if (UIIcon::Button(IconId::Play, "RUN SIMULATION", ImVec2(180, 30))) {
         runBuilderSimulation(objRepo, physics, camera, activeTopTab);
     }
     ImGui::PopStyleColor(2);
@@ -1076,7 +1116,9 @@ void SystemWorkspaceUI::drawValidationModal(ObjectRepository& objRepo, PhysicsEn
     ImGui::SetNextWindowSize(ImVec2(520, 280));
 
     if (ImGui::BeginPopupModal("Pre-Flight Validation Warning", &m_showValidationWarningPopup, ImGuiWindowFlags_NoResize)) {
-        ImGui::TextColored(Col::Orange, "⚠ PRE-FLIGHT SYSTEM VALIDATION ALERTS");
+        UIIcon::Icon(IconId::Warning, IconSize::Standard, UICol::Warning);
+        ImGui::SameLine(0, 8);
+        ImGui::TextColored(Col::Orange, "PRE-FLIGHT SYSTEM VALIDATION ALERTS");
         ImGui::Separator();
         ImGui::Spacing();
 
@@ -1134,7 +1176,9 @@ void SystemWorkspaceUI::drawSavedSystemsMode(ObjectRepository& objRepo, PhysicsE
         for (const auto& sys : systems) {
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::TextColored(Col::Accent, "★ %s", sys.name.c_str());
+            UIIcon::Icon(IconId::Orbit, IconSize::Small, UICol::Accent);
+            ImGui::SameLine(0, 6);
+            ImGui::TextColored(Col::Accent, "%s", sys.name.c_str());
 
             ImGui::TableSetColumnIndex(1);
             ImGui::TextUnformatted(sys.type.c_str());
@@ -1156,7 +1200,7 @@ void SystemWorkspaceUI::drawSavedSystemsMode(ObjectRepository& objRepo, PhysicsE
 
             // RUN button
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.00f, 0.60f, 0.80f, 0.85f));
-            if (ImGui::SmallButton("▶ Run")) {
+            if (UIIcon::SmallButton(IconId::Play, "Run")) {
                 physics.loadFromDatabase(objRepo, sys.name);
                 camera.resetOverview(glm::vec3(0.0f), 6.0f);
                 activeTopTab = 0; // UNIVERSE
@@ -1164,13 +1208,13 @@ void SystemWorkspaceUI::drawSavedSystemsMode(ObjectRepository& objRepo, PhysicsE
             ImGui::PopStyleColor();
 
             ImGui::SameLine();
-            if (ImGui::SmallButton("✏ Edit")) {
+            if (UIIcon::SmallButton(IconId::Edit, "Edit")) {
                 loadSystemIntoBuilder(sys.name, objRepo);
                 m_currentMode = 1; // Switch to Custom Builder
             }
 
             ImGui::SameLine();
-            if (ImGui::SmallButton("📋 Copy")) {
+            if (UIIcon::SmallButton(IconId::Copy, "Copy")) {
                 std::string newName = sys.name + " (Copy)";
                 objRepo.duplicateSystem(sys.id, newName);
                 m_actionFeedbackMsg = "Duplicated '" + sys.name + "' -> '" + newName + "'";
@@ -1179,7 +1223,7 @@ void SystemWorkspaceUI::drawSavedSystemsMode(ObjectRepository& objRepo, PhysicsE
             if (sys.type != "Preset") {
                 ImGui::SameLine();
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.50f, 0.15f, 0.15f, 0.75f));
-                if (ImGui::SmallButton("🗑 Del")) {
+                if (UIIcon::SmallButton(IconId::Delete, "Del")) {
                     objRepo.deleteSystem(sys.id);
                 }
                 ImGui::PopStyleColor();
@@ -1206,19 +1250,19 @@ void SystemWorkspaceUI::drawPresetsMode(ObjectRepository& objRepo, PhysicsEngine
         const char* name;
         const char* tag;
         const char* desc;
-        const char* icon;
+        IconId iconId;
         ImVec4 col;
     };
 
     PresetInfo presets[] = {
-        { "Solar System", "NASA/JPL", "Sun, 8 major planets, dwarf planets, and major moons.", "☉", Col::Yellow },
-        { "Earth-Moon System", "Barycentric", "Isolated high-precision Earth-Moon two-body orbital dynamics.", "🌍", Col::Accent },
-        { "TRAPPIST-1 System", "NASA Exoplanets", "Ultracool red dwarf host star with 7 Earth-sized temperate planets.", "🔴", Col::Orange },
-        { "Kepler-90 System", "NASA Exoplanets", "G-type yellow star hosting 8 confirmed transiting exoplanets.", "★", Col::Yellow },
-        { "Binary Star System", "Astrophysics", "Alpha Centauri AB style co-orbiting pair with circumbinary planet.", "♊", Col::Accent },
-        { "Extreme Tidal Test", "General Relativity", "10 Solar Mass Black Hole with Blue Supergiant and orbiting planet.", "🕳", Col::Purple },
-        { "Proxima Centauri", "NASA Exoplanets", "Closest stellar neighbour hosting habitable zone exoplanet Proxima b.", "☄", Col::Red },
-        { "Asteroid Belt", "JPL SBDB", "Inner Solar System asteroid belt with Ceres, Vesta, Pallas, and Hygiea.", "☄", Col::Orange }
+        { "Solar System", "NASA/JPL", "Sun, 8 major planets, dwarf planets, and major moons.", IconId::Star, Col::Yellow },
+        { "Earth-Moon System", "Barycentric", "Isolated high-precision Earth-Moon two-body orbital dynamics.", IconId::Orbit, Col::Accent },
+        { "TRAPPIST-1 System", "NASA Exoplanets", "Ultracool red dwarf host star with 7 Earth-sized temperate planets.", IconId::Star, Col::Orange },
+        { "Kepler-90 System", "NASA Exoplanets", "G-type yellow star hosting 8 confirmed transiting exoplanets.", IconId::Star, Col::Yellow },
+        { "Binary Star System", "Astrophysics", "Alpha Centauri AB style co-orbiting pair with circumbinary planet.", IconId::Star, Col::Accent },
+        { "Extreme Tidal Test", "General Relativity", "10 Solar Mass Black Hole with Blue Supergiant and orbiting planet.", IconId::BlackHole, Col::Purple },
+        { "Proxima Centauri", "NASA Exoplanets", "Closest stellar neighbour hosting habitable zone exoplanet Proxima b.", IconId::Star, Col::Red },
+        { "Asteroid Belt", "JPL SBDB", "Inner Solar System asteroid belt with Ceres, Vesta, Pallas, and Hygiea.", IconId::Asteroid, Col::Orange }
     };
 
     float cardW = (contentW - 80.0f) / 3.0f;
@@ -1230,7 +1274,9 @@ void SystemWorkspaceUI::drawPresetsMode(ObjectRepository& objRepo, PhysicsEngine
         ImGui::PushID(i);
         ImGui::BeginChild(presets[i].name, ImVec2(cardW, cardH), true);
 
-        ImGui::TextColored(presets[i].col, "%s %s", presets[i].icon, presets[i].name);
+        UIIcon::Icon(presets[i].iconId, IconSize::Standard, presets[i].col);
+        ImGui::SameLine(0, 8);
+        ImGui::TextColored(presets[i].col, "%s", presets[i].name);
         ImGui::SameLine(cardW - 120.0f);
         ImGui::TextColored(Col::TextSecondary, "[%s]", presets[i].tag);
 
@@ -1239,7 +1285,7 @@ void SystemWorkspaceUI::drawPresetsMode(ObjectRepository& objRepo, PhysicsEngine
 
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.00f, 0.55f, 0.80f, 0.85f));
-        if (ImGui::Button("🚀 Run in Universe", ImVec2(130, 24))) {
+        if (UIIcon::Button(IconId::Play, "Run in Universe", ImVec2(145, 26))) {
             physics.loadFromDatabase(objRepo, presets[i].name);
             camera.resetOverview(glm::vec3(0.0f), 6.0f);
             activeTopTab = 0; // Switch to UNIVERSE
@@ -1247,7 +1293,7 @@ void SystemWorkspaceUI::drawPresetsMode(ObjectRepository& objRepo, PhysicsEngine
         ImGui::PopStyleColor();
 
         ImGui::SameLine();
-        if (ImGui::Button("✏ Edit in Builder", ImVec2(120, 24))) {
+        if (UIIcon::Button(IconId::Edit, "Edit in Builder", ImVec2(135, 26))) {
             loadSystemIntoBuilder(presets[i].name, objRepo);
             m_currentMode = 1; // Custom Builder
         }

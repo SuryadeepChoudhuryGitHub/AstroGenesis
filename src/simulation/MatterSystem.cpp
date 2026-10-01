@@ -352,10 +352,10 @@ void MatterSystem::spawnThermalMeltingLab(const glm::dvec3& originM) {
         5000.0,
         4,
         glm::dvec3(0.0),
-        250.0 // -23 °C
+        250.0 // -23 C
     );
 
-    // Inject high initial heat on one side (320 K / 47 °C) to demonstrate phase boundary propagation
+    // Inject high initial heat on one side (320 K / 47 C) to demonstrate phase boundary propagation
     auto& nodes = iceBlock->getNodes();
     for (auto& n : nodes) {
         if (n.restPositionM.x > 1000.0) {
