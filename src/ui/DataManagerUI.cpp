@@ -24,11 +24,25 @@ namespace DMCol {
 
 DataManagerUI::DataManagerUI() {}
 
+void DataManagerUI::openDatabaseExplorer() {
+    m_activeTab = 0;
+}
+
+void DataManagerUI::selectObjectById(int64_t id, const std::string& category) {
+    m_activeTab = 0;
+    m_selectedObjectId = id;
+    if (!category.empty()) {
+        m_pendingCategorySelection = category;
+    }
+}
+
 void DataManagerUI::render(bool& showWindow, 
                            DataManager& dataManager, 
                            ObjectRepository& objRepo,
                            PhysicsEngine& physics,
-                           float winW, float winH) {
+                           float winW, float winH,
+                           Camera* camera,
+                           int* activeTopTab) {
     if (!showWindow) return;
 
     float modalW = std::min(980.0f, winW - 60.0f);
@@ -73,8 +87,8 @@ void DataManagerUI::render(bool& showWindow,
         // 4 Main Tabs with Vector Icons
         struct TabDef { IconId icon; const char* label; };
         TabDef tabDefs[] = { 
-            { IconId::Search,   "SEARCH & IMPORT (LIVE API)" }, 
             { IconId::Database, "DATABASE EXPLORER" }, 
+            { IconId::Search,   "SEARCH & IMPORT (LIVE API)" }, 
             { IconId::Time,     "IMPORT HISTORY" }, 
             { IconId::Settings, "SOURCE CONFIGURATION" } 
         };
@@ -94,9 +108,9 @@ void DataManagerUI::render(bool& showWindow,
         ImGui::Spacing();
 
         if (m_activeTab == 0) {
-            drawSearchAndImportTab(dataManager, objRepo, physics);
+            drawDatabaseExplorerTab(dataManager, objRepo, physics, camera, activeTopTab, showWindow);
         } else if (m_activeTab == 1) {
-            drawDatabaseExplorerTab(dataManager, objRepo, physics);
+            drawSearchAndImportTab(dataManager, objRepo, physics);
         } else if (m_activeTab == 2) {
             drawImportHistoryTab(dataManager);
         } else if (m_activeTab == 3) {
@@ -236,15 +250,44 @@ void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepos
     }
 }
 
-void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepository& objRepo, PhysicsEngine& physics) {
+void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepository& objRepo, PhysicsEngine& physics, Camera* camera, int* activeTopTab, bool& showWindow) {
     auto categories = objRepo.getAvailableCategories();
     if (categories.empty()) categories.push_back("Solar System");
 
+    if (!m_pendingCategorySelection.empty()) {
+        for (size_t i = 0; i < categories.size(); ++i) {
+            if (categories[i] == m_pendingCategorySelection) {
+                m_selectedCategoryIdx = (int)i;
+                break;
+            }
+        }
+        m_pendingCategorySelection.clear();
+    }
+
+    if (m_selectedCategoryIdx < 0 || m_selectedCategoryIdx >= (int)categories.size()) {
+        m_selectedCategoryIdx = 0;
+        for (size_t i = 0; i < categories.size(); ++i) {
+            if (categories[i] == "Solar System") {
+                m_selectedCategoryIdx = (int)i;
+                break;
+            }
+        }
+    }
+
     ImGui::TextColored(DMCol::Accent, "SYSTEM CATEGORY:");
-    ImGui::SameLine();
+    float availWidth = ImGui::GetContentRegionAvail().x;
 
     for (size_t i = 0; i < categories.size(); ++i) {
-        if (i > 0) ImGui::SameLine(0, 6);
+        float btnW = ImGui::CalcTextSize(categories[i].c_str()).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        if (i == 0) {
+            ImGui::SameLine(0, 8);
+        } else {
+            if (ImGui::GetCursorPosX() + btnW + 12.0f < availWidth) {
+                ImGui::SameLine(0, 6);
+            } else {
+                ImGui::Spacing();
+            }
+        }
         bool isSel = ((int)i == m_selectedCategoryIdx);
         if (isSel) {
             ImGui::PushStyleColor(ImGuiCol_Button, DMCol::TabActive);
@@ -255,23 +298,37 @@ void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepo
         }
         if (ImGui::Button(categories[i].c_str())) {
             m_selectedCategoryIdx = (int)i;
+            m_selectedObjectId = 0;
         }
         ImGui::PopStyleColor(2);
     }
 
     std::string currentCat = (m_selectedCategoryIdx < (int)categories.size()) ? categories[m_selectedCategoryIdx] : "Solar System";
 
-    // Dedicated Action Toolbar Row for the Explorer (No Overlap / Collision)
+    // Dedicated Action Toolbar Row for the Explorer
     ImGui::Spacing();
     ImVec4 loadCol(0.12f, 0.45f, 0.25f, 0.90f);
     if (UIIcon::Button("##LoadSystemBtn", IconId::Play, "LOAD SYSTEM INTO SIMULATION", ImVec2(250, 26), false, &loadCol)) {
-        physics.loadFromDatabase(objRepo, currentCat);
+        if (physics.loadFromDatabase(objRepo, currentCat)) {
+            if (camera) camera->resetOverview(glm::vec3(0.0f), 6.0f);
+            if (activeTopTab) *activeTopTab = 0; // Switch to UNIVERSE
+            m_statusMessage = "Loaded system '" + currentCat + "' into simulation.";
+        } else {
+            m_statusMessage = "Failed to load system '" + currentCat + "' from database.";
+        }
     }
     ImGui::SameLine(0, 10);
     ImVec4 refreshCol(0.18f, 0.25f, 0.40f, 0.85f);
     if (UIIcon::Button("##RefreshBaselineBtn", IconId::Refresh, "Refresh Database with NASA/JPL Baseline", ImVec2(310, 26), false, &refreshCol)) {
         SeedData::seedDefaultDatabase(objRepo);
         physics.loadFromDatabase(objRepo, currentCat);
+        if (camera) camera->resetOverview(glm::vec3(0.0f), 6.0f);
+        m_statusMessage = "Database refreshed with NASA/JPL baseline datasets.";
+    }
+
+    if (!m_statusMessage.empty()) {
+        ImGui::SameLine(0, 14);
+        ImGui::TextColored(DMCol::Green, "%s", m_statusMessage.c_str());
     }
 
     ImGui::Spacing();
@@ -287,6 +344,19 @@ void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepo
     auto objects = objRepo.getAllObjects(currentCat, true, m_explorerFilter);
     ImGui::InputTextWithHint("##filter", "Filter list...", m_explorerFilter, sizeof(m_explorerFilter));
     ImGui::Separator();
+
+    if (!objects.empty()) {
+        bool selFound = false;
+        for (const auto& obj : objects) {
+            if (obj.id == m_selectedObjectId) {
+                selFound = true;
+                break;
+            }
+        }
+        if (!selFound) {
+            m_selectedObjectId = objects[0].id;
+        }
+    }
 
     for (const auto& obj : objects) {
         bool isSelected = (obj.id == m_selectedObjectId);
@@ -362,11 +432,32 @@ void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepo
             // Actions
             if (UIIcon::Button(IconId::Target, "Focus in Viewport", ImVec2(160, 26))) {
                 physics.selectBodyById(b.id);
+                const CelestialBody* sel = nullptr;
+                for (const auto& body : physics.getBodies()) {
+                    if (body.id == b.id || body.dbId == b.dbId) {
+                        sel = &body;
+                        break;
+                    }
+                }
+                if (sel) {
+                    if (camera) camera->focusOnBody(sel->position, sel->radius3D, 0.85f);
+                    if (activeTopTab) *activeTopTab = 0; // Switch to UNIVERSE
+                    m_statusMessage = "Focused on '" + b.name + "' in viewport.";
+                } else {
+                    m_statusMessage = "Object '" + b.name + "' is not currently in the active simulation. Load its system first.";
+                }
             }
             ImGui::SameLine();
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.2f, 0.2f, 0.85f));
             if (UIIcon::Button(IconId::Delete, "Delete Object", ImVec2(130, 26))) {
+                for (int bi = 0; bi < (int)physics.getBodies().size(); ++bi) {
+                    if (physics.getBodies()[bi].id == b.id || physics.getBodies()[bi].dbId == b.dbId) {
+                        physics.removeBody(bi);
+                        break;
+                    }
+                }
                 objRepo.deleteObject(b.dbId);
+                m_statusMessage = "Deleted '" + b.name + "' from library.";
                 m_selectedObjectId = 0;
             }
             ImGui::PopStyleColor();

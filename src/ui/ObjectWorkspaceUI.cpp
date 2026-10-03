@@ -251,7 +251,7 @@ void ObjectWorkspaceUI::drawLibraryPanel(ObjectRepository& objRepo, float panelW
         if (m_selectedCategoryFilter == 3 && obj.type.find("Moon") == std::string::npos) continue;
         if (m_selectedCategoryFilter == 4 && obj.type.find("Asteroid") == std::string::npos && obj.type.find("Comet") == std::string::npos) continue;
         if (m_selectedCategoryFilter == 5 && obj.type.find("Black Hole") == std::string::npos) continue;
-        if (m_selectedCategoryFilter == 6 && obj.category != "Custom") continue;
+        if (m_selectedCategoryFilter == 6 && !obj.isSynthetic && obj.category != "Custom") continue;
 
         bool isSelected = (obj.slug == m_selectedObjectSlug);
         if (isSelected) {
@@ -353,11 +353,14 @@ void ObjectWorkspaceUI::drawEditorPanel(ObjectRepository& objRepo, PhysicsEngine
     if (UIIcon::Button(IconId::Save, "SAVE OBJECT TO LIBRARY", ImVec2(220, 30))) {
         recomputeDerived(m_editingBody);
         int64_t newId = 0;
-        objRepo.saveCelestialBody(m_editingBody, &newId);
-        m_editingBody.dbId = newId;
-        m_selectedObjectId = newId;
-        m_selectedObjectSlug = m_editingBody.id;
-        m_statusFeedbackMsg = "Object '" + m_editingBody.name + "' successfully saved in SQLite library.";
+        if (objRepo.saveCelestialBody(m_editingBody, &newId)) {
+            m_editingBody.dbId = newId;
+            m_selectedObjectId = newId;
+            m_selectedObjectSlug = m_editingBody.id;
+            m_statusFeedbackMsg = "Object '" + m_editingBody.name + "' successfully saved in SQLite library.";
+        } else {
+            m_statusFeedbackMsg = "Failed to save object '" + m_editingBody.name + "' to database.";
+        }
     }
     ImGui::PopStyleColor();
 

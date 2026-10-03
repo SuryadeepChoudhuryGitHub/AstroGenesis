@@ -166,5 +166,6 @@ int main() {
     std::cout << " ALL 9 AI SUBSYSTEM TEST SUITES PASSED SUCCESSFULLY!" << std::endl;
     std::cout << "==========================================================" << std::endl;
 
+    DatabaseManager::getInstance().close();
     return 0;
 }

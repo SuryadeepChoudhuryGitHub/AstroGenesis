@@ -314,8 +314,13 @@ std::vector<ObjectRecord> ObjectRepository::getAllObjects(const std::string& cat
     std::string sql = "SELECT id, slug, name, type, parent_object_id, category, is_synthetic, color_r, color_g, color_b, texture_path, created_at, updated_at "
                       "FROM objects WHERE 1=1 ";
 
+    bool isExoplanetCategory = (category == "Exoplanet System" || category == "Exoplanet Systems");
     if (!category.empty()) {
-        sql += " AND category = ? ";
+        if (isExoplanetCategory) {
+            sql += " AND (category != 'Solar System' AND category != 'Asteroid Belt' AND category != 'Custom' OR type LIKE '%Exoplanet%') ";
+        } else {
+            sql += " AND category = ? ";
+        }
     }
     if (!includeSynthetic) {
         sql += " AND is_synthetic = 0 ";
@@ -329,7 +334,7 @@ std::vector<ObjectRecord> ObjectRepository::getAllObjects(const std::string& cat
     if (!stmt) return results;
 
     int bindIdx = 1;
-    if (!category.empty()) {
+    if (!category.empty() && !isExoplanetCategory) {
         sqlite3_bind_text(stmt, bindIdx++, category.c_str(), -1, SQLITE_TRANSIENT);
     }
     if (!searchQuery.empty()) {
@@ -342,19 +347,18 @@ std::vector<ObjectRecord> ObjectRepository::getAllObjects(const std::string& cat
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         ObjectRecord obj;
         obj.id = sqlite3_column_int64(stmt, 0);
-        obj.slug = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        obj.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        obj.type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        obj.slug = columnTextSafe(stmt, 1);
+        obj.name = columnTextSafe(stmt, 2);
+        obj.type = columnTextSafe(stmt, 3);
         if (sqlite3_column_type(stmt, 4) != SQLITE_NULL) obj.parentObjectId = sqlite3_column_int64(stmt, 4);
-        obj.category = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+        obj.category = columnTextSafe(stmt, 5);
         obj.isSynthetic = (sqlite3_column_int(stmt, 6) != 0);
         obj.color.r = (float)sqlite3_column_double(stmt, 7);
         obj.color.g = (float)sqlite3_column_double(stmt, 8);
         obj.color.b = (float)sqlite3_column_double(stmt, 9);
-        const unsigned char* tex = sqlite3_column_text(stmt, 10);
-        if (tex) obj.texturePath = reinterpret_cast<const char*>(tex);
-        obj.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 11));
-        obj.updatedAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 12));
+        obj.texturePath = columnTextSafe(stmt, 10);
+        obj.createdAt = columnTextSafe(stmt, 11);
+        obj.updatedAt = columnTextSafe(stmt, 12);
         results.push_back(obj);
     }
 
@@ -374,19 +378,18 @@ std::optional<ObjectRecord> ObjectRepository::getObjectById(int64_t id) {
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         ObjectRecord obj;
         obj.id = sqlite3_column_int64(stmt, 0);
-        obj.slug = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        obj.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        obj.type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        obj.slug = columnTextSafe(stmt, 1);
+        obj.name = columnTextSafe(stmt, 2);
+        obj.type = columnTextSafe(stmt, 3);
         if (sqlite3_column_type(stmt, 4) != SQLITE_NULL) obj.parentObjectId = sqlite3_column_int64(stmt, 4);
-        obj.category = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+        obj.category = columnTextSafe(stmt, 5);
         obj.isSynthetic = (sqlite3_column_int(stmt, 6) != 0);
         obj.color.r = (float)sqlite3_column_double(stmt, 7);
         obj.color.g = (float)sqlite3_column_double(stmt, 8);
         obj.color.b = (float)sqlite3_column_double(stmt, 9);
-        const unsigned char* tex = sqlite3_column_text(stmt, 10);
-        if (tex) obj.texturePath = reinterpret_cast<const char*>(tex);
-        obj.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 11));
-        obj.updatedAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 12));
+        obj.texturePath = columnTextSafe(stmt, 10);
+        obj.createdAt = columnTextSafe(stmt, 11);
+        obj.updatedAt = columnTextSafe(stmt, 12);
         result = obj;
     }
     m_db.finalize(stmt);
@@ -405,19 +408,18 @@ std::optional<ObjectRecord> ObjectRepository::getObjectBySlug(const std::string&
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         ObjectRecord obj;
         obj.id = sqlite3_column_int64(stmt, 0);
-        obj.slug = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        obj.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        obj.type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        obj.slug = columnTextSafe(stmt, 1);
+        obj.name = columnTextSafe(stmt, 2);
+        obj.type = columnTextSafe(stmt, 3);
         if (sqlite3_column_type(stmt, 4) != SQLITE_NULL) obj.parentObjectId = sqlite3_column_int64(stmt, 4);
-        obj.category = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+        obj.category = columnTextSafe(stmt, 5);
         obj.isSynthetic = (sqlite3_column_int(stmt, 6) != 0);
         obj.color.r = (float)sqlite3_column_double(stmt, 7);
         obj.color.g = (float)sqlite3_column_double(stmt, 8);
         obj.color.b = (float)sqlite3_column_double(stmt, 9);
-        const unsigned char* tex = sqlite3_column_text(stmt, 10);
-        if (tex) obj.texturePath = reinterpret_cast<const char*>(tex);
-        obj.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 11));
-        obj.updatedAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 12));
+        obj.texturePath = columnTextSafe(stmt, 10);
+        obj.createdAt = columnTextSafe(stmt, 11);
+        obj.updatedAt = columnTextSafe(stmt, 12);
         result = obj;
     }
     m_db.finalize(stmt);
@@ -451,13 +453,12 @@ std::optional<PhysicalPropertiesRecord> ObjectRepository::getPhysicalProperties(
         if (sqlite3_column_type(stmt, 11) != SQLITE_NULL) p.escapeVelocityMps = sqlite3_column_double(stmt, 11);
         if (sqlite3_column_type(stmt, 12) != SQLITE_NULL) p.surfaceTempK = sqlite3_column_double(stmt, 12);
         if (sqlite3_column_type(stmt, 13) != SQLITE_NULL) p.surfacePressureKpa = sqlite3_column_double(stmt, 13);
-        if (sqlite3_column_type(stmt, 14) != SQLITE_NULL) p.magneticFieldStr = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 14));
-        if (sqlite3_column_type(stmt, 15) != SQLITE_NULL) p.atmosphereSummary = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 15));
-        if (sqlite3_column_type(stmt, 16) != SQLITE_NULL) p.ringsJson = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 16));
+        if (sqlite3_column_type(stmt, 14) != SQLITE_NULL) p.magneticFieldStr = columnTextSafe(stmt, 14);
+        if (sqlite3_column_type(stmt, 15) != SQLITE_NULL) p.atmosphereSummary = columnTextSafe(stmt, 15);
+        if (sqlite3_column_type(stmt, 16) != SQLITE_NULL) p.ringsJson = columnTextSafe(stmt, 16);
         p.sourceId = sqlite3_column_int64(stmt, 17);
-        const unsigned char* srcRec = sqlite3_column_text(stmt, 18);
-        if (srcRec) p.sourceRecordId = reinterpret_cast<const char*>(srcRec);
-        p.importTimestamp = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 19));
+        p.sourceRecordId = columnTextSafe(stmt, 18);
+        p.importTimestamp = columnTextSafe(stmt, 19);
         res = p;
     }
     m_db.finalize(stmt);
@@ -488,9 +489,9 @@ std::optional<OrbitalElementsRecord> ObjectRepository::getOrbitalElements(int64_
         if (sqlite3_column_type(stmt, 9) != SQLITE_NULL) o.meanAnomalyDeg = sqlite3_column_double(stmt, 9);
         if (sqlite3_column_type(stmt, 10) != SQLITE_NULL) o.trueAnomalyDeg = sqlite3_column_double(stmt, 10);
         if (sqlite3_column_type(stmt, 11) != SQLITE_NULL) o.orbitalPeriodDays = sqlite3_column_double(stmt, 11);
-        o.referenceFrame = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 12));
+        o.referenceFrame = columnTextSafe(stmt, 12, "ICRF");
         o.sourceId = sqlite3_column_int64(stmt, 13);
-        o.importTimestamp = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 14));
+        o.importTimestamp = columnTextSafe(stmt, 14);
         res = o;
     }
     m_db.finalize(stmt);
@@ -517,9 +518,9 @@ std::optional<StateVectorRecord> ObjectRepository::getStateVector(int64_t object
         s.velocityMps.x = sqlite3_column_double(stmt, 6);
         s.velocityMps.y = sqlite3_column_double(stmt, 7);
         s.velocityMps.z = sqlite3_column_double(stmt, 8);
-        s.referenceFrame = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 9));
+        s.referenceFrame = columnTextSafe(stmt, 9, "ICRF");
         s.sourceId = sqlite3_column_int64(stmt, 10);
-        s.importTimestamp = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 11));
+        s.importTimestamp = columnTextSafe(stmt, 11);
         res = s;
     }
     m_db.finalize(stmt);
@@ -538,7 +539,7 @@ std::vector<CompositionRecord> ObjectRepository::getComposition(int64_t objectId
         CompositionRecord c;
         c.id = sqlite3_column_int64(stmt, 0);
         c.objectId = sqlite3_column_int64(stmt, 1);
-        c.elementOrCompound = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        c.elementOrCompound = columnTextSafe(stmt, 2);
         c.percentage = (float)sqlite3_column_double(stmt, 3);
         c.color.r = (float)sqlite3_column_double(stmt, 4);
         c.color.g = (float)sqlite3_column_double(stmt, 5);
@@ -690,6 +691,27 @@ void ObjectRepository::hydrateCelestialBodyFields(CelestialBody& body,
         body.velocity = glm::vec3((float)(body.velocityMps.x / UnitConverter::AU_TO_METERS),
                                   (float)(body.velocityMps.y / UnitConverter::AU_TO_METERS),
                                   (float)(body.velocityMps.z / UnitConverter::AU_TO_METERS));
+    } else if (orb.has_value() && body.semiMajorAxisAU > 0.0) {
+        // Fallback: derive Cartesian position and velocity from Keplerian elements
+        const auto& o = orb.value();
+        double aM = body.semiMajorAxisAU * UnitConverter::AU_TO_METERS;
+        double ecc = body.eccentricity;
+        double inc = o.inclinationDeg.value_or(0.0);
+        double raan = o.longAscendingNodeDeg.value_or(0.0);
+        double argP = o.argPeriapsisDeg.value_or(0.0);
+        double mAnom = o.meanAnomalyDeg.value_or(0.0);
+        double centralMass = UnitConverter::SOLAR_MASS_KG;
+        double px = 0, py = 0, pz = 0, vx = 0, vy = 0, vz = 0;
+        UnitConverter::keplerianToCartesian(aM, ecc, inc, raan, argP, mAnom, centralMass, body.massKg,
+                                           px, py, pz, vx, vy, vz);
+        body.positionM = glm::dvec3(px, py, pz);
+        body.velocityMps = glm::dvec3(vx, vy, vz);
+        body.position = glm::vec3((float)(px / UnitConverter::AU_TO_METERS),
+                                  (float)(py / UnitConverter::AU_TO_METERS),
+                                  (float)(pz / UnitConverter::AU_TO_METERS));
+        body.velocity = glm::vec3((float)(vx / UnitConverter::AU_TO_METERS),
+                                  (float)(vy / UnitConverter::AU_TO_METERS),
+                                  (float)(vz / UnitConverter::AU_TO_METERS));
     }
 
     body.composition.clear();
@@ -855,7 +877,7 @@ std::vector<std::string> ObjectRepository::getAvailableCategories() {
     if (!stmt) return categories;
 
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-        categories.push_back(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+        categories.push_back(columnTextSafe(stmt, 0));
     }
     m_db.finalize(stmt);
     return categories;
@@ -951,13 +973,12 @@ std::vector<SystemRecord> ObjectRepository::getAllSystems() {
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         SystemRecord s;
         s.id = sqlite3_column_int64(stmt, 0);
-        s.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        s.type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        s.source = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-        const unsigned char* desc = sqlite3_column_text(stmt, 4);
-        if (desc) s.description = reinterpret_cast<const char*>(desc);
-        s.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
-        s.updatedAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
+        s.name = columnTextSafe(stmt, 1);
+        s.type = columnTextSafe(stmt, 2);
+        s.source = columnTextSafe(stmt, 3);
+        s.description = columnTextSafe(stmt, 4);
+        s.createdAt = columnTextSafe(stmt, 5);
+        s.updatedAt = columnTextSafe(stmt, 6);
         s.objectCount = sqlite3_column_int(stmt, 7);
         list.push_back(s);
     }
@@ -978,13 +999,12 @@ std::optional<SystemRecord> ObjectRepository::getSystemById(int64_t id) {
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         SystemRecord s;
         s.id = sqlite3_column_int64(stmt, 0);
-        s.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        s.type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        s.source = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-        const unsigned char* desc = sqlite3_column_text(stmt, 4);
-        if (desc) s.description = reinterpret_cast<const char*>(desc);
-        s.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
-        s.updatedAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
+        s.name = columnTextSafe(stmt, 1);
+        s.type = columnTextSafe(stmt, 2);
+        s.source = columnTextSafe(stmt, 3);
+        s.description = columnTextSafe(stmt, 4);
+        s.createdAt = columnTextSafe(stmt, 5);
+        s.updatedAt = columnTextSafe(stmt, 6);
         s.objectCount = sqlite3_column_int(stmt, 7);
         res = s;
     }
@@ -1005,13 +1025,12 @@ std::optional<SystemRecord> ObjectRepository::getSystemByName(const std::string&
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         SystemRecord s;
         s.id = sqlite3_column_int64(stmt, 0);
-        s.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        s.type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        s.source = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-        const unsigned char* desc = sqlite3_column_text(stmt, 4);
-        if (desc) s.description = reinterpret_cast<const char*>(desc);
-        s.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
-        s.updatedAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
+        s.name = columnTextSafe(stmt, 1);
+        s.type = columnTextSafe(stmt, 2);
+        s.source = columnTextSafe(stmt, 3);
+        s.description = columnTextSafe(stmt, 4);
+        s.createdAt = columnTextSafe(stmt, 5);
+        s.updatedAt = columnTextSafe(stmt, 6);
         s.objectCount = sqlite3_column_int(stmt, 7);
         res = s;
     }

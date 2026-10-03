@@ -116,7 +116,7 @@ std::vector<ValidationResultRecord> ValidationRepository::getValidationResults(i
         r.id = sqlite3_column_int64(stmt, 0);
         if (sqlite3_column_type(stmt, 1) != SQLITE_NULL) r.runId = sqlite3_column_int64(stmt, 1);
         r.objectId = sqlite3_column_int64(stmt, 2);
-        r.objectName = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        r.objectName = columnTextSafe(stmt, 3);
         r.epochJd = sqlite3_column_double(stmt, 4);
         r.simPosM.x = sqlite3_column_double(stmt, 5);
         r.simPosM.y = sqlite3_column_double(stmt, 6);
@@ -135,7 +135,7 @@ std::vector<ValidationResultRecord> ValidationRepository::getValidationResults(i
         r.velErrorMps = sqlite3_column_double(stmt, 19);
         r.energyDriftPct = sqlite3_column_double(stmt, 20);
         r.angularMomentumDriftPct = sqlite3_column_double(stmt, 21);
-        r.evaluatedAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 22));
+        r.evaluatedAt = columnTextSafe(stmt, 22);
         r.grMode = (sqlite3_column_int(stmt, 23) != 0);
         list.push_back(r);
     }
@@ -154,14 +154,13 @@ std::vector<SimulationRunRecord> ValidationRepository::getRecentSimulationRuns(i
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         SimulationRunRecord r;
         r.id = sqlite3_column_int64(stmt, 0);
-        r.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        r.integratorType = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        r.name = columnTextSafe(stmt, 1);
+        r.integratorType = columnTextSafe(stmt, 2);
         r.startEpochJd = sqlite3_column_double(stmt, 3);
         r.timeScale = sqlite3_column_double(stmt, 4);
         r.grEnabled = (sqlite3_column_int(stmt, 5) != 0);
-        r.startTimestamp = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
-        const unsigned char* endTs = sqlite3_column_text(stmt, 7);
-        if (endTs) r.endTimestamp = reinterpret_cast<const char*>(endTs);
+        r.startTimestamp = columnTextSafe(stmt, 6);
+        r.endTimestamp = columnTextSafe(stmt, 7);
         r.totalSimSeconds = sqlite3_column_double(stmt, 8);
         list.push_back(r);
     }

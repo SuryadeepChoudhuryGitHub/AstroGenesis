@@ -43,10 +43,12 @@ void SystemWorkspaceUI::openCustomBuilderNew() {
     snprintf(m_systemNameBuf, sizeof(m_systemNameBuf), "My Custom Star System");
     snprintf(m_systemDescBuf, sizeof(m_systemDescBuf), "Custom multi-body celestial system");
 
+    std::string sysPrefix = "sys_" + std::to_string(time(nullptr) % 100000);
+
     // Add a default primary star
     CelestialBody star;
     star.dbId = 1;
-    star.id = "primary_star";
+    star.id = sysPrefix + "_star";
     star.name = "Sol-Like Star";
     star.type = "G2V Main Sequence Star";
     star.category = m_systemNameBuf;
@@ -63,7 +65,7 @@ void SystemWorkspaceUI::openCustomBuilderNew() {
     // Add a default habitable zone planet
     CelestialBody planet;
     planet.dbId = 2;
-    planet.id = "planet_a";
+    planet.id = sysPrefix + "_planet_a";
     planet.name = "Terra Nova";
     planet.type = "Terrestrial Planet";
     planet.category = m_systemNameBuf;
@@ -204,8 +206,10 @@ void SystemWorkspaceUI::createNewDefaultObject(const std::string& type, std::opt
     b.category = m_systemNameBuf;
     b.parentObjectId = parentId;
 
+    std::string sysPrefix = "sys_" + std::to_string(time(nullptr) % 100000);
+
     if (type == "Star") {
-        b.id = "star_" + std::to_string(nextId);
+        b.id = sysPrefix + "_star_" + std::to_string(nextId);
         b.name = "Companion Star " + std::to_string(nextId);
         b.type = "K-Type Orange Dwarf Star";
         b.color = glm::vec3(1.0f, 0.65f, 0.2f);
@@ -214,7 +218,7 @@ void SystemWorkspaceUI::createNewDefaultObject(const std::string& type, std::opt
         b.surfaceTempK = 4800.0;
         b.positionM = glm::dvec3(5.0 * UnitConverter::AU_TO_METERS, 0.0, 0.0);
     } else if (type == "Planet") {
-        b.id = "planet_" + std::to_string(nextId);
+        b.id = sysPrefix + "_planet_" + std::to_string(nextId);
         b.name = "Planet " + std::to_string(nextId);
         b.type = "Terrestrial Planet";
         b.color = glm::vec3(0.3f, 0.75f, 0.6f);
@@ -224,7 +228,7 @@ void SystemWorkspaceUI::createNewDefaultObject(const std::string& type, std::opt
         b.semiMajorAxisAU = 1.5;
         b.eccentricity = 0.02;
     } else if (type == "Moon") {
-        b.id = "moon_" + std::to_string(nextId);
+        b.id = sysPrefix + "_moon_" + std::to_string(nextId);
         b.name = "Moon " + std::to_string(nextId);
         b.type = "Planetary Moon";
         b.color = glm::vec3(0.75f, 0.75f, 0.78f);
@@ -233,7 +237,7 @@ void SystemWorkspaceUI::createNewDefaultObject(const std::string& type, std::opt
         b.surfaceTempK = 220.0;
         b.semiMajorAxisAU = 0.00257; // ~384,000 km
     } else if (type == "Asteroid") {
-        b.id = "asteroid_" + std::to_string(nextId);
+        b.id = sysPrefix + "_asteroid_" + std::to_string(nextId);
         b.name = "Asteroid " + std::to_string(nextId);
         b.type = "C-Type Asteroid";
         b.color = glm::vec3(0.6f, 0.55f, 0.5f);
@@ -241,7 +245,7 @@ void SystemWorkspaceUI::createNewDefaultObject(const std::string& type, std::opt
         b.radiusM = 45000.0;
         b.semiMajorAxisAU = 2.7;
     } else if (type == "Black Hole") {
-        b.id = "black_hole_" + std::to_string(nextId);
+        b.id = sysPrefix + "_black_hole_" + std::to_string(nextId);
         b.name = "Singularity " + std::to_string(nextId);
         b.type = "Stellar Mass Black Hole";
         b.color = glm::vec3(0.65f, 0.15f, 0.9f);
@@ -432,8 +436,34 @@ void SystemWorkspaceUI::drawImportMode(DataManager& dataManager, ObjectRepositor
         if (!dataManager.isSearching()) {
             m_importLoading = false;
             auto results = dataManager.getSearchResults();
+            m_importPreviewBodies.clear();
+            m_importSelectionFlags.clear();
             if (!results.empty()) {
                 m_selectedImportSystemName = results[0].name;
+                for (const auto& item : results) {
+                    CelestialBodyRecord rec;
+                    rec.object.slug = item.sourceId;
+                    rec.object.name = item.name;
+                    rec.object.type = item.type;
+                    rec.object.category = (m_selectedProviderIdx == 1) ? "Asteroid Belt" : (m_selectedProviderIdx == 2 ? ((item.type.find("Star") != std::string::npos) ? "Host Star" : "Exoplanet System") : "Solar System");
+                    rec.sourceName = item.sourceName.empty() ? "External Provider" : item.sourceName;
+                    auto bOpt = objRepo.getHydratedBodyBySlug(item.sourceId);
+                    if (!bOpt.has_value()) {
+                        bOpt = objRepo.getHydratedBodyBySlug(item.name);
+                    }
+                    if (bOpt.has_value()) {
+                        rec.physical.massKg = bOpt->massKg;
+                        rec.physical.radiusM = bOpt->radiusM;
+                        rec.physical.surfaceTempK = bOpt->surfaceTempK;
+                        rec.orbital.semiMajorAxisAU = bOpt->semiMajorAxisAU;
+                        rec.orbital.eccentricity = bOpt->eccentricity;
+                    }
+                    m_importPreviewBodies.push_back(rec);
+                    m_importSelectionFlags.push_back(true);
+                }
+                m_actionFeedbackMsg = "Found " + std::to_string(results.size()) + " astronomical bodies.";
+            } else {
+                m_actionFeedbackMsg = "No results returned for query: " + std::string(m_searchBuffer);
             }
         } else {
             ImGui::TextColored(Col::Yellow, "Querying astronomical authority...");
@@ -566,20 +596,37 @@ void SystemWorkspaceUI::drawImportMode(DataManager& dataManager, ObjectRepositor
             SystemRecord sysRec;
             sysRec.name = m_selectedImportSystemName;
             sysRec.type = "Imported";
-            sysRec.source = "Imported Astronomical Data";
+            sysRec.source = (m_selectedProviderIdx == 0) ? "JPL Horizons" :
+                            (m_selectedProviderIdx == 1) ? "JPL SBDB" :
+                            (m_selectedProviderIdx == 2) ? "NASA Exoplanet Archive" : "Seed Catalog";
             sysRec.description = "Imported multi-body instance of " + m_selectedImportSystemName;
 
             std::vector<CelestialBody> toSave;
             for (size_t i = 0; i < m_importPreviewBodies.size(); ++i) {
                 if (m_importSelectionFlags[i]) {
                     auto bOpt = objRepo.getHydratedBodyBySlug(m_importPreviewBodies[i].object.slug);
-                    if (bOpt.has_value()) toSave.push_back(bOpt.value());
+                    if (!bOpt.has_value()) {
+                        bOpt = objRepo.getHydratedBodyBySlug(m_importPreviewBodies[i].object.name);
+                    }
+                    if (!bOpt.has_value()) {
+                        // Persist body record into SQLite so it exists in library
+                        objRepo.saveCelestialBodyRecord(m_importPreviewBodies[i]);
+                        bOpt = objRepo.getHydratedBodyBySlug(m_importPreviewBodies[i].object.slug);
+                    }
+                    if (bOpt.has_value()) {
+                        toSave.push_back(bOpt.value());
+                    }
                 }
             }
 
             if (!toSave.empty()) {
-                objRepo.saveCustomSystem(sysRec, toSave);
-                m_actionFeedbackMsg = "System '" + sysRec.name + "' successfully imported to local database (" + std::to_string(toSave.size()) + " bodies).";
+                if (objRepo.saveCustomSystem(sysRec, toSave)) {
+                    m_actionFeedbackMsg = "System '" + sysRec.name + "' successfully imported to local database (" + std::to_string(toSave.size()) + " bodies).";
+                } else {
+                    m_actionFeedbackMsg = "Error saving system '" + sysRec.name + "' to database.";
+                }
+            } else {
+                m_actionFeedbackMsg = "No valid bodies selected to import for '" + m_selectedImportSystemName + "'.";
             }
         }
         ImGui::PopStyleColor();
@@ -588,7 +635,28 @@ void SystemWorkspaceUI::drawImportMode(DataManager& dataManager, ObjectRepositor
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.00f, 0.65f, 0.85f, 0.95f));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
         if (UIIcon::Button(IconId::Play, "RUN SIMULATION NOW", ImVec2(210, 32))) {
-            physics.loadFromDatabase(objRepo, m_selectedImportSystemName);
+            bool loaded = physics.loadFromDatabase(objRepo, m_selectedImportSystemName);
+            if (!loaded || physics.getObjectCount() == 0) {
+                // Ensure bodies are saved and loaded
+                SystemRecord sysRec;
+                sysRec.name = m_selectedImportSystemName;
+                sysRec.type = "Imported";
+                sysRec.source = "Astronomical Authority";
+                sysRec.description = "Imported instance of " + m_selectedImportSystemName;
+
+                std::vector<CelestialBody> toSave;
+                for (size_t i = 0; i < m_importPreviewBodies.size(); ++i) {
+                    if (m_importSelectionFlags[i]) {
+                        objRepo.saveCelestialBodyRecord(m_importPreviewBodies[i]);
+                        auto bOpt = objRepo.getHydratedBodyBySlug(m_importPreviewBodies[i].object.slug);
+                        if (bOpt.has_value()) toSave.push_back(bOpt.value());
+                    }
+                }
+                if (!toSave.empty()) {
+                    objRepo.saveCustomSystem(sysRec, toSave);
+                    physics.loadFromDatabase(objRepo, m_selectedImportSystemName);
+                }
+            }
             camera.resetOverview(glm::vec3(0.0f), 6.0f);
             activeTopTab = 0; // Switch to UNIVERSE live simulation
         }
@@ -1035,9 +1103,12 @@ void SystemWorkspaceUI::drawBuilderActionFooter(ObjectRepository& objRepo, Physi
         m_builderSystem.type = "Custom";
         m_builderSystem.source = "User";
         m_builderSystem.description = m_systemDescBuf;
+        for (auto& b : m_builderBodies) b.category = m_systemNameBuf;
 
         if (objRepo.saveCustomSystem(m_builderSystem, m_builderBodies)) {
             m_actionFeedbackMsg = "System '" + m_builderSystem.name + "' successfully saved (" + std::to_string(m_builderBodies.size()) + " bodies).";
+        } else {
+            m_actionFeedbackMsg = "Failed to save system '" + m_builderSystem.name + "' to database.";
         }
     }
     ImGui::PopStyleColor();
@@ -1050,8 +1121,18 @@ void SystemWorkspaceUI::drawBuilderActionFooter(ObjectRepository& objRepo, Physi
         std::string copyName = std::string(m_systemNameBuf) + " (Copy)";
         snprintf(m_systemNameBuf, sizeof(m_systemNameBuf), "%s", copyName.c_str());
         m_builderSystem.name = copyName;
-        objRepo.saveCustomSystem(m_builderSystem, m_builderBodies);
-        m_actionFeedbackMsg = "Created duplicate system instance: '" + copyName + "'";
+        m_builderSystem.id = 0; // force new system record
+        int64_t timeSuffix = (int64_t)time(nullptr);
+        for (auto& b : m_builderBodies) {
+            b.category = copyName;
+            b.dbId = 0; // force new insertion
+            b.id = b.id + "_copy_" + std::to_string(timeSuffix % 10000);
+        }
+        if (objRepo.saveCustomSystem(m_builderSystem, m_builderBodies)) {
+            m_actionFeedbackMsg = "Created duplicate system instance: '" + copyName + "'";
+        } else {
+            m_actionFeedbackMsg = "Failed to duplicate system: '" + copyName + "'";
+        }
     }
     ImGui::PopStyleColor();
 
@@ -1099,6 +1180,7 @@ void SystemWorkspaceUI::runBuilderSimulation(ObjectRepository& objRepo, PhysicsE
     m_builderSystem.type = "Custom";
     m_builderSystem.source = "User";
     m_builderSystem.description = m_systemDescBuf;
+    for (auto& b : m_builderBodies) b.category = m_systemNameBuf;
     objRepo.saveCustomSystem(m_builderSystem, m_builderBodies);
 
     // 3. Pass data to existing physics engine without any alterations to gravity/equations

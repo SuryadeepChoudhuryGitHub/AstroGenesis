@@ -29,21 +29,36 @@ bool Application::initialize(int width, int height, const char* title) {
 
     // Normalize working directory so relative paths (assets/, data/) resolve reliably
     try {
-        if (!std::filesystem::exists("assets") || !std::filesystem::exists("data")) {
-            std::string exeDir = getExecutableDir();
-            std::vector<std::filesystem::path> rootCandidates = {
-                std::filesystem::current_path() / "..",
-                std::filesystem::current_path() / "../..",
-            };
-            if (!exeDir.empty()) {
-                rootCandidates.push_back(exeDir);
-                rootCandidates.push_back(std::filesystem::path(exeDir) / "..");
-                rootCandidates.push_back(std::filesystem::path(exeDir) / "../..");
-                rootCandidates.push_back(std::filesystem::path(exeDir) / "../../..");
+        std::string exeDir = getExecutableDir();
+        std::vector<std::filesystem::path> rootCandidates = {
+            std::filesystem::current_path(),
+            std::filesystem::current_path() / "..",
+            std::filesystem::current_path() / "../..",
+        };
+        if (!exeDir.empty()) {
+            rootCandidates.push_back(exeDir);
+            rootCandidates.push_back(std::filesystem::path(exeDir) / "..");
+            rootCandidates.push_back(std::filesystem::path(exeDir) / "../..");
+            rootCandidates.push_back(std::filesystem::path(exeDir) / "../../..");
+        }
+        bool foundProjectRoot = false;
+        // First priority: project source root with CMakeLists.txt
+        for (const auto& cand : rootCandidates) {
+            std::error_code ec;
+            if (std::filesystem::exists(cand / "CMakeLists.txt", ec) &&
+                std::filesystem::exists(cand / "assets", ec) &&
+                std::filesystem::exists(cand / "data", ec)) {
+                std::filesystem::current_path(cand, ec);
+                foundProjectRoot = true;
+                break;
             }
+        }
+        // Second priority: packaged release folder with assets & data
+        if (!foundProjectRoot) {
             for (const auto& cand : rootCandidates) {
-                if (std::filesystem::exists(cand / "assets") && std::filesystem::exists(cand / "data")) {
-                    std::filesystem::current_path(cand);
+                std::error_code ec;
+                if (std::filesystem::exists(cand / "assets", ec) && std::filesystem::exists(cand / "data", ec)) {
+                    std::filesystem::current_path(cand, ec);
                     break;
                 }
             }

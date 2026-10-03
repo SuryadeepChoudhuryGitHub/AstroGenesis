@@ -183,12 +183,28 @@ target_link_libraries(test_cinematic_mode PRIVATE
     ${PLATFORM_LIBS}
 )
 
-# ── Assets Sync ────────────────────────────────────────────────────────────────
+# ── Assets & Data Sync ─────────────────────────────────────────────────────────
 add_custom_command(TARGET AstroGenesis POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:AstroGenesis>/assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:AstroGenesis>/data
+)
+add_custom_command(TARGET test_data_system POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:test_data_system>/assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:test_data_system>/data
+)
+add_custom_command(TARGET test_ai_system POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:test_ai_system>/assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:test_ai_system>/data
 )
 add_custom_command(TARGET test_cinematic_mode POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:test_cinematic_mode>/assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:test_cinematic_mode>/data
 )

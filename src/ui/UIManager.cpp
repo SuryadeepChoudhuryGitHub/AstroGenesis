@@ -321,7 +321,7 @@ void UIManager::renderUI(PhysicsEngine& physics,
         drawMatterLab(physics, camera, windowWidth, windowHeight);
     }
     if (m_showDataManager) {
-        m_dataManagerUI.render(m_showDataManager, dataManager, objRepo, physics, windowWidth, windowHeight);
+        m_dataManagerUI.render(m_showDataManager, dataManager, objRepo, physics, windowWidth, windowHeight, &camera, &m_activeTopTab);
     }
     if (m_showValidationDashboard) {
         m_validationUI.render(m_showValidationDashboard, valEngine, objRepo, physics, windowWidth, windowHeight);
@@ -442,6 +442,9 @@ void UIManager::drawTopBar(float width, PhysicsEngine& physics, Camera& camera, 
     }
     if (UIIcon::Button("##TopBarData", IconId::Database, isCompact ? nullptr : "DATA", ImVec2(isCompact ? 32 : 85, 28))) {
         m_showDataManager = !m_showDataManager;
+        if (m_showDataManager) {
+            m_dataManagerUI.openDatabaseExplorer();
+        }
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Open Astronomical Data Manager (JPL Horizons, SBDB, Exoplanet Archive)");
@@ -833,6 +836,7 @@ void UIManager::drawLeftPanel(PhysicsEngine& physics, Camera& camera, ObjectRepo
                 if (ImGui::Selectable(obj.name.c_str())) {
                     physics.loadFromDatabase(objRepo, cat);
                     physics.selectBodyById(obj.slug);
+                    camera.resetOverview(glm::vec3(0.0f), 6.0f);
                     addEventLog("Switched system to " + cat + " (" + obj.name + ")");
                 }
             }
@@ -948,8 +952,35 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, Camera& camera, Celestial
     }
     ImGui::SameLine();
     if (UIIcon::Button(IconId::Reset, "Ephemeris", ImVec2((panelW - 28) / 2.0f, 22))) {
-        physics.resetSimulation(objRepo);
-        addEventLog("Reset " + body.name + " to Keplerian ephemeris");
+        int selIdx = physics.getSelectedBodyIndex();
+        bool resetSuccess = false;
+        if (selIdx >= 0 && selIdx < (int)physics.getBodies().size()) {
+            auto& curBody = physics.getBodies()[selIdx];
+            auto hydrated = objRepo.getHydratedBody(curBody.dbId);
+            if (!hydrated.has_value()) {
+                hydrated = objRepo.getHydratedBodyBySlug(curBody.id);
+            }
+            if (hydrated.has_value()) {
+                curBody.positionM = hydrated->positionM;
+                curBody.velocityMps = hydrated->velocityMps;
+                curBody.position = hydrated->positionM / UnitConverter::AU_TO_METERS;
+                curBody.velocity = hydrated->velocityMps / UnitConverter::AU_TO_METERS;
+                curBody.trailHistory.clear();
+                curBody.trailHistory.push_back(curBody.position);
+                curBody.semiMajorAxisM = hydrated->semiMajorAxisM;
+                curBody.semiMajorAxisAU = hydrated->semiMajorAxisAU;
+                curBody.eccentricity = hydrated->eccentricity;
+                curBody.trueAnomalyDeg = hydrated->trueAnomalyDeg;
+                curBody.epochJd = hydrated->epochJd;
+                curBody.orbitalPeriodDays = hydrated->orbitalPeriodDays;
+                physics.updateBodyScales();
+                resetSuccess = true;
+                addEventLog("Reset " + curBody.name + " to official database ephemeris");
+            }
+        }
+        if (!resetSuccess) {
+            addEventLog("No official ephemeris found for " + body.name);
+        }
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Reset orbital parameters to official database ephemeris");
@@ -1226,6 +1257,7 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, Camera& camera, Celestial
         ImGui::Spacing();
         if (UIIcon::Button(IconId::Database, "Open Data Manager", ImVec2(panelW - 20, 24))) {
             m_showDataManager = true;
+            m_dataManagerUI.selectObjectById(body.dbId, body.category);
         }
     }
 
@@ -1712,6 +1744,7 @@ void UIManager::drawCollapsibleHierarchy(PhysicsEngine& physics, Camera& camera,
         std::transform(upperCat.begin(), upperCat.end(), upperCat.begin(), ::toupper);
         if (ImGui::Selectable(("Switch: " + upperCat).c_str())) {
             physics.loadFromDatabase(objRepo, cat);
+            camera.resetOverview(glm::vec3(0.0f), 6.0f);
             addEventLog("Switched system to " + cat);
         }
     }
@@ -2000,7 +2033,7 @@ void UIManager::drawEditPropertiesPanel(PhysicsEngine& physics, Camera& camera, 
                     mutBody.radiusM = std::max(1000.0, (double)rSun * UnitConverter::SOLAR_RADIUS_M);
                     mutBody.realRadiusAU = mutBody.radiusM / UnitConverter::AU_TO_METERS;
                     char rBuf[64];
-                    snprintf(rBuf, sizeof(rBuf), "%'.1f km", mutBody.radiusM / 1000.0);
+                    snprintf(rBuf, sizeof(rBuf), "%.1f km", mutBody.radiusM / 1000.0);
                     mutBody.radiusStr = rBuf;
                     physics.updateBodyScales();
                 }
@@ -2010,7 +2043,7 @@ void UIManager::drawEditPropertiesPanel(PhysicsEngine& physics, Camera& camera, 
                     mutBody.radiusM = std::max(100.0, (double)rEarth * UnitConverter::EARTH_RADIUS_M);
                     mutBody.realRadiusAU = mutBody.radiusM / UnitConverter::AU_TO_METERS;
                     char rBuf[64];
-                    snprintf(rBuf, sizeof(rBuf), "%'.1f km", mutBody.radiusM / 1000.0);
+                    snprintf(rBuf, sizeof(rBuf), "%.1f km", mutBody.radiusM / 1000.0);
                     mutBody.radiusStr = rBuf;
                     physics.updateBodyScales();
                 }
@@ -2021,7 +2054,7 @@ void UIManager::drawEditPropertiesPanel(PhysicsEngine& physics, Camera& camera, 
                 mutBody.radiusM = std::max(100.0, (double)rKm * 1000.0);
                 mutBody.realRadiusAU = mutBody.radiusM / UnitConverter::AU_TO_METERS;
                 char rBuf[64];
-                snprintf(rBuf, sizeof(rBuf), "%'.1f km", mutBody.radiusM / 1000.0);
+                snprintf(rBuf, sizeof(rBuf), "%.1f km", mutBody.radiusM / 1000.0);
                 mutBody.radiusStr = rBuf;
                 physics.updateBodyScales();
             }
@@ -3129,7 +3162,7 @@ void UIManager::drawDetailsInspector(PhysicsEngine& physics, DataManager& dataMa
                     mutBody.radiusM = (double)rSun * UnitConverter::SOLAR_RADIUS_M;
                     mutBody.realRadiusAU = mutBody.radiusM / UnitConverter::AU_TO_METERS;
                     char rBuf[64];
-                    snprintf(rBuf, sizeof(rBuf), "%'.1f km", mutBody.radiusM / 1000.0);
+                    snprintf(rBuf, sizeof(rBuf), "%.1f km", mutBody.radiusM / 1000.0);
                     mutBody.radiusStr = rBuf;
                     physics.updateBodyScales();
                 }
@@ -3139,7 +3172,7 @@ void UIManager::drawDetailsInspector(PhysicsEngine& physics, DataManager& dataMa
                     mutBody.radiusM = (double)rEarth * UnitConverter::EARTH_RADIUS_M;
                     mutBody.realRadiusAU = mutBody.radiusM / UnitConverter::AU_TO_METERS;
                     char rBuf[64];
-                    snprintf(rBuf, sizeof(rBuf), "%'.1f km", mutBody.radiusM / 1000.0);
+                    snprintf(rBuf, sizeof(rBuf), "%.1f km", mutBody.radiusM / 1000.0);
                     mutBody.radiusStr = rBuf;
                     physics.updateBodyScales();
                 }
@@ -3150,7 +3183,7 @@ void UIManager::drawDetailsInspector(PhysicsEngine& physics, DataManager& dataMa
                 mutBody.radiusM = (double)rKm * 1000.0;
                 mutBody.realRadiusAU = mutBody.radiusM / UnitConverter::AU_TO_METERS;
                 char rBuf[64];
-                snprintf(rBuf, sizeof(rBuf), "%'.1f km", mutBody.radiusM / 1000.0);
+                snprintf(rBuf, sizeof(rBuf), "%.1f km", mutBody.radiusM / 1000.0);
                 mutBody.radiusStr = rBuf;
                 physics.updateBodyScales();
             }
@@ -3559,6 +3592,7 @@ void UIManager::drawDetailsInspector(PhysicsEngine& physics, DataManager& dataMa
         ImGui::Spacing();
         if (UIIcon::Button(IconId::Database, "Open Data Manager", ImVec2(panelW - 20, 24))) {
             m_showDataManager = true;
+            m_dataManagerUI.selectObjectById(body.dbId, body.category);
         }
     }
 
@@ -3931,7 +3965,13 @@ void UIManager::drawStatusBar(const PhysicsEngine& physics, const Camera& camera
     ImGui::SameLine(0, 16);
     UIIcon::Icon(IconId::Database, 13.0f, Col::Green);
     ImGui::SameLine(0, 4);
-    ImGui::TextColored(Col::Green, "Database: Active");
+    if (ImGui::Selectable("Database: Active", false, 0, ImVec2(105, 14))) {
+        m_showDataManager = true;
+        m_dataManagerUI.openDatabaseExplorer();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("SQLite 3.46 database connected. Click to open Data Manager.");
+    }
 
     if (winW >= 1200.0f) {
         ImGui::SameLine(winW - 220.0f);
@@ -4314,7 +4354,7 @@ void UIManager::drawExploreWorkspace(ObjectRepository& objRepo, PhysicsEngine& p
 
             ImGui::TableSetColumnIndex(4);
             if (phys.has_value() && phys->radiusM.has_value()) {
-                ImGui::Text("%'.1f km", phys->radiusM.value() / 1000.0);
+                ImGui::Text("%.1f km", phys->radiusM.value() / 1000.0);
             } else {
                 ImGui::TextColored(Col::TextSecondary, "N/A");
             }

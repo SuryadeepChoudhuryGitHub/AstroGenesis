@@ -782,9 +782,11 @@ bool Button(const char* str_id, IconId icon, const char* label, const ImVec2& si
         minSize.y = 28.0f;
     }
 
+    int pushedColors = 0;
     if (active) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.00f, 0.55f, 0.80f, 0.90f));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+        pushedColors = 2;
     } else if (customBg) {
         ImGui::PushStyleColor(ImGuiCol_Button, *customBg);
         ImVec4 hov(std::min(1.0f, customBg->x * 1.25f), std::min(1.0f, customBg->y * 1.25f), std::min(1.0f, customBg->z * 1.25f), customBg->w);
@@ -794,12 +796,13 @@ bool Button(const char* str_id, IconId icon, const char* label, const ImVec2& si
         } else {
             ImGui::PushStyleColor(ImGuiCol_Text, UIThemeCol::TextPrimary);
         }
+        pushedColors = 3;
     }
 
     bool pressed = ImGui::Button(buttonId, minSize);
 
-    if (active || customBg) {
-        ImGui::PopStyleColor((active || !customFg) ? 2 : 3);
+    if (pushedColors > 0) {
+        ImGui::PopStyleColor(pushedColors);
     }
 
     // Draw the icon and label centered inside the actual button rect

@@ -68,7 +68,7 @@ std::string UnitConverter::formatDistance(double meters) {
     if (au >= 0.01) {
         snprintf(buf, sizeof(buf), "%.3f AU (%.2fM km)", au, (meters * 1e-9));
     } else {
-        snprintf(buf, sizeof(buf), "%'.1f km", meters / 1000.0);
+        snprintf(buf, sizeof(buf), "%.1f km", meters / 1000.0);
     }
     return std::string(buf);
 }

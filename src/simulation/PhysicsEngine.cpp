@@ -364,7 +364,7 @@ void PhysicsEngine::updatePhysicalQuantities() {
         if (b.distanceAU >= 0.05) {
             snprintf(distBuf, sizeof(distBuf), "%.3f AU (%.1fM km)", b.distanceAU, (rM * 1e-9));
         } else {
-            snprintf(distBuf, sizeof(distBuf), "%'.0f km", b.distanceKm);
+            snprintf(distBuf, sizeof(distBuf), "%.0f km", b.distanceKm);
         }
         b.distanceStr = distBuf;
         snprintf(speedBuf, sizeof(speedBuf), "%.2f km/s", b.orbitalSpeedKmpS);
@@ -1108,7 +1108,7 @@ int PhysicsEngine::spawnCelestialBody(const std::string& templateClass, const gl
     body.realRadiusAU = (body.radiusM > 0.0) ? (body.radiusM / UnitConverter::AU_TO_METERS) : 0.0;
     body.radius3D = VisualStateAdapter::calculateRenderRadius(body.radiusM, body.realRadiusAU, m_isTrueScaleMode, m_sizeMultiplier, 1.0f);
     char radBuf[64];
-    snprintf(radBuf, sizeof(radBuf), "%'.1f km", body.radiusM / 1000.0);
+    snprintf(radBuf, sizeof(radBuf), "%.1f km", body.radiusM / 1000.0);
     body.radiusStr = radBuf;
     body.massStr = UnitConverter::formatMass(body.massKg);
 

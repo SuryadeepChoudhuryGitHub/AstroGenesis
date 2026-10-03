@@ -14,6 +14,9 @@ class ObjectRepository {
 public:
     explicit ObjectRepository(DatabaseManager& db);
 
+    DatabaseManager& getDatabaseManager() { return m_db; }
+    const DatabaseManager& getDatabaseManager() const { return m_db; }
+
     // Save full celestial body record (Object + Physical + Orbital + State Vector + Composition)
     bool saveCelestialBodyRecord(const CelestialBodyRecord& record, int64_t* outId = nullptr);
     bool saveCelestialBody(const CelestialBody& body, int64_t* outId = nullptr);
