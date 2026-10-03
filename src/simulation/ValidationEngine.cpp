@@ -94,6 +94,7 @@ bool ValidationEngine::runValidationBenchmark(const std::string& bodySlug,
     runRec.grEnabled = enableGeneralRelativity;
     runRec.totalSimSeconds = durationDays * SEC_PER_DAY;
     int64_t runId = m_valRepo.createSimulationRun(runRec);
+    runRec.id = runId;
 
     // Initial state
     glm::dvec3 pos = body.positionM;

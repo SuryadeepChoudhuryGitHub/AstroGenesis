@@ -51,8 +51,13 @@ public:
         bool m_active = false;
     };
 
-    // Schema Migrations
+    // Schema Migrations & Validation
     bool runMigrations();
+    bool validateSchema(std::string& outError);
+
+    // Path Resolution
+    static std::string resolveAuthoritativePath(const std::string& dbPath = "data/astrogenesis.db");
+    const std::string& getDatabasePath() const { return m_dbPath; }
 
     // Query Execution Helpers
     bool execute(const std::string& sql);
@@ -70,10 +75,16 @@ private:
 
     sqlite3* m_db = nullptr;
     std::string m_dbPath;
-    mutable std::mutex m_mutex;
+    mutable std::recursive_mutex m_mutex;
     mutable std::string m_lastError;
     int m_transactionDepth = 0;
 };
+
+// Safe SQLite column text extraction to prevent std::string(nullptr) crash
+inline std::string columnTextSafe(sqlite3_stmt* stmt, int col, const char* defaultVal = "") {
+    const unsigned char* txt = sqlite3_column_text(stmt, col);
+    return txt ? reinterpret_cast<const char*>(txt) : (defaultVal ? defaultVal : "");
+}
 
 } // namespace AstroGenesis
 

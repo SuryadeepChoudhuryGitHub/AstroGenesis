@@ -17,7 +17,7 @@ DerivedMaterialProperties MaterialModel::computeDerivedProperties(const Material
     // Derived Bulk Modulus K = E / [3(1 - 2*nu)]
     p.bulkModulusPa = E / (3.0 * (1.0 - 2.0 * nu));
 
-    // First Lamé Parameter lambda = E*nu / [(1+nu)(1-2*nu)]
+    // First Lame Parameter lambda = E*nu / [(1+nu)(1-2*nu)]
     p.lameLambdaPa = (E * nu) / ((1.0 + nu) * (1.0 - 2.0 * nu));
 
     // P-wave Modulus M = K + 4/3*G
@@ -129,7 +129,7 @@ void MaterialLibrary::initializeDefaultMaterials() {
         fe.specificHeatJPerKgK = 450.0;
         fe.thermalConductivityWPerMK = 50.0;
         fe.thermalExpansionCoeffPerK = 1.2e-5;
-        fe.meltingPointK = 1811.0;               // 1538 °C
+        fe.meltingPointK = 1811.0;               // 1538 C
         fe.boilingPointK = 3134.0;
         fe.latentHeatFusionJPerKg = 2.47e5;
         fe.latentHeatVaporizationJPerKg = 6.09e6;
@@ -184,7 +184,7 @@ void MaterialLibrary::initializeDefaultMaterials() {
         ice.specificHeatJPerKgK = 2090.0;
         ice.thermalConductivityWPerMK = 2.22;
         ice.thermalExpansionCoeffPerK = 5.1e-5;
-        ice.meltingPointK = 273.15;               // 0 °C
+        ice.meltingPointK = 273.15;               // 0 C
         ice.boilingPointK = 373.15;
         ice.latentHeatFusionJPerKg = 3.34e5;
         ice.latentHeatVaporizationJPerKg = 2.26e6;

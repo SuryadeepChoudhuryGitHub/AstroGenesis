@@ -1,4 +1,5 @@
 #include "ui/DataManagerUI.hpp"
+#include "ui/IconSystem.hpp"
 #include "data/SeedData.hpp"
 #include "data/UnitConverter.hpp"
 #include <cstdio>
@@ -6,7 +7,7 @@
 
 namespace AstroGenesis {
 
-namespace UICol {
+namespace DMCol {
     static ImVec4 BgDark       {0.024f, 0.035f, 0.065f, 1.00f};
     static ImVec4 BgPanel      {0.035f, 0.050f, 0.090f, 0.98f};
     static ImVec4 BgChild      {0.045f, 0.065f, 0.115f, 0.90f};
@@ -23,11 +24,25 @@ namespace UICol {
 
 DataManagerUI::DataManagerUI() {}
 
+void DataManagerUI::openDatabaseExplorer() {
+    m_activeTab = 0;
+}
+
+void DataManagerUI::selectObjectById(int64_t id, const std::string& category) {
+    m_activeTab = 0;
+    m_selectedObjectId = id;
+    if (!category.empty()) {
+        m_pendingCategorySelection = category;
+    }
+}
+
 void DataManagerUI::render(bool& showWindow, 
                            DataManager& dataManager, 
                            ObjectRepository& objRepo,
                            PhysicsEngine& physics,
-                           float winW, float winH) {
+                           float winW, float winH,
+                           Camera* camera,
+                           int* activeTopTab) {
     if (!showWindow) return;
 
     float modalW = std::min(980.0f, winW - 60.0f);
@@ -37,50 +52,55 @@ void DataManagerUI::render(bool& showWindow,
     ImGui::SetNextWindowPos(ImVec2((winW - modalW) * 0.5f, (winH - modalH) * 0.5f), ImGuiCond_Appearing);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 14));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, UICol::BgPanel);
-    ImGui::PushStyleColor(ImGuiCol_Border, UICol::Border);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, DMCol::BgPanel);
+    ImGui::PushStyleColor(ImGuiCol_Border, DMCol::Border);
 
     if (ImGui::Begin("DATA MANAGER  —  Astronomical Database & External Providers", &showWindow, ImGuiWindowFlags_NoCollapse)) {
         // Top Header & Status Banner
-        ImGui::TextColored(UICol::Accent, "★ DATA-DRIVEN ASTRONOMY ENGINE");
+        UIIcon::Icon(IconId::Database, 15.0f, ImGui::ColorConvertFloat4ToU32(DMCol::Accent), 6.0f);
         ImGui::SameLine();
-        ImGui::TextColored(UICol::TextSecondary, "| SQLite DB: data/astrogenesis.db (%d objects)", objRepo.getObjectCount());
+        ImGui::TextColored(DMCol::Accent, "DATA-DRIVEN ASTRONOMY ENGINE");
+        if (modalW >= 950.0f) {
+            ImGui::SameLine();
+            ImGui::TextColored(DMCol::TextSecondary, "| SQLite DB: data/astrogenesis.db (%d objects)", objRepo.getObjectCount());
+        }
         
-        ImGui::SameLine(modalW - 140.0f);
-        if (dataManager.isOfflineMode()) {
-            ImGui::TextColored(UICol::Yellow, "● OFFLINE MODE");
+        float rightBadgeX = modalW - 150.0f;
+        if (rightBadgeX > ImGui::GetCursorPosX() + 16.0f) {
+            ImGui::SameLine(rightBadgeX);
         } else {
-            ImGui::TextColored(UICol::Green, "● API ONLINE");
+            ImGui::SameLine(0, 16.0f);
+        }
+        if (dataManager.isOfflineMode()) {
+            UIIcon::Icon(IconId::Warning, 13.0f, ImGui::ColorConvertFloat4ToU32(DMCol::Yellow), 4.0f);
+            ImGui::SameLine();
+            ImGui::TextColored(DMCol::Yellow, "OFFLINE MODE");
+        } else {
+            UIIcon::Icon(IconId::CheckCircle, 13.0f, ImGui::ColorConvertFloat4ToU32(DMCol::Green), 4.0f);
+            ImGui::SameLine();
+            ImGui::TextColored(DMCol::Green, "API ONLINE");
         }
 
         ImGui::Separator();
         ImGui::Spacing();
 
-        // 4 Main Tabs
-        const char* tabs[] = { 
-            "⌕ SEARCH & IMPORT (LIVE API)", 
-            "⛃ DATABASE EXPLORER", 
-            "⌛ IMPORT HISTORY", 
-            "⚙ SOURCE CONFIGURATION" 
+        // 4 Main Tabs with Vector Icons
+        struct TabDef { IconId icon; const char* label; };
+        TabDef tabDefs[] = { 
+            { IconId::Database, "DATABASE EXPLORER" }, 
+            { IconId::Search,   "SEARCH & IMPORT (LIVE API)" }, 
+            { IconId::Time,     "IMPORT HISTORY" }, 
+            { IconId::Settings, "SOURCE CONFIGURATION" } 
         };
 
         for (int i = 0; i < 4; ++i) {
-            if (i > 0) ImGui::SameLine(0, 4);
+            if (i > 0) ImGui::SameLine(0, 6);
             bool isActive = (i == m_activeTab);
-            if (isActive) {
-                ImGui::PushStyleColor(ImGuiCol_Button, UICol::TabActive);
-                ImGui::PushStyleColor(ImGuiCol_Text, UICol::Accent);
-                ImGui::PushStyleColor(ImGuiCol_Border, UICol::Accent);
-                ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-            } else {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.06f, 0.09f, 0.16f, 0.75f));
-                ImGui::PushStyleColor(ImGuiCol_Text, UICol::TextSecondary);
-                ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
-                ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+            char tid[32];
+            snprintf(tid, sizeof(tid), "##DMTab%d", i);
+            if (UIIcon::Button(tid, tabDefs[i].icon, tabDefs[i].label, ImVec2(0, 28), isActive)) {
+                m_activeTab = i;
             }
-            if (ImGui::Button(tabs[i], ImVec2(0, 28))) m_activeTab = i;
-            ImGui::PopStyleVar();
-            ImGui::PopStyleColor(3);
         }
 
         ImGui::Spacing();
@@ -88,9 +108,9 @@ void DataManagerUI::render(bool& showWindow,
         ImGui::Spacing();
 
         if (m_activeTab == 0) {
-            drawSearchAndImportTab(dataManager, objRepo, physics);
+            drawDatabaseExplorerTab(dataManager, objRepo, physics, camera, activeTopTab, showWindow);
         } else if (m_activeTab == 1) {
-            drawDatabaseExplorerTab(dataManager, objRepo, physics);
+            drawSearchAndImportTab(dataManager, objRepo, physics);
         } else if (m_activeTab == 2) {
             drawImportHistoryTab(dataManager);
         } else if (m_activeTab == 3) {
@@ -103,8 +123,8 @@ void DataManagerUI::render(bool& showWindow,
 }
 
 void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepository& objRepo, PhysicsEngine& physics) {
-    ImGui::TextColored(UICol::Accent, "QUERY EXTERNAL ASTRONOMICAL DATA PROVIDER");
-    ImGui::TextColored(UICol::TextSecondary, "Search NASA JPL Horizons, Small-Body Database (SBDB), or NASA Exoplanet Archive to import real celestial objects.");
+    ImGui::TextColored(DMCol::Accent, "QUERY EXTERNAL ASTRONOMICAL DATA PROVIDER");
+    ImGui::TextColored(DMCol::TextSecondary, "Search NASA JPL Horizons, Small-Body Database (SBDB), or NASA Exoplanet Archive to import real celestial objects.");
 
     ImGui::Spacing();
 
@@ -130,7 +150,7 @@ void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepos
     if (isSearching) {
         ImGui::Button("Searching...", ImVec2(100, 24));
     } else {
-        if (ImGui::Button("⌕ SEARCH", ImVec2(100, 24)) || enterPressed) {
+        if (UIIcon::Button("##DMSearchBtn", IconId::Search, "SEARCH", ImVec2(100, 24)) || enterPressed) {
             ProviderType pType = (ProviderType)m_selectedProviderIdx;
             dataManager.searchAsync(pType, m_searchBuffer);
         }
@@ -143,18 +163,24 @@ void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepos
     // Asynchronous Import Status Banner
     auto jobState = dataManager.getImportJobState();
     if (jobState.isRunning) {
-        ImGui::TextColored(UICol::Yellow, "⌛ %s", jobState.currentTask.c_str());
+        UIIcon::Icon(IconId::Time, 14.0f, ImGui::ColorConvertFloat4ToU32(DMCol::Yellow), 6.0f);
+        ImGui::SameLine();
+        ImGui::TextColored(DMCol::Yellow, "%s", jobState.currentTask.c_str());
         ImGui::ProgressBar(jobState.progress, ImVec2(ImGui::GetContentRegionAvail().x, 6.0f));
     } else if (!jobState.lastResult.empty()) {
         if (jobState.lastSuccess) {
-            ImGui::TextColored(UICol::Green, "✔ %s", jobState.lastResult.c_str());
+            UIIcon::Icon(IconId::Check, 14.0f, ImGui::ColorConvertFloat4ToU32(DMCol::Green), 6.0f);
+            ImGui::SameLine();
+            ImGui::TextColored(DMCol::Green, "%s", jobState.lastResult.c_str());
         } else {
-            ImGui::TextColored(UICol::Red, "✖ %s", jobState.lastResult.c_str());
+            UIIcon::Icon(IconId::Error, 14.0f, ImGui::ColorConvertFloat4ToU32(DMCol::Red), 6.0f);
+            ImGui::SameLine();
+            ImGui::TextColored(DMCol::Red, "%s", jobState.lastResult.c_str());
         }
     }
 
     ImGui::Spacing();
-    ImGui::TextColored(UICol::Accent, "SEARCH RESULTS");
+    ImGui::TextColored(DMCol::Accent, "SEARCH RESULTS");
 
     // Search Results Table
     auto results = dataManager.getSearchResults();
@@ -163,7 +189,7 @@ void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepos
         ImGui::TableSetupColumn("Type / Classification", ImGuiTableColumnFlags_WidthStretch, 0.25f);
         ImGui::TableSetupColumn("Source ID / Code", ImGuiTableColumnFlags_WidthStretch, 0.15f);
         ImGui::TableSetupColumn("Details", ImGuiTableColumnFlags_WidthStretch, 0.20f);
-        ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 130.0f);
+        ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 140.0f);
         ImGui::TableHeadersRow();
 
         for (size_t i = 0; i < results.size(); ++i) {
@@ -172,11 +198,17 @@ void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepos
             
             ImGui::TableSetColumnIndex(0);
             if (item.type.find("Star") != std::string::npos) {
-                ImGui::TextColored(ImVec4(0.98f, 0.82f, 0.25f, 1.0f), "⭐ %s", item.name.c_str());
+                UIIcon::Icon(IconId::Star, 13.0f, ImGui::ColorConvertFloat4ToU32(ImVec4(0.98f, 0.82f, 0.25f, 1.0f)), 5.0f);
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.98f, 0.82f, 0.25f, 1.0f), "%s", item.name.c_str());
             } else if (item.type.find("Exoplanet") != std::string::npos || item.type.find("Planet") != std::string::npos) {
-                ImGui::TextColored(ImVec4(0.25f, 0.85f, 0.95f, 1.0f), "🪐 %s", item.name.c_str());
+                UIIcon::Icon(IconId::Planet, 13.0f, ImGui::ColorConvertFloat4ToU32(ImVec4(0.25f, 0.85f, 0.95f, 1.0f)), 5.0f);
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.25f, 0.85f, 0.95f, 1.0f), "%s", item.name.c_str());
             } else {
-                ImGui::TextColored(UICol::TextPrimary, "%s", item.name.c_str());
+                UIIcon::Icon(IconId::Asteroid, 13.0f, ImGui::ColorConvertFloat4ToU32(DMCol::TextSecondary), 5.0f);
+                ImGui::SameLine();
+                ImGui::TextColored(DMCol::TextPrimary, "%s", item.name.c_str());
             }
 
             ImGui::TableSetColumnIndex(1);
@@ -185,7 +217,7 @@ void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepos
             } else if (item.type.find("Exoplanet") != std::string::npos) {
                 ImGui::TextColored(ImVec4(0.40f, 0.75f, 0.95f, 1.0f), "%s", item.type.c_str());
             } else {
-                ImGui::TextColored(UICol::TextSecondary, "%s", item.type.c_str());
+                ImGui::TextColored(DMCol::TextSecondary, "%s", item.type.c_str());
             }
 
             ImGui::TableSetColumnIndex(2);
@@ -198,19 +230,17 @@ void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepos
             ImGui::PushID((int)i);
             std::string targetCat = (m_selectedProviderIdx == 1) ? "Asteroid Belt" : (m_selectedProviderIdx == 2 ? ((item.type.find("Star") != std::string::npos) ? "Host Star" : "Exoplanet System") : "Solar System");
             if (item.alreadyInDatabase) {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.25f, 0.18f, 0.85f));
-                if (ImGui::Button("✔ In DB (Update)", ImVec2(120, 22))) {
+                ImVec4 inDbCol(0.12f, 0.28f, 0.18f, 0.85f);
+                if (UIIcon::Button("##InDbBtn", IconId::Check, "In DB (Update)", ImVec2(130, 22), false, &inDbCol)) {
                     ProviderType pType = (ProviderType)m_selectedProviderIdx;
                     dataManager.importObjectAsync(pType, item.sourceId, targetCat);
                 }
-                ImGui::PopStyleColor();
             } else {
-                ImGui::PushStyleColor(ImGuiCol_Button, (item.type.find("Star") != std::string::npos) ? ImVec4(0.45f, 0.35f, 0.08f, 0.9f) : ImVec4(0.08f, 0.35f, 0.55f, 0.85f));
-                if (ImGui::Button("↓ Import to DB", ImVec2(120, 22))) {
+                ImVec4 impCol = (item.type.find("Star") != std::string::npos) ? ImVec4(0.45f, 0.35f, 0.08f, 0.9f) : ImVec4(0.08f, 0.35f, 0.55f, 0.85f);
+                if (UIIcon::Button("##ImportBtn", IconId::Import, "Import to DB", ImVec2(130, 22), false, &impCol)) {
                     ProviderType pType = (ProviderType)m_selectedProviderIdx;
                     dataManager.importObjectAsync(pType, item.sourceId, targetCat);
                 }
-                ImGui::PopStyleColor();
             }
             ImGui::PopID();
 
@@ -220,45 +250,86 @@ void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepos
     }
 }
 
-void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepository& objRepo, PhysicsEngine& physics) {
+void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepository& objRepo, PhysicsEngine& physics, Camera* camera, int* activeTopTab, bool& showWindow) {
     auto categories = objRepo.getAvailableCategories();
     if (categories.empty()) categories.push_back("Solar System");
 
-    ImGui::TextColored(UICol::Accent, "SYSTEM CATEGORY:");
-    ImGui::SameLine();
+    if (!m_pendingCategorySelection.empty()) {
+        for (size_t i = 0; i < categories.size(); ++i) {
+            if (categories[i] == m_pendingCategorySelection) {
+                m_selectedCategoryIdx = (int)i;
+                break;
+            }
+        }
+        m_pendingCategorySelection.clear();
+    }
+
+    if (m_selectedCategoryIdx < 0 || m_selectedCategoryIdx >= (int)categories.size()) {
+        m_selectedCategoryIdx = 0;
+        for (size_t i = 0; i < categories.size(); ++i) {
+            if (categories[i] == "Solar System") {
+                m_selectedCategoryIdx = (int)i;
+                break;
+            }
+        }
+    }
+
+    ImGui::TextColored(DMCol::Accent, "SYSTEM CATEGORY:");
+    float availWidth = ImGui::GetContentRegionAvail().x;
 
     for (size_t i = 0; i < categories.size(); ++i) {
-        if (i > 0) ImGui::SameLine(0, 6);
+        float btnW = ImGui::CalcTextSize(categories[i].c_str()).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        if (i == 0) {
+            ImGui::SameLine(0, 8);
+        } else {
+            if (ImGui::GetCursorPosX() + btnW + 12.0f < availWidth) {
+                ImGui::SameLine(0, 6);
+            } else {
+                ImGui::Spacing();
+            }
+        }
         bool isSel = ((int)i == m_selectedCategoryIdx);
         if (isSel) {
-            ImGui::PushStyleColor(ImGuiCol_Button, UICol::TabActive);
-            ImGui::PushStyleColor(ImGuiCol_Text, UICol::Accent);
+            ImGui::PushStyleColor(ImGuiCol_Button, DMCol::TabActive);
+            ImGui::PushStyleColor(ImGuiCol_Text, DMCol::Accent);
         } else {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.12f, 0.20f, 0.75f));
-            ImGui::PushStyleColor(ImGuiCol_Text, UICol::TextSecondary);
+            ImGui::PushStyleColor(ImGuiCol_Text, DMCol::TextSecondary);
         }
         if (ImGui::Button(categories[i].c_str())) {
             m_selectedCategoryIdx = (int)i;
+            m_selectedObjectId = 0;
         }
         ImGui::PopStyleColor(2);
     }
 
     std::string currentCat = (m_selectedCategoryIdx < (int)categories.size()) ? categories[m_selectedCategoryIdx] : "Solar System";
 
-    ImGui::SameLine(ImGui::GetWindowWidth() - 260.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.45f, 0.25f, 0.90f));
-    if (ImGui::Button("▶ LOAD SYSTEM INTO SIMULATION", ImVec2(240, 24))) {
-        physics.loadFromDatabase(objRepo, currentCat);
+    // Dedicated Action Toolbar Row for the Explorer
+    ImGui::Spacing();
+    ImVec4 loadCol(0.12f, 0.45f, 0.25f, 0.90f);
+    if (UIIcon::Button("##LoadSystemBtn", IconId::Play, "LOAD SYSTEM INTO SIMULATION", ImVec2(250, 26), false, &loadCol)) {
+        if (physics.loadFromDatabase(objRepo, currentCat)) {
+            if (camera) camera->resetOverview(glm::vec3(0.0f), 6.0f);
+            if (activeTopTab) *activeTopTab = 0; // Switch to UNIVERSE
+            m_statusMessage = "Loaded system '" + currentCat + "' into simulation.";
+        } else {
+            m_statusMessage = "Failed to load system '" + currentCat + "' from database.";
+        }
     }
-    ImGui::PopStyleColor();
-
-    ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.25f, 0.40f, 0.85f));
-    if (ImGui::Button("⚡ Refresh Database with NASA/JPL Baseline", ImVec2(300, 24))) {
+    ImGui::SameLine(0, 10);
+    ImVec4 refreshCol(0.18f, 0.25f, 0.40f, 0.85f);
+    if (UIIcon::Button("##RefreshBaselineBtn", IconId::Refresh, "Refresh Database with NASA/JPL Baseline", ImVec2(310, 26), false, &refreshCol)) {
         SeedData::seedDefaultDatabase(objRepo);
         physics.loadFromDatabase(objRepo, currentCat);
+        if (camera) camera->resetOverview(glm::vec3(0.0f), 6.0f);
+        m_statusMessage = "Database refreshed with NASA/JPL baseline datasets.";
     }
-    ImGui::PopStyleColor();
+
+    if (!m_statusMessage.empty()) {
+        ImGui::SameLine(0, 14);
+        ImGui::TextColored(DMCol::Green, "%s", m_statusMessage.c_str());
+    }
 
     ImGui::Spacing();
     ImGui::Separator();
@@ -274,9 +345,22 @@ void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepo
     ImGui::InputTextWithHint("##filter", "Filter list...", m_explorerFilter, sizeof(m_explorerFilter));
     ImGui::Separator();
 
+    if (!objects.empty()) {
+        bool selFound = false;
+        for (const auto& obj : objects) {
+            if (obj.id == m_selectedObjectId) {
+                selFound = true;
+                break;
+            }
+        }
+        if (!selFound) {
+            m_selectedObjectId = objects[0].id;
+        }
+    }
+
     for (const auto& obj : objects) {
         bool isSelected = (obj.id == m_selectedObjectId);
-        if (isSelected) ImGui::PushStyleColor(ImGuiCol_Header, UICol::TabActive);
+        if (isSelected) ImGui::PushStyleColor(ImGuiCol_Header, DMCol::TabActive);
         
         char label[128];
         snprintf(label, sizeof(label), "%s (%s)", obj.name.c_str(), obj.type.c_str());
@@ -295,47 +379,47 @@ void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepo
         auto hydrated = objRepo.getHydratedBody(m_selectedObjectId);
         if (hydrated.has_value()) {
             const auto& b = hydrated.value();
-            ImGui::TextColored(UICol::Accent, "OBJECT: %s", b.name.c_str());
-            ImGui::TextColored(UICol::TextSecondary, "Slug: %s | Type: %s | Category: %s", b.id.c_str(), b.type.c_str(), b.category.c_str());
+            ImGui::TextColored(DMCol::Accent, "OBJECT: %s", b.name.c_str());
+            ImGui::TextColored(DMCol::TextSecondary, "Slug: %s | Type: %s | Category: %s", b.id.c_str(), b.type.c_str(), b.category.c_str());
             ImGui::Separator();
 
             ImGui::Columns(2, "detailCols", false);
-            ImGui::TextColored(UICol::TextSecondary, "Mass:");
+            ImGui::TextColored(DMCol::TextSecondary, "Mass:");
             ImGui::NextColumn();
             ImGui::Text("%s", b.massStr.c_str());
             ImGui::NextColumn();
 
-            ImGui::TextColored(UICol::TextSecondary, "Radius:");
+            ImGui::TextColored(DMCol::TextSecondary, "Radius:");
             ImGui::NextColumn();
             ImGui::Text("%s", b.radiusStr.c_str());
             ImGui::NextColumn();
 
-            ImGui::TextColored(UICol::TextSecondary, "Semi-Major Axis:");
+            ImGui::TextColored(DMCol::TextSecondary, "Semi-Major Axis:");
             ImGui::NextColumn();
             ImGui::Text("%s", b.semiMajorAxisStr.c_str());
             ImGui::NextColumn();
 
-            ImGui::TextColored(UICol::TextSecondary, "Eccentricity:");
+            ImGui::TextColored(DMCol::TextSecondary, "Eccentricity:");
             ImGui::NextColumn();
             ImGui::Text("%s", b.eccentricityStr.c_str());
             ImGui::NextColumn();
 
-            ImGui::TextColored(UICol::TextSecondary, "Orbital Period:");
+            ImGui::TextColored(DMCol::TextSecondary, "Orbital Period:");
             ImGui::NextColumn();
             ImGui::Text("%s", b.orbitalPeriodStr.c_str());
             ImGui::NextColumn();
 
-            ImGui::TextColored(UICol::TextSecondary, "Data Source:");
+            ImGui::TextColored(DMCol::TextSecondary, "Data Source:");
             ImGui::NextColumn();
-            ImGui::TextColored(UICol::Green, "%s", b.sourceName.c_str());
+            ImGui::TextColored(DMCol::Green, "%s", b.sourceName.c_str());
             ImGui::NextColumn();
 
-            ImGui::TextColored(UICol::TextSecondary, "Source Record ID:");
+            ImGui::TextColored(DMCol::TextSecondary, "Source Record ID:");
             ImGui::NextColumn();
             ImGui::Text("%s", b.sourceObjectId.c_str());
             ImGui::NextColumn();
 
-            ImGui::TextColored(UICol::TextSecondary, "Import Timestamp:");
+            ImGui::TextColored(DMCol::TextSecondary, "Import Timestamp:");
             ImGui::NextColumn();
             ImGui::Text("%s", b.importTimestamp.c_str());
             ImGui::NextColumn();
@@ -346,26 +430,47 @@ void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepo
             ImGui::Spacing();
 
             // Actions
-            if (ImGui::Button("Focus in Viewport", ImVec2(140, 24))) {
+            if (UIIcon::Button(IconId::Target, "Focus in Viewport", ImVec2(160, 26))) {
                 physics.selectBodyById(b.id);
+                const CelestialBody* sel = nullptr;
+                for (const auto& body : physics.getBodies()) {
+                    if (body.id == b.id || body.dbId == b.dbId) {
+                        sel = &body;
+                        break;
+                    }
+                }
+                if (sel) {
+                    if (camera) camera->focusOnBody(sel->position, sel->radius3D, 0.85f);
+                    if (activeTopTab) *activeTopTab = 0; // Switch to UNIVERSE
+                    m_statusMessage = "Focused on '" + b.name + "' in viewport.";
+                } else {
+                    m_statusMessage = "Object '" + b.name + "' is not currently in the active simulation. Load its system first.";
+                }
             }
             ImGui::SameLine();
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.2f, 0.2f, 0.85f));
-            if (ImGui::Button("Delete Object", ImVec2(120, 24))) {
+            if (UIIcon::Button(IconId::Delete, "Delete Object", ImVec2(130, 26))) {
+                for (int bi = 0; bi < (int)physics.getBodies().size(); ++bi) {
+                    if (physics.getBodies()[bi].id == b.id || physics.getBodies()[bi].dbId == b.dbId) {
+                        physics.removeBody(bi);
+                        break;
+                    }
+                }
                 objRepo.deleteObject(b.dbId);
+                m_statusMessage = "Deleted '" + b.name + "' from library.";
                 m_selectedObjectId = 0;
             }
             ImGui::PopStyleColor();
         }
     } else {
-        ImGui::TextColored(UICol::TextSecondary, "Select an object from the left panel to inspect properties.");
+        ImGui::TextColored(DMCol::TextSecondary, "Select an object from the left panel to inspect properties.");
     }
     ImGui::EndChild();
 }
 
 void DataManagerUI::drawImportHistoryTab(DataManager& dataManager) {
-    ImGui::TextColored(UICol::Accent, "EXTERNAL API IMPORT AUDIT LOG");
-    ImGui::TextColored(UICol::TextSecondary, "Chronological record of all external ephemeris and catalog synchronization jobs.");
+    ImGui::TextColored(DMCol::Accent, "EXTERNAL API IMPORT AUDIT LOG");
+    ImGui::TextColored(DMCol::TextSecondary, "Chronological record of all external ephemeris and catalog synchronization jobs.");
 
     ImGui::Spacing();
 
@@ -382,16 +487,16 @@ void DataManagerUI::drawImportHistoryTab(DataManager& dataManager) {
             ImGui::TableNextRow();
             
             ImGui::TableSetColumnIndex(0);
-            ImGui::TextColored(UICol::TextSecondary, "%s", log.timestamp.c_str());
+            ImGui::TextColored(DMCol::TextSecondary, "%s", log.timestamp.c_str());
 
             ImGui::TableSetColumnIndex(1);
-            ImGui::TextColored(UICol::TextPrimary, "%s", log.targetObject.c_str());
+            ImGui::TextColored(DMCol::TextPrimary, "%s", log.targetObject.c_str());
 
             ImGui::TableSetColumnIndex(2);
             if (log.status == "SUCCESS") {
-                ImGui::TextColored(UICol::Green, "SUCCESS");
+                ImGui::TextColored(DMCol::Green, "SUCCESS");
             } else {
-                ImGui::TextColored(UICol::Red, "FAILED");
+                ImGui::TextColored(DMCol::Red, "FAILED");
             }
 
             ImGui::TableSetColumnIndex(3);
@@ -406,20 +511,20 @@ void DataManagerUI::drawImportHistoryTab(DataManager& dataManager) {
 }
 
 void DataManagerUI::drawSourceConfigTab(DataManager& dataManager, ObjectRepository& objRepo) {
-    ImGui::TextColored(UICol::Accent, "API ENDPOINTS & CACHE POLICIES");
+    ImGui::TextColored(DMCol::Accent, "API ENDPOINTS & CACHE POLICIES");
     ImGui::Spacing();
 
     bool offline = dataManager.isOfflineMode();
     if (ImGui::Checkbox("Enable Strict Offline Mode (Disable Network Calls)", &offline)) {
         dataManager.setOfflineMode(offline);
     }
-    ImGui::TextColored(UICol::TextSecondary, "When offline mode is enabled, AstroGenesis operates strictly from data/astrogenesis.db.");
+    ImGui::TextColored(DMCol::TextSecondary, "When offline mode is enabled, AstroGenesis operates strictly from data/astrogenesis.db.");
 
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
 
-    ImGui::TextColored(UICol::Accent, "ACTIVE PROVIDERS:");
+    ImGui::TextColored(DMCol::Accent, "ACTIVE PROVIDERS:");
     ImGui::BulletText("NASA JPL Horizons API: https://ssd.jpl.nasa.gov/api/horizons.api");
     ImGui::BulletText("NASA JPL SBDB API: https://ssd-api.jpl.nasa.gov/sbdb.api");
     ImGui::BulletText("NASA Exoplanet Archive TAP: https://exoplanetarchive.ipac.caltech.edu/TAP/sync");
@@ -428,11 +533,11 @@ void DataManagerUI::drawSourceConfigTab(DataManager& dataManager, ObjectReposito
     ImGui::Separator();
     ImGui::Spacing();
 
-    ImGui::TextColored(UICol::Accent, "DATABASE MAINTENANCE:");
-    if (ImGui::Button("Reset & Reload Bundled Baseline Seed Data", ImVec2(300, 28))) {
+    ImGui::TextColored(DMCol::Accent, "DATABASE MAINTENANCE:");
+    if (UIIcon::Button(IconId::Reset, "Reset & Reload Bundled Baseline Seed Data", ImVec2(320, 28))) {
         SeedData::seedDefaultDatabase(objRepo);
     }
-    ImGui::TextColored(UICol::TextSecondary, "Restores baseline high-precision Solar System, Asteroid Belt, and TRAPPIST-1 datasets.");
+    ImGui::TextColored(DMCol::TextSecondary, "Restores baseline high-precision Solar System, Asteroid Belt, and TRAPPIST-1 datasets.");
 }
 
 } // namespace AstroGenesis

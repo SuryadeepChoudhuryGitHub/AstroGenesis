@@ -229,6 +229,10 @@ void PhysicsEngine::integrateNBody(double deltaSeconds) {
 
     // Step 2: Symplectic Position update x(t + dt) = x(t) + v(t)*dt + 0.5*a(t)*dt^2
     for (size_t i = 0; i < n; ++i) {
+        if (m_manipulatedBodyIndex >= 0 && (int)i == m_manipulatedBodyIndex) {
+            // Keep manipulated body at user's authoritative position
+            continue;
+        }
         positions[i] += velocities[i] * deltaSeconds + 0.5 * acc1[i] * (deltaSeconds * deltaSeconds);
     }
 
@@ -238,9 +242,15 @@ void PhysicsEngine::integrateNBody(double deltaSeconds) {
     // Step 4: Velocity update v(t + dt) = v(t) + 0.5*(a(t) + a(t + dt))*dt
     for (size_t i = 0; i < n; ++i) {
         velocities[i] += 0.5 * (acc1[i] + acc2[i]) * deltaSeconds;
+        m_bodies[i].accelerationMps2 = acc2[i];
+
+        if (m_manipulatedBodyIndex >= 0 && (int)i == m_manipulatedBodyIndex) {
+            // Keep manipulated body position authoritative, do not overwrite with physics drift
+            continue;
+        }
+
         m_bodies[i].positionM = positions[i];
         m_bodies[i].velocityMps = velocities[i];
-        m_bodies[i].accelerationMps2 = acc2[i];
 
         // Sync AU-space rendering positions
         m_bodies[i].position = glm::vec3((float)(positions[i].x / AU_METERS),
@@ -354,7 +364,7 @@ void PhysicsEngine::updatePhysicalQuantities() {
         if (b.distanceAU >= 0.05) {
             snprintf(distBuf, sizeof(distBuf), "%.3f AU (%.1fM km)", b.distanceAU, (rM * 1e-9));
         } else {
-            snprintf(distBuf, sizeof(distBuf), "%'.0f km", b.distanceKm);
+            snprintf(distBuf, sizeof(distBuf), "%.0f km", b.distanceKm);
         }
         b.distanceStr = distBuf;
         snprintf(speedBuf, sizeof(speedBuf), "%.2f km/s", b.orbitalSpeedKmpS);
@@ -363,14 +373,14 @@ void PhysicsEngine::updatePhysicalQuantities() {
         // Instantaneous Solar Radiation Flux: F = L / (4 * pi * r_sol^2)
         b.solarRadiationFlux = solLum / (4.0 * PI_DBL * rSolM * rSolM);
         char fluxBuf[64];
-        snprintf(fluxBuf, sizeof(fluxBuf), "%'.1f W/m²", b.solarRadiationFlux);
+        snprintf(fluxBuf, sizeof(fluxBuf), "%.1f W/m^2", b.solarRadiationFlux);
         b.solarRadiationStr = fluxBuf;
 
         // Surface gravity & Escape velocity: g = G * M / R^2, v_esc = sqrt(2 * G * M / R)
         if (b.radiusM > 0.0) {
             b.surfaceGravityMps2 = (G_CONST * b.massKg) / (b.radiusM * b.radiusM);
             char gravBuf[64];
-            snprintf(gravBuf, sizeof(gravBuf), "%.2f m/s² (%.2f g)", b.surfaceGravityMps2, b.surfaceGravityMps2 / 9.80665);
+            snprintf(gravBuf, sizeof(gravBuf), "%.2f m/s^2 (%.2f g)", b.surfaceGravityMps2, b.surfaceGravityMps2 / 9.80665);
             b.gravityStr = gravBuf;
 
             b.escapeVelocityKmpS = std::sqrt((2.0 * G_CONST * b.massKg) / b.radiusM) / 1000.0;
@@ -381,13 +391,13 @@ void PhysicsEngine::updatePhysicalQuantities() {
             double volumeM3 = (4.0 / 3.0) * PI_DBL * std::pow(b.radiusM, 3.0);
             b.meanDensityKgM3 = b.massKg / volumeM3;
             char denBuf[64];
-            snprintf(denBuf, sizeof(denBuf), "%'d kg/m³", (int)std::round(b.meanDensityKgM3));
+            snprintf(denBuf, sizeof(denBuf), "%d kg/m^3", (int)std::round(b.meanDensityKgM3));
             b.densityStr = denBuf;
 
             double surfaceAreaM2 = 4.0 * PI_DBL * std::pow(b.radiusM, 2.0);
             b.surfaceAreaKm2 = surfaceAreaM2 * 1e-6;
             char areaBuf[64];
-            snprintf(areaBuf, sizeof(areaBuf), "%.1f M km²", b.surfaceAreaKm2 * 1e-6);
+            snprintf(areaBuf, sizeof(areaBuf), "%.1f M km^2", b.surfaceAreaKm2 * 1e-6);
             b.surfaceAreaStr = areaBuf;
         }
 
@@ -444,7 +454,7 @@ void PhysicsEngine::updatePhysicalQuantities() {
             b.surfaceTempK = b.atmosphere.surfaceTempK;
         }
         char tempBuf[64];
-        snprintf(tempBuf, sizeof(tempBuf), "%d K (%.1f °C)", (int)std::round(b.surfaceTempK), b.surfaceTempK - 273.15);
+        snprintf(tempBuf, sizeof(tempBuf), "%d K (%.1f deg C)", (int)std::round(b.surfaceTempK), b.surfaceTempK - 273.15);
         b.tempStr = tempBuf;
 
         // Dynamic surface pressure formatted string
@@ -488,14 +498,14 @@ void PhysicsEngine::updatePhysicalQuantities() {
         b.timeDriftMicrosecPerDay = b.timeDilationShift * SEC_PER_DAY * 1e6;
 
         char driftBuf[64];
-        snprintf(driftBuf, sizeof(driftBuf), "%+.2f µs/day", b.timeDriftMicrosecPerDay);
+        snprintf(driftBuf, sizeof(driftBuf), "%+.2f us/day", b.timeDriftMicrosecPerDay);
         b.timeDilationStr = driftBuf;
 
         // Dynamic Keplerian Orbital Elements
         glm::dvec3 hVec = glm::cross(rVec, vVec);
         b.specificAngularMomentum = glm::length(hVec);
         char hBuf[64];
-        snprintf(hBuf, sizeof(hBuf), "%.2e m²/s", b.specificAngularMomentum);
+        snprintf(hBuf, sizeof(hBuf), "%.2e m^2/s", b.specificAngularMomentum);
         b.angularMomentumStr = hBuf;
 
         double muTotal = G_CONST * (attractorMass + b.massKg);
@@ -546,7 +556,7 @@ void PhysicsEngine::updatePhysicalQuantities() {
             b.trueAnomalyDeg = nuRad * (180.0 / PI_DBL);
 
             char nuBuf[64];
-            snprintf(nuBuf, sizeof(nuBuf), "%.1f°", b.trueAnomalyDeg);
+            snprintf(nuBuf, sizeof(nuBuf), "%.1f deg", b.trueAnomalyDeg);
             b.trueAnomalyStr = nuBuf;
 
             // 3D Perifocal Unit Vectors & Dynamic Keplerian Orbit Curve
@@ -837,7 +847,7 @@ std::string PhysicsEngine::getTotalEnergyStr() const {
 
 std::string PhysicsEngine::getTotalAngularMomentumStr() const {
     char buf[64];
-    snprintf(buf, sizeof(buf), "%.3e kg·m²/s", m_totalSystemAngularMomentum);
+    snprintf(buf, sizeof(buf), "%.3e kg*m^2/s", m_totalSystemAngularMomentum);
     return std::string(buf);
 }
 
@@ -1098,7 +1108,7 @@ int PhysicsEngine::spawnCelestialBody(const std::string& templateClass, const gl
     body.realRadiusAU = (body.radiusM > 0.0) ? (body.radiusM / UnitConverter::AU_TO_METERS) : 0.0;
     body.radius3D = VisualStateAdapter::calculateRenderRadius(body.radiusM, body.realRadiusAU, m_isTrueScaleMode, m_sizeMultiplier, 1.0f);
     char radBuf[64];
-    snprintf(radBuf, sizeof(radBuf), "%'.1f km", body.radiusM / 1000.0);
+    snprintf(radBuf, sizeof(radBuf), "%.1f km", body.radiusM / 1000.0);
     body.radiusStr = radBuf;
     body.massStr = UnitConverter::formatMass(body.massKg);
 
@@ -1263,7 +1273,7 @@ void PhysicsEngine::setBodyCustomTemperature(int bodyIdx, double tempK) {
     m_bodies[bodyIdx].surfaceTempK = std::clamp(tempK, 1.0, 100000.0);
     m_bodies[bodyIdx].hasCustomTemp = true;
     char tBuf[64];
-    snprintf(tBuf, sizeof(tBuf), "%.0f K (%.1f °C)", m_bodies[bodyIdx].surfaceTempK, m_bodies[bodyIdx].surfaceTempK - 273.15);
+    snprintf(tBuf, sizeof(tBuf), "%.0f K (%.1f deg C)", m_bodies[bodyIdx].surfaceTempK, m_bodies[bodyIdx].surfaceTempK - 273.15);
     m_bodies[bodyIdx].tempStr = tBuf;
     if (m_bodies[bodyIdx].id == "sol" || m_bodies[bodyIdx].type.find("Star") != std::string::npos) {
         recalculateStellarLuminosity(bodyIdx);

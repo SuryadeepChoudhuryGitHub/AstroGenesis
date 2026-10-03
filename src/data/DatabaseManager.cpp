@@ -1,4 +1,5 @@
 #include "data/DatabaseManager.hpp"
+#include "renderer/ShaderLoader.hpp"
 #include <iostream>
 #include <filesystem>
 #include <sstream>
@@ -16,13 +17,135 @@ DatabaseManager::~DatabaseManager() {
     close();
 }
 
+std::string DatabaseManager::resolveAuthoritativePath(const std::string& dbPath) {
+    std::error_code ec;
+    std::filesystem::path p(dbPath);
+    if (p.is_absolute() && std::filesystem::exists(p, ec)) {
+        return std::filesystem::canonical(p, ec).string();
+    }
+
+    std::string exeDir = getExecutableDir();
+    std::vector<std::filesystem::path> searchRoots = {
+        std::filesystem::current_path(),
+        std::filesystem::current_path() / "..",
+        std::filesystem::current_path() / "../.."
+    };
+    if (!exeDir.empty()) {
+        searchRoots.push_back(exeDir);
+        searchRoots.push_back(std::filesystem::path(exeDir) / "..");
+        searchRoots.push_back(std::filesystem::path(exeDir) / "../..");
+        searchRoots.push_back(std::filesystem::path(exeDir) / "../../..");
+    }
+
+    // Priority 1: Check for Project Root (contains CMakeLists.txt and data directory)
+    for (const auto& root : searchRoots) {
+        if (std::filesystem::exists(root / "CMakeLists.txt", ec)) {
+            auto fullDb = root / dbPath;
+            if (std::filesystem::exists(fullDb, ec)) {
+                return std::filesystem::canonical(fullDb, ec).string();
+            }
+            if (std::filesystem::exists(root / "data", ec)) {
+                return std::filesystem::absolute(fullDb).lexically_normal().string();
+            }
+        }
+    }
+
+    // Priority 2: Standalone/Packaged mode (data folder alongside executable or current dir)
+    for (const auto& root : searchRoots) {
+        auto fullDb = root / dbPath;
+        if (std::filesystem::exists(fullDb, ec)) {
+            return std::filesystem::canonical(fullDb, ec).string();
+        }
+    }
+
+    // Fallback: Current working directory
+    return std::filesystem::absolute(std::filesystem::current_path() / dbPath).lexically_normal().string();
+}
+
+bool DatabaseManager::validateSchema(std::string& outError) {
+    if (!m_db) {
+        outError = "Database is not open";
+        return false;
+    }
+
+    // 1. SQLite Quick Integrity Check
+    sqlite3_stmt* stmt = prepare("PRAGMA quick_check;");
+    if (!stmt) {
+        outError = "Failed to run PRAGMA quick_check: " + m_lastError;
+        return false;
+    }
+    std::string checkResult = "unknown";
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        checkResult = columnTextSafe(stmt, 0);
+    }
+    finalize(stmt);
+    if (checkResult != "ok") {
+        outError = "SQLite integrity check failed: " + checkResult;
+        return false;
+    }
+
+    // 2. Foreign Key Integrity Check
+    stmt = prepare("PRAGMA foreign_key_check;");
+    if (stmt) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            std::string violatedTable = columnTextSafe(stmt, 0);
+            finalize(stmt);
+            outError = "Foreign key constraint violation in table: " + violatedTable;
+            return false;
+        }
+        finalize(stmt);
+    }
+
+    // 3. Verify all 14 required tables exist
+    const std::vector<std::string> requiredTables = {
+        "schema_migrations", "data_sources", "objects", "physical_properties",
+        "orbital_elements", "state_vectors", "composition", "data_imports",
+        "ephemeris_records", "simulation_runs", "simulation_states",
+        "validation_results", "systems", "system_objects"
+    };
+
+    stmt = prepare("SELECT name FROM sqlite_master WHERE type='table';");
+    if (!stmt) {
+        outError = "Failed to query sqlite_master for table definitions: " + m_lastError;
+        return false;
+    }
+    std::vector<std::string> existingTables;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        existingTables.push_back(columnTextSafe(stmt, 0));
+    }
+    finalize(stmt);
+
+    for (const auto& req : requiredTables) {
+        bool found = false;
+        for (const auto& ex : existingTables) {
+            if (ex == req) { found = true; break; }
+        }
+        if (!found) {
+            outError = "Missing required database table: " + req;
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool DatabaseManager::initialize(const std::string& dbPath) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_dbPath = dbPath;
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
+
+    std::string resolvedPath = resolveAuthoritativePath(dbPath);
+
+    if (m_db != nullptr) {
+        if (m_dbPath == resolvedPath) {
+            return true;
+        }
+        close();
+    }
+
+    m_dbPath = resolvedPath;
 
     // Ensure parent directory exists
     try {
-        std::filesystem::path path(dbPath);
+        std::filesystem::path path(resolvedPath);
         if (path.has_parent_path()) {
             std::filesystem::create_directories(path.parent_path());
         }
@@ -33,12 +156,12 @@ bool DatabaseManager::initialize(const std::string& dbPath) {
     }
 
     int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX;
-    int rc = sqlite3_open_v2(dbPath.c_str(), &m_db, flags, nullptr);
+    int rc = sqlite3_open_v2(resolvedPath.c_str(), &m_db, flags, nullptr);
     if (rc != SQLITE_OK) {
         m_lastError = m_db ? sqlite3_errmsg(m_db) : "Failed to open SQLite database";
-        std::cerr << "[DatabaseManager] " << m_lastError << std::endl;
+        std::cerr << "[DatabaseManager] " << m_lastError << " (Path: " << resolvedPath << ")" << std::endl;
         if (m_db) {
-            sqlite3_close(m_db);
+            sqlite3_close_v2(m_db);
             m_db = nullptr;
         }
         return false;
@@ -49,6 +172,7 @@ bool DatabaseManager::initialize(const std::string& dbPath) {
     execute("PRAGMA journal_mode = WAL;");
     execute("PRAGMA synchronous = NORMAL;");
     execute("PRAGMA busy_timeout = 5000;");
+    execute("PRAGMA wal_checkpoint(PASSIVE);");
 
     // Run schema migrations
     if (!runMigrations()) {
@@ -56,24 +180,44 @@ bool DatabaseManager::initialize(const std::string& dbPath) {
         return false;
     }
 
-    std::cout << "[DatabaseManager] Successfully opened database: " << dbPath << std::endl;
+    // Validate schema integrity
+    std::string schemaError;
+    if (!validateSchema(schemaError)) {
+        m_lastError = "Database schema validation failed: " + schemaError;
+        std::cerr << "[DatabaseManager] " << m_lastError << std::endl;
+        return false;
+    }
+
+    std::cout << "[DatabaseManager] Successfully opened database: " << resolvedPath << " (Schema integrity verified: PASS)" << std::endl;
     return true;
 }
 
 void DatabaseManager::close() {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     if (m_db) {
-        sqlite3_close(m_db);
+        execute("PRAGMA wal_checkpoint(TRUNCATE);");
+        int rc = sqlite3_close(m_db);
+        if (rc == SQLITE_BUSY) {
+            sqlite3_close_v2(m_db);
+        }
         m_db = nullptr;
     }
 }
 
 bool DatabaseManager::execute(const std::string& sql) {
-    if (!m_db) return false;
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
+    if (!m_db) {
+        if (!initialize()) {
+            m_lastError = "Database connection is not open and auto-initialization failed.";
+            std::cerr << "[DatabaseManager] " << m_lastError << std::endl;
+            return false;
+        }
+    }
     char* zErrMsg = nullptr;
     int rc = sqlite3_exec(m_db, sql.c_str(), nullptr, nullptr, &zErrMsg);
     if (rc != SQLITE_OK) {
-        m_lastError = zErrMsg ? zErrMsg : "SQL Execution error";
+        m_lastError = zErrMsg ? zErrMsg : sqlite3_errmsg(m_db);
+        std::cerr << "[DatabaseManager] SQL Execute Error [" << rc << "]: " << m_lastError << " | Query: " << sql << std::endl;
         sqlite3_free(zErrMsg);
         return false;
     }
@@ -81,22 +225,32 @@ bool DatabaseManager::execute(const std::string& sql) {
 }
 
 int64_t DatabaseManager::getLastInsertId() {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     if (!m_db) return 0;
     return (int64_t)sqlite3_last_insert_rowid(m_db);
 }
 
 sqlite3_stmt* DatabaseManager::prepare(const std::string& sql) {
-    if (!m_db) return nullptr;
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
+    if (!m_db) {
+        if (!initialize()) {
+            m_lastError = "Database connection is not open and auto-initialization failed.";
+            std::cerr << "[DatabaseManager] " << m_lastError << std::endl;
+            return nullptr;
+        }
+    }
     sqlite3_stmt* stmt = nullptr;
     int rc = sqlite3_prepare_v2(m_db, sql.c_str(), -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
         m_lastError = sqlite3_errmsg(m_db);
+        std::cerr << "[DatabaseManager] SQL Prepare Error [" << rc << "]: " << m_lastError << " | Query: " << sql << std::endl;
         return nullptr;
     }
     return stmt;
 }
 
 void DatabaseManager::finalize(sqlite3_stmt*& stmt) {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     if (stmt) {
         sqlite3_finalize(stmt);
         stmt = nullptr;
@@ -104,11 +258,12 @@ void DatabaseManager::finalize(sqlite3_stmt*& stmt) {
 }
 
 std::string DatabaseManager::getLastError() const {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     return m_lastError;
 }
 
 bool DatabaseManager::beginTransaction() {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     if (m_transactionDepth == 0) {
         bool ok = execute("BEGIN IMMEDIATE TRANSACTION;");
         if (ok) m_transactionDepth++;
@@ -122,6 +277,7 @@ bool DatabaseManager::beginTransaction() {
 }
 
 bool DatabaseManager::commit() {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     if (m_transactionDepth <= 0) return false;
     if (m_transactionDepth == 1) {
         m_transactionDepth = 0;
@@ -134,6 +290,7 @@ bool DatabaseManager::commit() {
 }
 
 bool DatabaseManager::rollback() {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     if (m_transactionDepth <= 0) return false;
     if (m_transactionDepth == 1) {
         m_transactionDepth = 0;

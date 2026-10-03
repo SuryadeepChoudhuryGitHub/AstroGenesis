@@ -348,9 +348,13 @@ void Renderer::shutdown() {
     }
 
     for (auto& pair : m_textures) {
-        glDeleteTextures(1, &pair.second);
+        if (pair.second != 0) {
+            glDeleteTextures(1, &pair.second);
+        }
     }
     m_textures.clear();
+    m_skyboxTexture = 0;
+    m_ringTexture = 0;
 
     m_particleRenderer.shutdown();
     m_deformableRenderer.shutdown();
@@ -509,6 +513,34 @@ MeshData Renderer::createQuadMesh() {
     return mesh;
 }
 
+// Box-filter 2x2 downsample for 4-channel RGBA8 data
+static void downsampleRGBA_2x2(const unsigned char* src, int w, int h, unsigned char* dst) {
+    int nw = std::max(1, w / 2);
+    int nh = std::max(1, h / 2);
+    for (int y = 0; y < nh; ++y) {
+        int srcY0 = y * 2;
+        int srcY1 = std::min(srcY0 + 1, h - 1);
+        const unsigned char* row0 = src + (size_t)srcY0 * w * 4;
+        const unsigned char* row1 = src + (size_t)srcY1 * w * 4;
+        unsigned char* outRow = dst + (size_t)y * nw * 4;
+
+        for (int x = 0; x < nw; ++x) {
+            int srcX0 = x * 2;
+            int srcX1 = std::min(srcX0 + 1, w - 1);
+
+            const unsigned char* p00 = row0 + srcX0 * 4;
+            const unsigned char* p10 = row0 + srcX1 * 4;
+            const unsigned char* p01 = row1 + srcX0 * 4;
+            const unsigned char* p11 = row1 + srcX1 * 4;
+            unsigned char* out = outRow + x * 4;
+
+            for (int c = 0; c < 4; ++c) {
+                out[c] = (unsigned char)(((int)p00[c] + (int)p10[c] + (int)p01[c] + (int)p11[c] + 2) >> 2);
+            }
+        }
+    }
+}
+
 GLuint Renderer::loadTexture(const std::string& filepath) {
     if (filepath.empty()) return 0;
 
@@ -517,19 +549,67 @@ GLuint Renderer::loadTexture(const std::string& filepath) {
         return it->second;
     }
 
-    int width, height, nrChannels;
-    stbi_set_flip_vertically_on_load(false);
-    unsigned char* data = stbi_load(filepath.c_str(), &width, &height, &nrChannels, 0);
+    // Candidate path resolution
+    std::vector<std::string> candidates;
+    candidates.push_back(filepath);
+    candidates.push_back("../" + filepath);
+    candidates.push_back("../../" + filepath);
 
-    if (!data) {
+    std::string exeDir = getExecutableDir();
+    if (!exeDir.empty()) {
+        candidates.push_back(exeDir + "/" + filepath);
+        candidates.push_back(exeDir + "/../" + filepath);
+        candidates.push_back(exeDir + "/../../" + filepath);
+        candidates.push_back(exeDir + "/../../../" + filepath);
+    }
+
+    int width = 0, height = 0, nrChannels = 0;
+    stbi_set_flip_vertically_on_load(false);
+    unsigned char* initialData = nullptr;
+
+    for (const auto& cand : candidates) {
+        // Request 4 channels (RGBA) to eliminate unpack alignment mismatches & support all formats
+        initialData = stbi_load(cand.c_str(), &width, &height, &nrChannels, 4);
+        if (initialData) {
+            break;
+        }
+    }
+
+    if (!initialData) {
+        std::cerr << "[Renderer] Warning: Could not find or load texture: " << filepath << std::endl;
+        m_textures[filepath] = 0; // Negative cache: prevent re-querying disk every frame
         return 0;
     }
 
-    GLenum format = GL_RGB;
-    if (nrChannels == 1) format = GL_RED;
-    else if (nrChannels == 4) format = GL_RGBA;
+    // Query hardware texture limit and cap dimensions to prevent GPU driver crashes or TDR
+    GLint maxTexSize = 4096;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTexSize);
+    if (maxTexSize <= 0) maxTexSize = 4096;
+    GLint targetMax = std::min(maxTexSize, 4096);
 
-    GLuint texture;
+    int curW = width;
+    int curH = height;
+    unsigned char* curData = initialData;
+    bool isAllocated = false;
+
+    // High quality 2x2 box downsampling if image exceeds targetMax
+    while (curW > targetMax || curH > targetMax) {
+        int nextW = std::max(1, curW / 2);
+        int nextH = std::max(1, curH / 2);
+        unsigned char* nextData = (unsigned char*)malloc((size_t)nextW * nextH * 4);
+        if (!nextData) break; // Out of memory fallback
+
+        downsampleRGBA_2x2(curData, curW, curH, nextData);
+        if (isAllocated) {
+            free(curData);
+        }
+        curData = nextData;
+        curW = nextW;
+        curH = nextH;
+        isAllocated = true;
+    }
+
+    GLuint texture = 0;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
 
@@ -538,10 +618,35 @@ GLuint Renderer::loadTexture(const std::string& filepath) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
+    // Clear any previous OpenGL errors
+    while (glGetError() != GL_NO_ERROR) {}
 
-    stbi_image_free(data);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, curW, curH, 0, GL_RGBA, GL_UNSIGNED_BYTE, curData);
+    GLenum err = glGetError();
+
+    if (err != GL_NO_ERROR) {
+        std::cerr << "[Renderer] Error: glTexImage2D failed (0x" << std::hex << err << std::dec
+                  << ") for texture: " << filepath << std::endl;
+        glDeleteTextures(1, &texture);
+        if (isAllocated) free(curData);
+        stbi_image_free(initialData);
+        m_textures[filepath] = 0;
+        return 0;
+    }
+
+    // Generate mipmaps safely; fall back to linear if mipmap generation fails
+    glGenerateMipmap(GL_TEXTURE_2D);
+    GLenum mipErr = glGetError();
+    if (mipErr != GL_NO_ERROR) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    }
+
+    if (isAllocated) {
+        free(curData);
+    }
+    stbi_image_free(initialData);
+
     m_textures[filepath] = texture;
     return texture;
 }

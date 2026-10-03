@@ -480,6 +480,7 @@ int main() {
     std::cout << " ALL 18 TEST SUITES PASSED SUCCESSFULLY!" << std::endl;
     std::cout << "==========================================================" << std::endl;
 
+    db.close();
     return 0;
 }
 

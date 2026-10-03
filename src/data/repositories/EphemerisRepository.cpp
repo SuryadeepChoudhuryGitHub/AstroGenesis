@@ -62,8 +62,8 @@ std::vector<EphemerisRecord> EphemerisRepository::getEphemerisSeries(int64_t obj
         EphemerisRecord r;
         r.id = sqlite3_column_int64(stmt, 0);
         r.objectId = sqlite3_column_int64(stmt, 1);
-        r.targetName = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        r.epochUtc = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        r.targetName = columnTextSafe(stmt, 2);
+        r.epochUtc = columnTextSafe(stmt, 3);
         r.epochJd = sqlite3_column_double(stmt, 4);
         r.positionM.x = sqlite3_column_double(stmt, 5);
         r.positionM.y = sqlite3_column_double(stmt, 6);
@@ -71,7 +71,7 @@ std::vector<EphemerisRecord> EphemerisRepository::getEphemerisSeries(int64_t obj
         r.velocityMps.x = sqlite3_column_double(stmt, 8);
         r.velocityMps.y = sqlite3_column_double(stmt, 9);
         r.velocityMps.z = sqlite3_column_double(stmt, 10);
-        r.referenceFrame = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 11));
+        r.referenceFrame = columnTextSafe(stmt, 11, "ICRF");
         r.sourceId = sqlite3_column_int64(stmt, 12);
         list.push_back(r);
     }
@@ -94,8 +94,8 @@ std::optional<EphemerisRecord> EphemerisRepository::getClosestEphemeris(int64_t 
         EphemerisRecord r;
         r.id = sqlite3_column_int64(stmt, 0);
         r.objectId = sqlite3_column_int64(stmt, 1);
-        r.targetName = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        r.epochUtc = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        r.targetName = columnTextSafe(stmt, 2);
+        r.epochUtc = columnTextSafe(stmt, 3);
         r.epochJd = sqlite3_column_double(stmt, 4);
         r.positionM.x = sqlite3_column_double(stmt, 5);
         r.positionM.y = sqlite3_column_double(stmt, 6);
@@ -103,7 +103,7 @@ std::optional<EphemerisRecord> EphemerisRepository::getClosestEphemeris(int64_t 
         r.velocityMps.x = sqlite3_column_double(stmt, 8);
         r.velocityMps.y = sqlite3_column_double(stmt, 9);
         r.velocityMps.z = sqlite3_column_double(stmt, 10);
-        r.referenceFrame = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 11));
+        r.referenceFrame = columnTextSafe(stmt, 11, "ICRF");
         r.sourceId = sqlite3_column_int64(stmt, 12);
         res = r;
     }

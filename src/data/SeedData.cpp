@@ -30,8 +30,8 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
     sol.physical.greenhouseK = 0.0;
     sol.physical.axialTiltDeg = 7.25;
     sol.physical.rotationPeriodHours = 609.12;
-    sol.physical.atmosphereSummary = "73.46% H₂, 24.85% He";
-    sol.physical.magneticFieldStr = "100–300 µT";
+    sol.physical.atmosphereSummary = "73.46% H2, 24.85% He";
+    sol.physical.magneticFieldStr = "100-300 uT";
     sol.physical.surfaceGravityMps2 = 274.0;
     sol.physical.escapeVelocityMps = 617700.0;
     sol.physical.surfaceTempK = 5778.0;
@@ -196,7 +196,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               3.3011e23, 2439700.0, 0.387098, 0.205630,
               7.0049, 48.331, 29.124, 174.796,
               0.088, 0.0, 0.034, 1407.5,
-              "42% O₂, 29% Na, 22% H₂", "10⁻¹⁴ kPa", "0.3 µT", "199",
+              "42% O2, 29% Na, 22% H2", "10^-14 kPa", "0.3 uT", "199",
               { {0,0,"Oxygen",42.0f,{0.2f,0.8f,0.4f,1.0f}}, {0,0,"Sodium",29.0f,{0.9f,0.6f,0.1f,1.0f}}, {0,0,"Hydrogen",22.0f,{0.4f,0.7f,1.0f,1.0f}} },
               glm::vec3(0.7f, 0.6f, 0.5f), "assets/textures/mercury_surface.jpg");
 
@@ -205,7 +205,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               4.8675e24, 6051800.0, 0.723332, 0.006772,
               3.3947, 76.680, 54.884, 50.115,
               0.760, 480.0, 177.36, -5832.6,
-              "96.5% CO₂, 3.5% N₂", "9,200 kPa", "Induced", "299",
+              "96.5% CO2, 3.5% N2", "9,200 kPa", "Induced", "299",
               { {0,0,"Carbon Dioxide",96.5f,{0.9f,0.3f,0.3f,1.0f}}, {0,0,"Nitrogen",3.5f,{0.0f,0.7f,0.9f,1.0f}} },
               glm::vec3(0.9f, 0.7f, 0.3f), "assets/textures/venus_surface.jpg");
 
@@ -214,7 +214,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               5.97219e24, 6371000.0, 1.000000, 0.0167086,
               0.00005, 174.9, 288.1, 357.517,
               0.306, 33.0, 23.44, 23.93446,
-              "78% N₂, 21% O₂", "101.3 kPa", "25.0–65.0 µT", "399",
+              "78% N2, 21% O2", "101.3 kPa", "25.0-65.0 uT", "399",
               { {0,0,"Nitrogen",77.08f,{0.0f,0.7f,0.9f,1.0f}}, {0,0,"Oxygen",20.75f,{0.0f,0.85f,0.4f,1.0f}}, {0,0,"Water Vapor",1.20f,{0.4f,0.7f,1.0f,1.0f}}, {0,0,"Argon",0.93f,{0.94f,0.75f,0.12f,1.0f}}, {0,0,"Carbon Dioxide",0.04f,{0.86f,0.31f,0.31f,1.0f}} },
               glm::vec3(0.0f, 0.83f, 1.0f), "assets/textures/earth_daymap.jpg");
 
@@ -223,7 +223,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               UnitConverter::LUNAR_MASS_KG, UnitConverter::LUNAR_RADIUS_M, 384400.0, 0.0549,
               5.145, 125.08, 318.15, 135.27,
               0.12, 0.0, 1.54, 655.7,
-              "Trace Helium, Neon, Hydrogen", "10⁻¹² kPa", "None", "301",
+              "Trace Helium, Neon, Hydrogen", "10^-12 kPa", "None", "301",
               { {0,0,"Helium",40.0f,{0.8f,0.8f,0.8f,1.0f}}, {0,0,"Neon",40.0f,{0.9f,0.4f,0.1f,1.0f}}, {0,0,"Hydrogen",20.0f,{0.3f,0.7f,1.0f,1.0f}} },
               glm::vec3(0.75f, 0.75f, 0.75f), "", earthRes);
 
@@ -232,7 +232,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               6.4171e23, 3389500.0, 1.523679, 0.093400,
               1.8497, 49.558, 286.502, 19.373,
               0.250, 5.0, 25.19, 24.6229,
-              "95.3% CO₂, 2.6% N₂", "0.61 kPa", "Remnant", "499",
+              "95.3% CO2, 2.6% N2", "0.61 kPa", "Remnant", "499",
               { {0,0,"Carbon Dioxide",95.32f,{0.9f,0.3f,0.2f,1.0f}}, {0,0,"Nitrogen",2.6f,{0.0f,0.7f,0.9f,1.0f}}, {0,0,"Argon",1.9f,{0.9f,0.7f,0.1f,1.0f}} },
               glm::vec3(0.95f, 0.35f, 0.2f), "assets/textures/mars_surface.jpg");
 
@@ -241,7 +241,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               1.89813e27, 69911000.0, 5.204400, 0.048900,
               1.303, 100.464, 273.867, 20.020,
               0.503, 0.0, 3.13, 9.925,
-              "89% H₂, 10% He", "100 kPa", "420 µT", "599",
+              "89% H2, 10% He", "100 kPa", "420 uT", "599",
               { {0,0,"Hydrogen",89.8f,{0.9f,0.8f,0.6f,1.0f}}, {0,0,"Helium",10.2f,{0.9f,0.6f,0.3f,1.0f}} },
               glm::vec3(0.85f, 0.65f, 0.45f), "assets/textures/jupiter_surface.jpg");
 
@@ -250,7 +250,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
             8.9319e22, 1821600.0, 421700.0, 0.0041,
             0.05, 43.0, 84.0, 200.0,
             0.63, 0.0, 0.0, 42.46,
-            "Trace SO₂", "10⁻⁹ kPa", "Induced", "501",
+            "Trace SO2", "10^-9 kPa", "Induced", "501",
             { {0,0,"Sulfur / Silicates",90.0f,{0.9f,0.8f,0.2f,1.0f}}, {0,0,"Iron Core",10.0f,{0.5f,0.3f,0.1f,1.0f}} },
             glm::vec3(0.95f, 0.85f, 0.2f), "", jupiterRes);
 
@@ -258,7 +258,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
             4.7998e22, 1560800.0, 670900.0, 0.0090,
             0.47, 219.0, 357.0, 90.0,
             0.67, 0.0, 0.1, 85.23,
-            "Trace O₂", "10⁻¹¹ kPa", "Induced", "502",
+            "Trace O2", "10^-11 kPa", "Induced", "502",
             { {0,0,"Water Ice Crust",85.0f,{0.8f,0.9f,1.0f,1.0f}}, {0,0,"Silicate Mantle",15.0f,{0.6f,0.5f,0.4f,1.0f}} },
             glm::vec3(0.85f, 0.85f, 0.95f), "", jupiterRes);
 
@@ -266,7 +266,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
             1.4819e23, 2634100.0, 1070400.0, 0.0013,
             0.20, 63.0, 192.0, 45.0,
             0.43, 0.0, 0.2, 171.71,
-            "Trace O₂, O₃", "10⁻¹¹ kPa", "1.2 µT (Intrinsic)", "503",
+            "Trace O2, O3", "10^-11 kPa", "1.2 uT (Intrinsic)", "503",
             { {0,0,"Water Ice",50.0f,{0.7f,0.8f,0.9f,1.0f}}, {0,0,"Silicates",40.0f,{0.5f,0.5f,0.5f,1.0f}}, {0,0,"Iron Core",10.0f,{0.6f,0.4f,0.2f,1.0f}} },
             glm::vec3(0.7f, 0.65f, 0.6f), "", jupiterRes);
 
@@ -274,7 +274,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
             1.0759e23, 2410300.0, 1882700.0, 0.0074,
             0.28, 298.0, 52.0, 310.0,
             0.22, 0.0, 0.0, 400.54,
-            "Trace CO₂", "10⁻¹¹ kPa", "Induced", "504",
+            "Trace CO2", "10^-11 kPa", "Induced", "504",
             { {0,0,"Water Ice",50.0f,{0.6f,0.6f,0.7f,1.0f}}, {0,0,"Silicates",50.0f,{0.4f,0.4f,0.4f,1.0f}} },
             glm::vec3(0.55f, 0.5f, 0.45f), "", jupiterRes);
 
@@ -284,7 +284,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               5.6834e26, 58232000.0, 9.582600, 0.056500,
               2.485, 113.665, 339.392, 317.020,
               0.342, 0.0, 26.73, 10.656,
-              "96% H₂, 3% He", "100 kPa", "21 µT", "699",
+              "96% H2, 3% He", "100 kPa", "21 uT", "699",
               { {0,0,"Hydrogen",96.3f,{0.9f,0.85f,0.5f,1.0f}}, {0,0,"Helium",3.2f,{0.9f,0.7f,0.4f,1.0f}} },
               glm::vec3(0.9f, 0.8f, 0.5f), "assets/textures/saturn_surface.jpg", saturnRing);
 
@@ -293,7 +293,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
             1.3452e23, 2574700.0, 1221870.0, 0.0288,
             0.35, 99.0, 180.0, 15.0,
             0.22, 12.0, 0.0, 382.68,
-            "95% N₂, 5% CH₄", "146.7 kPa", "Induced", "606",
+            "95% N2, 5% CH4", "146.7 kPa", "Induced", "606",
             { {0,0,"Nitrogen Atmosphere",60.0f,{0.9f,0.6f,0.2f,1.0f}}, {0,0,"Water Ice Mantle",40.0f,{0.6f,0.7f,0.9f,1.0f}} },
             glm::vec3(0.9f, 0.7f, 0.3f), "", saturnRes);
 
@@ -302,7 +302,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               8.6810e25, 25362000.0, 19.20120, 0.047170,
               0.773, 74.006, 96.999, 142.239,
               0.300, 0.0, 97.77, -17.24,
-              "83% H₂, 15% He, 2.3% CH₄", "100 kPa", "23 µT", "799",
+              "83% H2, 15% He, 2.3% CH4", "100 kPa", "23 uT", "799",
               { {0,0,"Hydrogen",83.0f,{0.3f,0.8f,0.9f,1.0f}}, {0,0,"Helium",15.0f,{0.5f,0.7f,0.9f,1.0f}}, {0,0,"Methane",2.3f,{0.1f,0.5f,0.8f,1.0f}} },
               glm::vec3(0.5f, 0.8f, 0.9f), "assets/textures/uranus_surface.jpg");
 
@@ -311,7 +311,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               1.02413e26, 24622000.0, 30.04720, 0.008678,
               1.770, 131.784, 273.187, 256.228,
               0.290, 0.0, 28.32, 16.11,
-              "80% H₂, 19% He, 1.5% CH₄", "100 kPa", "14 µT", "899",
+              "80% H2, 19% He, 1.5% CH4", "100 kPa", "14 uT", "899",
               { {0,0,"Hydrogen",80.0f,{0.1f,0.3f,0.9f,1.0f}}, {0,0,"Helium",19.0f,{0.3f,0.5f,0.9f,1.0f}}, {0,0,"Methane",1.5f,{0.0f,0.2f,0.7f,1.0f}} },
               glm::vec3(0.2f, 0.4f, 0.9f), "assets/textures/neptune_surface.jpg");
 
@@ -320,7 +320,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
               1.303e22, 1188300.0, 39.482, 0.2488,
               17.16, 110.303, 113.834, 14.882,
               0.52, 0.0, 122.53, -153.3,
-              "99% N₂, 0.5% CH₄, 0.5% CO", "0.001 kPa", "None", "999",
+              "99% N2, 0.5% CH4, 0.5% CO", "0.001 kPa", "None", "999",
               { {0,0,"Nitrogen",99.0f,{0.9f,0.8f,0.7f,1.0f}}, {0,0,"Methane",0.5f,{0.2f,0.5f,0.8f,1.0f}} },
               glm::vec3(0.8f, 0.7f, 0.6f), "");
 

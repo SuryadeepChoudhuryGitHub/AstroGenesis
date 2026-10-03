@@ -20,7 +20,19 @@ bool ModelInference::loadModel(const std::string& jsonModelPath) {
     m_isLoaded = false;
     m_lastError.clear();
 
-    std::ifstream file(jsonModelPath);
+    std::vector<std::string> candidates = {
+        jsonModelPath,
+        "../" + jsonModelPath,
+        "../../" + jsonModelPath
+    };
+    std::ifstream file;
+    for (const auto& cand : candidates) {
+        file.open(cand);
+        if (file.is_open()) {
+            m_modelPath = cand;
+            break;
+        }
+    }
     if (!file.is_open()) {
         m_lastError = "Could not open model file: " + jsonModelPath;
         std::cerr << "[ModelInference] " << m_lastError << std::endl;

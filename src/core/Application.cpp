@@ -6,6 +6,8 @@
 #include <cstdio>
 #include <algorithm>
 #include <iostream>
+#include <filesystem>
+#include "renderer/ShaderLoader.hpp"
 
 namespace AstroGenesis {
 
@@ -24,6 +26,44 @@ Application::~Application() {
 bool Application::initialize(int width, int height, const char* title) {
     m_windowWidth = width;
     m_windowHeight = height;
+
+    // Normalize working directory so relative paths (assets/, data/) resolve reliably
+    try {
+        std::string exeDir = getExecutableDir();
+        std::vector<std::filesystem::path> rootCandidates = {
+            std::filesystem::current_path(),
+            std::filesystem::current_path() / "..",
+            std::filesystem::current_path() / "../..",
+        };
+        if (!exeDir.empty()) {
+            rootCandidates.push_back(exeDir);
+            rootCandidates.push_back(std::filesystem::path(exeDir) / "..");
+            rootCandidates.push_back(std::filesystem::path(exeDir) / "../..");
+            rootCandidates.push_back(std::filesystem::path(exeDir) / "../../..");
+        }
+        bool foundProjectRoot = false;
+        // First priority: project source root with CMakeLists.txt
+        for (const auto& cand : rootCandidates) {
+            std::error_code ec;
+            if (std::filesystem::exists(cand / "CMakeLists.txt", ec) &&
+                std::filesystem::exists(cand / "assets", ec) &&
+                std::filesystem::exists(cand / "data", ec)) {
+                std::filesystem::current_path(cand, ec);
+                foundProjectRoot = true;
+                break;
+            }
+        }
+        // Second priority: packaged release folder with assets & data
+        if (!foundProjectRoot) {
+            for (const auto& cand : rootCandidates) {
+                std::error_code ec;
+                if (std::filesystem::exists(cand / "assets", ec) && std::filesystem::exists(cand / "data", ec)) {
+                    std::filesystem::current_path(cand, ec);
+                    break;
+                }
+            }
+        }
+    } catch (...) {}
 
     if (!glfwInit()) {
         fprintf(stderr, "Failed to initialize GLFW\n");
@@ -94,16 +134,19 @@ bool Application::initialize(int width, int height, const char* title) {
     };
 
     static const ImWchar glyphRanges[] = {
-        0x0020, 0x00FF, // Basic Latin + Latin Supplement
+        0x0020, 0x00FF, // Basic Latin + Latin Supplement (degree, sup2, sup3, plusminus, micro, etc.)
         0x0100, 0x017F, // Latin Extended-A
-        0x0370, 0x03FF, // Greek (alpha, beta, etc.)
-        0x2000, 0x206F, // General Punctuation
-        0x2070, 0x209F, // Superscripts and Subscripts (², ³, ⁴, ⁻, etc.)
-        0x2100, 0x214F, // Letterlike Symbols (℃, etc.)
-        0x2190, 0x21FF, // Arrows (←, ↑, →, ↓)
-        0x2200, 0x22FF, // Mathematical Operators (∑, ∆, ∇, √, ∞, etc.)
-        0x25A0, 0x25FF, // Geometric Shapes (■, ▲, ▼, ◆, ⬡, ⌖, etc.)
-        0x2600, 0x26FF, // Miscellaneous Symbols (★, ☉, ☄, ⚡, ⚙, etc.)
+        0x0370, 0x03FF, // Greek (alpha, beta, delta, tau, etc.)
+        0x2000, 0x206F, // General Punctuation (dash, ellipsis, etc.)
+        0x2070, 0x209F, // Superscripts and Subscripts (sup2, sup3, sup4, sup-, etc.)
+        0x2100, 0x214F, // Letterlike Symbols (deg C, etc.)
+        0x2190, 0x21FF, // Arrows (left, up, right, down, refresh, etc.)
+        0x2200, 0x22FF, // Mathematical Operators (sum, delta, nabla, sqrt, infty, etc.)
+        0x2300, 0x23FF, // Miscellaneous Technical
+        0x25A0, 0x25FF, // Geometric Shapes
+        0x2600, 0x26FF, // Miscellaneous Symbols
+        0x2700, 0x27BF, // Dingbats
+        0x2B00, 0x2BFF, // Miscellaneous Symbols and Arrows
         0
     };
 
@@ -124,7 +167,21 @@ bool Application::initialize(int width, int height, const char* title) {
             }
         }
     }
-    if (!fontLoaded) {
+
+    if (fontLoaded) {
+        // Merge Segoe UI Symbol for complete technical, mathematical, and astronomical Unicode coverage
+        const char* symbolFont = "C:/Windows/Fonts/seguisym.ttf";
+        FILE* sf = fopen(symbolFont, "rb");
+        if (sf) {
+            fclose(sf);
+            ImFontConfig mergeConfig;
+            mergeConfig.MergeMode = true;
+            mergeConfig.OversampleH = 2;
+            mergeConfig.OversampleV = 2;
+            mergeConfig.PixelSnapH = false;
+            io.Fonts->AddFontFromFileTTF(symbolFont, 15.0f, &mergeConfig, glyphRanges);
+        }
+    } else {
         io.Fonts->AddFontDefault();
     }
 
@@ -424,7 +481,19 @@ void Application::run() {
         m_physics.clearRecentCollisions();
 
         m_aiManager.update(m_physics, deltaTime);
-        m_camera.setTargetPosition(m_physics.getSelectedBody().position);
+        if (m_uiManager.getActiveTopTab() == 0) {
+            // UNIVERSE mode: camera tracks focused body
+            m_camera.setTargetPosition(m_physics.getSelectedBody().position);
+        } else if (m_uiManager.getActiveTopTab() == 1) {
+            // EDIT mode: camera target stays locked during object manipulation
+            if (!m_uiManager.isManipulatingObject()) {
+                if (m_camera.isTransitioning()) {
+                    m_camera.setTargetPosition(m_physics.getSelectedBody().position);
+                }
+            }
+        } else {
+            m_camera.setTargetPosition(m_physics.getSelectedBody().position);
+        }
         m_camera.update(deltaTime);
 
         // Update Visual State Adapter (Physics State -> Visual State)

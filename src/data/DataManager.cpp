@@ -260,12 +260,11 @@ std::vector<DataImportRecord> DataManager::getImportHistory(int limit) {
         DataImportRecord r;
         r.id = sqlite3_column_int64(stmt, 0);
         r.sourceId = sqlite3_column_int64(stmt, 1);
-        r.targetObject = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        r.status = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        r.targetObject = columnTextSafe(stmt, 2);
+        r.status = columnTextSafe(stmt, 3);
         r.recordsCount = sqlite3_column_int(stmt, 4);
-        const unsigned char* d = sqlite3_column_text(stmt, 5);
-        if (d) r.details = reinterpret_cast<const char*>(d);
-        r.timestamp = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
+        r.details = columnTextSafe(stmt, 5);
+        r.timestamp = columnTextSafe(stmt, 6);
         list.push_back(r);
     }
     m_db.finalize(stmt);

@@ -46,7 +46,7 @@ struct MaterialDefinition {
     double specificHeatJPerKgK = 800.0;         // C_p (J / kg*K)
     double thermalConductivityWPerMK = 2.5;     // k_th (W / m*K)
     double thermalExpansionCoeffPerK = 8.0e-6;  // alpha_th (1/K)
-    double meltingPointK = 1473.15;             // T_melt (1200 °C)
+    double meltingPointK = 1473.15;             // T_melt (1200 C)
     double boilingPointK = 3100.0;              // T_boil
     double latentHeatFusionJPerKg = 4.0e5;      // L_f (J/kg)
     double latentHeatVaporizationJPerKg = 6.0e6;// L_v (J/kg)

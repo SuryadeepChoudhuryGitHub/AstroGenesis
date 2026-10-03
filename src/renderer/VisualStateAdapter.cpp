@@ -322,7 +322,7 @@ void VisualStateAdapter::update(
         }
 
         // Magnetosphere & Aurora
-        vs.hasMagneticField = (!b.magneticFieldStr.empty() && b.magneticFieldStr != "None" && b.magneticFieldStr != "0.0 µT" && b.magneticFieldStr != "Negligible");
+        vs.hasMagneticField = (!b.magneticFieldStr.empty() && b.magneticFieldStr != "None" && b.magneticFieldStr != "0.0 uT" && b.magneticFieldStr != "Negligible");
         vs.magneticFieldTesla = vs.hasMagneticField ? 5e-5f : 0.0f;
 
         // Cometary volatile sublimation
