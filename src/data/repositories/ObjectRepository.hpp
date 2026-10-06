@@ -59,7 +59,7 @@ public:
     std::optional<SystemRecord> getSystemById(int64_t id);
     std::optional<SystemRecord> getSystemByName(const std::string& name);
 
-    bool addSystemObject(int64_t systemId, int64_t objectId, std::optional<int64_t> parentObjectId = std::nullopt, int orbitalOrder = 0);
+    bool addSystemObject(int64_t systemId, int64_t objectId, std::optional<int64_t> parentObjectId = std::nullopt, int orbitalOrder = 0, const std::string& customOverridesJson = "");
     bool removeSystemObject(int64_t systemId, int64_t objectId);
     std::vector<SystemObjectRecord> getSystemObjectLinks(int64_t systemId);
 

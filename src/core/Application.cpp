@@ -186,6 +186,7 @@ bool Application::initialize(int width, int height, const char* title) {
     }
 
     m_uiManager.initialize();
+    m_profiler.initialize(m_window);
 
     ImGui_ImplGlfw_InitForOpenGL(m_window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
@@ -446,6 +447,11 @@ void Application::processInput(float deltaTime) {
             float newScale = std::min(31536000.0f * 100.0f, m_physics.getTimeScale() * 2.0f);
             m_physics.setTimeScale(newScale);
         }
+        // F3: Toggle Performance Profiler window
+        if (ImGui::IsKeyPressed(ImGuiKey_F3, false)) {
+            m_profiler.toggleOpen();
+            m_uiManager.addEventLog(m_profiler.isOpen() ? "Performance Profiler window opened (Hotkey: F3)" : "Performance Profiler window closed (Hotkey: F3)");
+        }
     }
 }
 
@@ -471,7 +477,12 @@ void Application::run() {
         ImGui::NewFrame();
 
         // Advance simulation dynamics (Authoritative Physics)
+        m_profiler.beginFrame();
+        auto physStart = std::chrono::high_resolution_clock::now();
         m_physics.update(deltaTime);
+        auto physEnd = std::chrono::high_resolution_clock::now();
+        float physMs = std::chrono::duration<float, std::milli>(physEnd - physStart).count();
+        m_profiler.markPhysicsTime(physMs);
 
         // Process physical collision events
         for (const auto& colEv : m_physics.getRecentCollisions()) {
@@ -511,6 +522,11 @@ void Application::run() {
         // Render UI with dynamic database, data manager, validation engine, visual state adapter, and AI subsystem
         m_uiManager.renderUI(m_physics, m_camera, m_objRepo, m_dataManager, m_valEngine, m_visualAdapter, m_aiManager, (float)m_windowWidth, (float)m_windowHeight, fps);
 
+        if (m_uiManager.shouldOpenProfiler()) {
+            m_profiler.setOpen(true);
+            m_uiManager.clearProfilerRequest();
+        }
+
         // Process mouse & keyboard interactions
         processInput(deltaTime);
 
@@ -540,6 +556,10 @@ void Application::run() {
         float aspect = (float)vw / (float)vh;
 
         glm::vec4 bgDark{0.0f, 0.0f, 0.0f, 1.00f};
+
+        auto renderCpuStart = std::chrono::high_resolution_clock::now();
+        m_profiler.beginGpuQuery();
+
         m_renderer.beginViewport(vx, vy, vw, vh, bgDark);
 
         // 1. Skybox background
@@ -576,15 +596,26 @@ void Application::run() {
 
         m_renderer.endViewport(fbW, fbH);
 
+        m_profiler.endGpuQuery();
+        auto renderCpuEnd = std::chrono::high_resolution_clock::now();
+        float renderCpuMs = std::chrono::duration<float, std::milli>(renderCpuEnd - renderCpuStart).count();
+        m_profiler.markRenderCpuTime(renderCpuMs);
+
         // Render UI overlays
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(m_window);
+
+        // Record metrics and render separate Performance Profiler window
+        m_profiler.recordMetrics(m_physics, m_visualAdapter, m_renderer, deltaTime, fps);
+        m_profiler.render(m_visualAdapter, m_renderer);
     }
 }
 
 void Application::shutdown() {
+    m_profiler.shutdown();
+
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();

@@ -71,6 +71,9 @@ public:
 
     void openDataManager() { m_showDataManager = true; }
     void openValidationDashboard() { m_showValidationDashboard = true; }
+    bool shouldOpenProfiler() const { return m_requestOpenProfiler; }
+    void clearProfilerRequest() { m_requestOpenProfiler = false; }
+    void requestOpenProfiler() { m_requestOpenProfiler = true; }
     void setActiveTopTab(int tab) { m_activeTopTab = tab; }
     int getActiveTopTab() const { return m_activeTopTab; }
 
@@ -198,6 +201,7 @@ public:
     int m_detailsActiveTab = 0;         // 0: Overview, 1: Atmosphere, 2: Orbits, 3: AI Stability, 4: Rings/Matter, 5: Composition
     bool m_contextCardCollapsed = false;
     bool m_editPropCollapsed = false;
+    bool m_requestOpenProfiler = false;
 
     // History
     UndoRedoManager m_undoRedo;

@@ -341,7 +341,8 @@ int main() {
     std::string searchErr;
     bool searchOk = exProvider.searchObjects("Kepler-186", searchRes, searchErr);
     std::cout << "    - NASA TAP Search (Kepler-186): " << (searchOk ? "SUCCESS" : "FAIL") 
-              << " (" << searchRes.size() << " items returned)" << std::endl;
+              << " (" << searchRes.size() << " items returned)" 
+              << (searchErr.empty() ? "" : (" | Error: " + searchErr)) << std::endl;
     assert(!searchRes.empty());
 
     // Verify both Star and Planet entries exist
@@ -476,8 +477,111 @@ int main() {
     assert(std::abs(physics.getBodies()[earthIdx].surfaceTempK - initialTemp) < 5.0);
     std::cout << "    -> PASS" << std::endl;
 
+    // 19. Stellar Catalog Provider & Multi-Star System Import
+    std::cout << "\n[19] Testing Stellar Catalog Provider & Multi-Star Import..." << std::endl;
+
+    // 19a. Cross-Catalogue Query Resolution & Benchmark Stars
+    std::string err;
+    auto siriusResults = dataManager.resolveQuery("Sirius", err);
+    std::cout << "    - Resolve 'Sirius' returned " << siriusResults.size() << " match(es):" << std::endl;
+    assert(!siriusResults.empty());
+    bool foundSiriusSystem = false;
+    bool foundSiriusA = false;
+    bool foundSiriusB = false;
+    for (const auto& r : siriusResults) {
+        std::cout << "      • [" << r.sourceName << "] " << r.name << " (" << r.type << ") -> ID: " << r.sourceId << std::endl;
+        if (r.name.find("Sirius System") != std::string::npos || r.sourceId.find("system_sirius") != std::string::npos) foundSiriusSystem = true;
+        if (r.name.find("Sirius A") != std::string::npos) foundSiriusA = true;
+        if (r.name.find("Sirius B") != std::string::npos) foundSiriusB = true;
+    }
+    assert(foundSiriusSystem && foundSiriusA && foundSiriusB);
+
+    // 19b. Cross-Catalog Alias Search: "HD 48915" -> Sirius A
+    auto hdResults = dataManager.resolveQuery("HD 48915", err);
+    std::cout << "    - Alias Search 'HD 48915' returned " << hdResults.size() << " match(es)" << std::endl;
+    assert(!hdResults.empty());
+    assert(hdResults[0].name.find("Sirius A") != std::string::npos);
+
+    // 19c. Single Star Search: "Rigel"
+    auto rigelResults = dataManager.resolveQuery("Rigel", err);
+    std::cout << "    - Search 'Rigel' returned " << rigelResults.size() << " match(es)" << std::endl;
+    assert(!rigelResults.empty());
+    assert(rigelResults[0].name.find("Rigel") != std::string::npos);
+
+    // 19d. Multiple-Star Binary System Import: "Sirius System"
+    bool importSiriusOk = dataManager.importStellarSystem("system_sirius_sys", err);
+    std::cout << "    - Import 'Sirius System' -> " << (importSiriusOk ? "PASS" : "FAIL: " + err) << std::endl;
+    assert(importSiriusOk);
+
+    auto siriusBodies = objRepo.getSystemBodies("Sirius System");
+    std::cout << "    - Hydrated Bodies in Sirius System: " << siriusBodies.size() << std::endl;
+    assert(siriusBodies.size() == 2);
+
+    const CelestialBody* siriusA = nullptr;
+    const CelestialBody* siriusB = nullptr;
+    for (const auto& b : siriusBodies) {
+        if (b.name.find("Sirius A") != std::string::npos) siriusA = &b;
+        if (b.name.find("Sirius B") != std::string::npos) siriusB = &b;
+    }
+    assert(siriusA != nullptr && siriusB != nullptr);
+
+    std::cout << "      • Sirius A: Mass=" << (siriusA->massKg / UnitConverter::SOLAR_MASS_KG) << " M☉, Radius=" 
+              << (siriusA->radiusM / UnitConverter::SOLAR_RADIUS_M) << " R☉, Temp=" << siriusA->surfaceTempK << " K, Class=" << siriusA->classificationStr << std::endl;
+    std::cout << "      • Sirius B: Mass=" << (siriusB->massKg / UnitConverter::SOLAR_MASS_KG) << " M☉, Radius=" 
+              << (siriusB->radiusM / UnitConverter::SOLAR_RADIUS_M) << " R☉, Temp=" << siriusB->surfaceTempK << " K, Class=" << siriusB->classificationStr << std::endl;
+    
+    assert(std::abs(siriusA->massKg / UnitConverter::SOLAR_MASS_KG - 2.063) < 0.05);
+    assert(siriusA->surfaceTempK > 9500.0 && siriusA->surfaceTempK < 10500.0);
+    assert(std::abs(siriusB->massKg / UnitConverter::SOLAR_MASS_KG - 1.018) < 0.05);
+    assert(siriusB->surfaceTempK > 24000.0 && siriusB->surfaceTempK < 26000.0);
+    assert(siriusB->classificationStr == "Star (White Dwarf)");
+    assert(!siriusA->parentObjectId.has_value());
+    assert(!siriusB->parentObjectId.has_value());
+
+    // Verify co-orbiting barycenter physics: momentum conservation
+    glm::dvec3 totalMomentum = siriusA->massKg * siriusA->velocityMps + siriusB->massKg * siriusB->velocityMps;
+    glm::dvec3 barycenterPos = (siriusA->massKg * siriusA->positionM + siriusB->massKg * siriusB->positionM) / (siriusA->massKg + siriusB->massKg);
+    std::cout << "      • Center of Mass offset from origin: " << glm::length(barycenterPos) << " m (negligible)" << std::endl;
+    std::cout << "      • Total System Momentum: " << glm::length(totalMomentum) << " kg*m/s (barycentric balance)" << std::endl;
+    assert(glm::length(barycenterPos) < 1.0e8);
+    assert(glm::length(totalMomentum) < 1.0e26);
+
+    // 19e. Single Star System Import: "Rigel"
+    bool importRigelOk = dataManager.importStellarSystem("Rigel", err);
+    std::cout << "    - Import 'Rigel' -> " << (importRigelOk ? "PASS" : "FAIL: " + err) << std::endl;
+    assert(importRigelOk);
+
+    auto rigelOpt = objRepo.getHydratedBodyBySlug("rigel");
+    assert(rigelOpt.has_value());
+    const auto& rigel = rigelOpt.value();
+    std::cout << "      • Rigel: Mass=" << (rigel.massKg / UnitConverter::SOLAR_MASS_KG) << " M☉, Radius=" 
+              << (rigel.radiusM / UnitConverter::SOLAR_RADIUS_M) << " R☉, Lum=" << (rigel.luminosityW / UnitConverter::SOLAR_LUMINOSITY_W) 
+              << " L☉, Class=" << rigel.classificationStr << std::endl;
+    assert(std::abs(rigel.massKg / UnitConverter::SOLAR_MASS_KG - 21.0) < 1.0);
+    assert(std::abs(rigel.radiusM / UnitConverter::SOLAR_RADIUS_M - 78.9) < 2.0);
+    assert(rigel.luminosityW / UnitConverter::SOLAR_LUMINOSITY_W > 100000.0);
+    assert(!rigel.parentObjectId.has_value());
+    assert(glm::length(rigel.positionM) < 1.0);
+
+    // 19f. Load Sirius System into PhysicsEngine & Step Simulation
+    bool siriusLoadOk = physics.loadFromDatabase(objRepo, "Sirius System");
+    assert(siriusLoadOk);
+    assert(physics.getBodies().size() == 2);
+    std::cout << "    - Loaded 'Sirius System' into PhysicsEngine with " << physics.getBodies().size() << " bodies." << std::endl;
+    
+    // Simulate 60 timesteps (each 1.0s of engine time = 1 simulated day at m_timeScale = 86400)
+    for (int step = 0; step < 60; ++step) {
+        physics.update(1.0f);
+    }
+    const auto& simA = physics.getBodies()[0];
+    const auto& simB = physics.getBodies()[1];
+    double distAU = glm::length(simA.positionM - simB.positionM) / UnitConverter::AU_TO_METERS;
+    std::cout << "    - After 60 days simulation: Sirius A-B Separation = " << distAU << " AU (Stable bound orbit)" << std::endl;
+    assert(distAU > 2.0 && distAU < 35.0);
+    std::cout << "    -> PASS" << std::endl;
+
     std::cout << "\n==========================================================" << std::endl;
-    std::cout << " ALL 18 TEST SUITES PASSED SUCCESSFULLY!" << std::endl;
+    std::cout << " ALL 19 TEST SUITES PASSED SUCCESSFULLY!" << std::endl;
     std::cout << "==========================================================" << std::endl;
 
     db.close();

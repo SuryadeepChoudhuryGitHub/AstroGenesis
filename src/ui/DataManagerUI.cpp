@@ -124,26 +124,28 @@ void DataManagerUI::render(bool& showWindow,
 
 void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepository& objRepo, PhysicsEngine& physics) {
     ImGui::TextColored(DMCol::Accent, "QUERY EXTERNAL ASTRONOMICAL DATA PROVIDER");
-    ImGui::TextColored(DMCol::TextSecondary, "Search NASA JPL Horizons, Small-Body Database (SBDB), or NASA Exoplanet Archive to import real celestial objects.");
+    ImGui::TextColored(DMCol::TextSecondary, "Search CDS/SIMBAD Stellar Catalogues, NASA Exoplanet Archive, JPL Horizons, or JPL SBDB to import real celestial objects.");
 
     ImGui::Spacing();
 
-    // Provider Selector Combo
+    // Provider Selector Combo (0: Auto_Resolve, 1: Stellar_Catalog, 2: NASA_Exoplanet, 3: JPL_Horizons, 4: JPL_SBDB)
     const char* providers[] = {
+        "Auto-Resolve (All Astronomical Catalogues)",
+        "Stellar Catalogue (CDS/SIMBAD & Bright Stars)",
+        "NASA Exoplanet Archive (Confirmed Exoplanets & Host Stars)",
         "NASA JPL Horizons (Planets, Moons, Major Bodies)",
-        "NASA JPL Small-Body Database (Asteroids & Comets)",
-        "NASA Exoplanet Archive (Confirmed Exoplanets & Host Stars)"
+        "NASA JPL Small-Body Database (Asteroids & Comets)"
     };
     ImGui::Text("Data Source:");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(450.0f);
-    ImGui::Combo("##ProviderCombo", &m_selectedProviderIdx, providers, 3);
+    ImGui::Combo("##ProviderCombo", &m_selectedProviderIdx, providers, 5);
 
     // Search Query Bar
     ImGui::Text("Target Query:");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(300.0f);
-    bool enterPressed = ImGui::InputTextWithHint("##SearchInput", "e.g. Ceres, Apophis, TRAPPIST-1, Earth...", m_searchBuffer, sizeof(m_searchBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
+    bool enterPressed = ImGui::InputTextWithHint("##SearchInput", "e.g. Sirius, Rigel, Ceres, TRAPPIST-1, Earth...", m_searchBuffer, sizeof(m_searchBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
     
     ImGui::SameLine();
     bool isSearching = dataManager.isSearching();
@@ -184,20 +186,22 @@ void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepos
 
     // Search Results Table
     auto results = dataManager.getSearchResults();
-    if (ImGui::BeginTable("##SearchResultsTable", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0, 320))) {
-        ImGui::TableSetupColumn("Name / Target", ImGuiTableColumnFlags_WidthStretch, 0.25f);
-        ImGui::TableSetupColumn("Type / Classification", ImGuiTableColumnFlags_WidthStretch, 0.25f);
-        ImGui::TableSetupColumn("Source ID / Code", ImGuiTableColumnFlags_WidthStretch, 0.15f);
-        ImGui::TableSetupColumn("Details", ImGuiTableColumnFlags_WidthStretch, 0.20f);
-        ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+    if (ImGui::BeginTable("##SearchResultsTable", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0, 320))) {
+        ImGui::TableSetupColumn("Name / Target", ImGuiTableColumnFlags_WidthStretch, 0.22f);
+        ImGui::TableSetupColumn("Type / Classification", ImGuiTableColumnFlags_WidthStretch, 0.20f);
+        ImGui::TableSetupColumn("Catalogue / ID", ImGuiTableColumnFlags_WidthStretch, 0.18f);
+        ImGui::TableSetupColumn("Details & Aliases", ImGuiTableColumnFlags_WidthStretch, 0.22f);
+        ImGui::TableSetupColumn("Quality", ImGuiTableColumnFlags_WidthFixed, 55.0f);
+        ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 180.0f);
         ImGui::TableHeadersRow();
 
         for (size_t i = 0; i < results.size(); ++i) {
             const auto& item = results[i];
             ImGui::TableNextRow();
             
+            // Col 0: Name / Target
             ImGui::TableSetColumnIndex(0);
-            if (item.type.find("Star") != std::string::npos) {
+            if (item.type.find("Star") != std::string::npos || item.type.find("Binary") != std::string::npos) {
                 UIIcon::Icon(IconId::Star, 13.0f, ImGui::ColorConvertFloat4ToU32(ImVec4(0.98f, 0.82f, 0.25f, 1.0f)), 5.0f);
                 ImGui::SameLine();
                 ImGui::TextColored(ImVec4(0.98f, 0.82f, 0.25f, 1.0f), "%s", item.name.c_str());
@@ -211,8 +215,9 @@ void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepos
                 ImGui::TextColored(DMCol::TextPrimary, "%s", item.name.c_str());
             }
 
+            // Col 1: Type / Classification
             ImGui::TableSetColumnIndex(1);
-            if (item.type.find("Star") != std::string::npos) {
+            if (item.type.find("Star") != std::string::npos || item.type.find("Binary") != std::string::npos) {
                 ImGui::TextColored(ImVec4(0.98f, 0.78f, 0.20f, 1.0f), "%s", item.type.c_str());
             } else if (item.type.find("Exoplanet") != std::string::npos) {
                 ImGui::TextColored(ImVec4(0.40f, 0.75f, 0.95f, 1.0f), "%s", item.type.c_str());
@@ -220,30 +225,82 @@ void DataManagerUI::drawSearchAndImportTab(DataManager& dataManager, ObjectRepos
                 ImGui::TextColored(DMCol::TextSecondary, "%s", item.type.c_str());
             }
 
+            // Col 2: Catalogue / ID
             ImGui::TableSetColumnIndex(2);
+            ImGui::TextColored(DMCol::TextSecondary, "%s", item.sourceName.c_str());
             ImGui::Text("%s", item.sourceId.c_str());
 
+            // Col 3: Details & Aliases
             ImGui::TableSetColumnIndex(3);
             ImGui::TextWrapped("%s", item.details.c_str());
+            if (!item.aliases.empty()) {
+                ImGui::TextColored(DMCol::TextSecondary, "Aliases: %s", item.aliases.c_str());
+            }
 
+            // Col 4: Quality / Completeness
             ImGui::TableSetColumnIndex(4);
+            int compPct = (int)std::round(item.dataCompleteness * 100.0f);
+            if (compPct <= 0) compPct = 85;
+            ImVec4 compCol = (compPct >= 90) ? DMCol::Green : (compPct >= 60) ? DMCol::Yellow : DMCol::TextSecondary;
+            ImGui::TextColored(compCol, "%d%%", compPct);
+
+            // Col 5: Action
+            ImGui::TableSetColumnIndex(5);
             ImGui::PushID((int)i);
-            std::string targetCat = (m_selectedProviderIdx == 1) ? "Asteroid Belt" : (m_selectedProviderIdx == 2 ? ((item.type.find("Star") != std::string::npos) ? "Host Star" : "Exoplanet System") : "Solar System");
-            if (item.alreadyInDatabase) {
-                ImVec4 inDbCol(0.12f, 0.28f, 0.18f, 0.85f);
-                if (UIIcon::Button("##InDbBtn", IconId::Check, "In DB (Update)", ImVec2(130, 22), false, &inDbCol)) {
-                    ProviderType pType = (ProviderType)m_selectedProviderIdx;
-                    dataManager.importObjectAsync(pType, item.sourceId, targetCat);
+            
+            // Check if item is a stellar system (e.g. Sirius System, Alpha Centauri System)
+            if (item.sourceId.rfind("system_", 0) == 0 || item.type.find("Binary") != std::string::npos || item.type.find("Multiple Star") != std::string::npos) {
+                ImVec4 sysCol(0.18f, 0.42f, 0.28f, 0.90f);
+                if (UIIcon::Button("##ImpStellarSysBtn", IconId::Play, "Import System", ImVec2(150, 22), false, &sysCol)) {
+                    dataManager.importStellarSystemAsync(item.sourceId);
+                }
+            } else if (item.sourceName.find("Exoplanet") != std::string::npos || m_selectedProviderIdx == 2) {
+                std::string host = item.name;
+                if (host.rfind(" (Host Star)") != std::string::npos) {
+                    host = host.substr(0, host.length() - 12);
+                } else if (item.details.find("Host: ") != std::string::npos) {
+                    size_t hPos = item.details.find("Host: ");
+                    size_t pipe = item.details.find(" |", hPos);
+                    if (pipe != std::string::npos) host = item.details.substr(hPos + 6, pipe - (hPos + 6));
+                }
+                ImVec4 sysCol(0.18f, 0.42f, 0.28f, 0.90f);
+                if (UIIcon::Button("##ImpSysBtn", IconId::Play, "Import Sys", ImVec2(95, 22), false, &sysCol)) {
+                    dataManager.importExoplanetSystemAsync(host);
+                }
+                ImGui::SameLine(0, 4);
+                if (UIIcon::Button("##ImpObjBtn", IconId::Import, "Import", ImVec2(65, 22))) {
+                    dataManager.importObjectAsync(ProviderType::NASA_Exoplanet, item.sourceId, host);
+                }
+            } else if (item.type.find("Star") != std::string::npos) {
+                std::string starCat = item.name;
+                ImVec4 impCol(0.45f, 0.35f, 0.08f, 0.9f);
+                if (item.alreadyInDatabase) {
+                    ImVec4 inDbCol(0.12f, 0.28f, 0.18f, 0.85f);
+                    if (UIIcon::Button("##InDbBtn", IconId::Check, "In DB (Update)", ImVec2(150, 22), false, &inDbCol)) {
+                        dataManager.importObjectAsync(ProviderType::Auto_Resolve, item.sourceId, starCat);
+                    }
+                } else {
+                    if (UIIcon::Button("##ImportStarBtn", IconId::Import, "Import Star", ImVec2(150, 22), false, &impCol)) {
+                        dataManager.importObjectAsync(ProviderType::Auto_Resolve, item.sourceId, starCat);
+                    }
                 }
             } else {
-                ImVec4 impCol = (item.type.find("Star") != std::string::npos) ? ImVec4(0.45f, 0.35f, 0.08f, 0.9f) : ImVec4(0.08f, 0.35f, 0.55f, 0.85f);
-                if (UIIcon::Button("##ImportBtn", IconId::Import, "Import to DB", ImVec2(130, 22), false, &impCol)) {
-                    ProviderType pType = (ProviderType)m_selectedProviderIdx;
-                    dataManager.importObjectAsync(pType, item.sourceId, targetCat);
+                std::string targetCat = (m_selectedProviderIdx == 4 || item.type.find("Asteroid") != std::string::npos || item.type.find("Comet") != std::string::npos) ? "Asteroid Belt" : "Solar System";
+                if (item.alreadyInDatabase) {
+                    ImVec4 inDbCol(0.12f, 0.28f, 0.18f, 0.85f);
+                    if (UIIcon::Button("##InDbBtn", IconId::Check, "In DB (Update)", ImVec2(150, 22), false, &inDbCol)) {
+                        ProviderType pType = (ProviderType)m_selectedProviderIdx;
+                        dataManager.importObjectAsync(pType, item.sourceId, targetCat);
+                    }
+                } else {
+                    ImVec4 impCol = (item.type.find("Star") != std::string::npos) ? ImVec4(0.45f, 0.35f, 0.08f, 0.9f) : ImVec4(0.08f, 0.35f, 0.55f, 0.85f);
+                    if (UIIcon::Button("##ImportBtn", IconId::Import, "Import to DB", ImVec2(150, 22), false, &impCol)) {
+                        ProviderType pType = (ProviderType)m_selectedProviderIdx;
+                        dataManager.importObjectAsync(pType, item.sourceId, targetCat);
+                    }
                 }
             }
             ImGui::PopID();
-
         }
 
         ImGui::EndTable();
@@ -335,13 +392,54 @@ void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepo
     ImGui::Separator();
     ImGui::Spacing();
 
+    // Filters Row
+    ImGui::TextColored(DMCol::Accent, "TAXONOMY:");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(170.0f);
+    const char* taxonomyFilters[] = {
+        "All Classes", "Stars", "Planets", "Exoplanets", "Moons", "Minor Bodies / Asteroids", "Black Holes"
+    };
+    ImGui::Combo("##TaxFilter", &m_taxonomyFilterIdx, taxonomyFilters, 7);
+
+    ImGui::SameLine(0, 12);
+    ImGui::TextColored(DMCol::Accent, "SOURCE:");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(160.0f);
+    const char* sourceFilters[] = {
+        "All Sources", "NASA Exoplanet Archive", "NASA / JPL", "Bundled Baseline", "Custom / User"
+    };
+    ImGui::Combo("##SourceFilter", &m_sourceFilterIdx, sourceFilters, 5);
+
+    ImGui::Spacing();
+
     // Two Columns: Left list of objects, Right detail view
     float listW = 280.0f;
     float detailW = ImGui::GetContentRegionAvail().x - listW - 16.0f;
 
     // Left List
-    ImGui::BeginChild("##ExplorerList", ImVec2(listW, 400), true);
-    auto objects = objRepo.getAllObjects(currentCat, true, m_explorerFilter);
+    ImGui::BeginChild("##ExplorerList", ImVec2(listW, 420), true);
+    auto allObjects = objRepo.getAllObjects(currentCat, true, m_explorerFilter);
+    std::vector<ObjectRecord> objects;
+    for (const auto& obj : allObjects) {
+        if (m_taxonomyFilterIdx > 0) {
+            std::string cls = obj.classification;
+            std::string typ = obj.type;
+            if (m_taxonomyFilterIdx == 1 && cls.find("Star") == std::string::npos && typ.find("Star") == std::string::npos) continue;
+            if (m_taxonomyFilterIdx == 2 && cls.find("Planet") == std::string::npos && typ.find("Planet") == std::string::npos) continue;
+            if (m_taxonomyFilterIdx == 3 && typ.find("Exoplanet") == std::string::npos && obj.category.find("TRAPPIST") == std::string::npos && obj.category.find("Kepler") == std::string::npos && obj.category.find("Proxima") == std::string::npos) continue;
+            if (m_taxonomyFilterIdx == 4 && cls.find("Moon") == std::string::npos && typ.find("Moon") == std::string::npos) continue;
+            if (m_taxonomyFilterIdx == 5 && cls.find("Asteroid") == std::string::npos && cls.find("Comet") == std::string::npos && typ.find("Asteroid") == std::string::npos && typ.find("Comet") == std::string::npos) continue;
+            if (m_taxonomyFilterIdx == 6 && cls.find("Black Hole") == std::string::npos && typ.find("Black Hole") == std::string::npos) continue;
+        }
+        if (m_sourceFilterIdx > 0) {
+            if (m_sourceFilterIdx == 1 && obj.category != "Exoplanet System" && obj.category.find("TRAPPIST") == std::string::npos && obj.category.find("Kepler") == std::string::npos && obj.type.find("Exoplanet") == std::string::npos) continue;
+            if (m_sourceFilterIdx == 2 && obj.category != "Solar System" && obj.category != "Asteroid Belt") continue;
+            if (m_sourceFilterIdx == 3 && obj.isSynthetic) continue;
+            if (m_sourceFilterIdx == 4 && !obj.isSynthetic && obj.category != "Custom") continue;
+        }
+        objects.push_back(obj);
+    }
+
     ImGui::InputTextWithHint("##filter", "Filter list...", m_explorerFilter, sizeof(m_explorerFilter));
     ImGui::Separator();
 
@@ -374,63 +472,211 @@ void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepo
     ImGui::SameLine();
 
     // Right Details
-    ImGui::BeginChild("##ExplorerDetails", ImVec2(detailW, 400), true);
+    ImGui::BeginChild("##ExplorerDetails", ImVec2(detailW, 420), true);
     if (m_selectedObjectId > 0) {
         auto hydrated = objRepo.getHydratedBody(m_selectedObjectId);
         if (hydrated.has_value()) {
             const auto& b = hydrated.value();
-            ImGui::TextColored(DMCol::Accent, "OBJECT: %s", b.name.c_str());
-            ImGui::TextColored(DMCol::TextSecondary, "Slug: %s | Type: %s | Category: %s", b.id.c_str(), b.type.c_str(), b.category.c_str());
+
+            // Header & Taxonomy Badges
+            ImGui::TextColored(DMCol::Accent, "%s", b.name.c_str());
+            ImGui::SameLine();
+            ImVec4 classBadgeColor = ImVec4(0.2f, 0.7f, 0.9f, 1.0f);
+            if (b.isStar()) classBadgeColor = ImVec4(0.95f, 0.75f, 0.20f, 1.0f);
+            else if (b.isGasOrIceGiant()) classBadgeColor = ImVec4(0.35f, 0.65f, 0.95f, 1.0f);
+            else if (b.isBlackHole()) classBadgeColor = ImVec4(0.80f, 0.35f, 0.95f, 1.0f);
+            else if (b.isMoon()) classBadgeColor = ImVec4(0.65f, 0.75f, 0.85f, 1.0f);
+            else classBadgeColor = ImVec4(0.35f, 0.85f, 0.45f, 1.0f);
+
+            ImGui::TextColored(classBadgeColor, "[%s]", b.classificationStr.empty() ? b.getClassName().c_str() : b.classificationStr.c_str());
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.3f, 0.85f, 0.4f, 1.0f), "[%s]", b.provenanceStatus.c_str());
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.8f, 1.0f), "[%s]", b.appearanceType.c_str());
+
+            ImGui::TextColored(DMCol::TextSecondary, "Slug: %s | Type: %s | System/Category: %s", b.id.c_str(), b.type.c_str(), b.category.c_str());
             ImGui::Separator();
 
-            ImGui::Columns(2, "detailCols", false);
-            ImGui::TextColored(DMCol::TextSecondary, "Mass:");
-            ImGui::NextColumn();
-            ImGui::Text("%s", b.massStr.c_str());
-            ImGui::NextColumn();
+            // SECTION 1: PHYSICAL PROPERTIES
+            if (ImGui::CollapsingHeader("PHYSICAL PROPERTIES", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::Columns(2, "physCols", false);
+                ImGui::TextColored(DMCol::TextSecondary, "Mass:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.massStr.c_str());
+                ImGui::NextColumn();
 
-            ImGui::TextColored(DMCol::TextSecondary, "Radius:");
-            ImGui::NextColumn();
-            ImGui::Text("%s", b.radiusStr.c_str());
-            ImGui::NextColumn();
+                ImGui::TextColored(DMCol::TextSecondary, "Radius:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.radiusStr.c_str());
+                ImGui::NextColumn();
 
-            ImGui::TextColored(DMCol::TextSecondary, "Semi-Major Axis:");
-            ImGui::NextColumn();
-            ImGui::Text("%s", b.semiMajorAxisStr.c_str());
-            ImGui::NextColumn();
+                ImGui::TextColored(DMCol::TextSecondary, "Mean Density:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.densityStr.c_str());
+                ImGui::NextColumn();
 
-            ImGui::TextColored(DMCol::TextSecondary, "Eccentricity:");
-            ImGui::NextColumn();
-            ImGui::Text("%s", b.eccentricityStr.c_str());
-            ImGui::NextColumn();
+                ImGui::TextColored(DMCol::TextSecondary, "Surface Gravity:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.gravityStr.c_str());
+                ImGui::NextColumn();
 
-            ImGui::TextColored(DMCol::TextSecondary, "Orbital Period:");
-            ImGui::NextColumn();
-            ImGui::Text("%s", b.orbitalPeriodStr.c_str());
-            ImGui::NextColumn();
+                ImGui::TextColored(DMCol::TextSecondary, "Escape Velocity:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.escapeVelocityStr.c_str());
+                ImGui::NextColumn();
 
-            ImGui::TextColored(DMCol::TextSecondary, "Data Source:");
-            ImGui::NextColumn();
-            ImGui::TextColored(DMCol::Green, "%s", b.sourceName.c_str());
-            ImGui::NextColumn();
+                ImGui::TextColored(DMCol::TextSecondary, b.isStar() ? "Effective Temperature:" : "Surface / Eq Temp:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.tempStr.c_str());
+                ImGui::NextColumn();
 
-            ImGui::TextColored(DMCol::TextSecondary, "Source Record ID:");
-            ImGui::NextColumn();
-            ImGui::Text("%s", b.sourceObjectId.c_str());
-            ImGui::NextColumn();
+                if (b.isStar()) {
+                    ImGui::TextColored(DMCol::TextSecondary, "Spectral Type:");
+                    ImGui::NextColumn();
+                    ImGui::TextColored(classBadgeColor, "%s", b.spectralType.empty() ? "N/A" : b.spectralType.c_str());
+                    ImGui::NextColumn();
 
-            ImGui::TextColored(DMCol::TextSecondary, "Import Timestamp:");
-            ImGui::NextColumn();
-            ImGui::Text("%s", b.importTimestamp.c_str());
-            ImGui::NextColumn();
+                    ImGui::TextColored(DMCol::TextSecondary, "Luminosity:");
+                    ImGui::NextColumn();
+                    if (b.luminosityW > 0.0) {
+                        ImGui::Text("%.3e W (%.3f L☉)", b.luminosityW, b.luminosityW / UnitConverter::SOLAR_LUMINOSITY_W);
+                    } else {
+                        ImGui::Text("N/A");
+                    }
+                    ImGui::NextColumn();
+                } else {
+                    ImGui::TextColored(DMCol::TextSecondary, "Surface Pressure:");
+                    ImGui::NextColumn();
+                    ImGui::Text("%s", b.pressureStr.c_str());
+                    ImGui::NextColumn();
 
-            ImGui::Columns(1);
+                    ImGui::TextColored(DMCol::TextSecondary, "Axial Tilt:");
+                    ImGui::NextColumn();
+                    ImGui::Text("%s", b.axialTiltStr.c_str());
+                    ImGui::NextColumn();
+
+                    ImGui::TextColored(DMCol::TextSecondary, "Rotation Period:");
+                    ImGui::NextColumn();
+                    ImGui::Text("%s", b.rotationPeriodStr.c_str());
+                    ImGui::NextColumn();
+                }
+                ImGui::Columns(1);
+            }
+
+            // SECTION 2: ORBITAL MECHANICS
+            if (!b.isStar() && ImGui::CollapsingHeader("ORBITAL MECHANICS", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::Columns(2, "orbCols", false);
+                ImGui::TextColored(DMCol::TextSecondary, "Semi-Major Axis:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.semiMajorAxisStr.c_str());
+                ImGui::NextColumn();
+
+                ImGui::TextColored(DMCol::TextSecondary, "Eccentricity:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.eccentricityStr.c_str());
+                ImGui::NextColumn();
+
+                ImGui::TextColored(DMCol::TextSecondary, "Orbital Period:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.orbitalPeriodStr.c_str());
+                ImGui::NextColumn();
+
+                ImGui::TextColored(DMCol::TextSecondary, "Periapsis / Apoapsis:");
+                ImGui::NextColumn();
+                ImGui::Text("%s / %s", b.periapsisStr.c_str(), b.apoapsisStr.c_str());
+                ImGui::NextColumn();
+
+                ImGui::TextColored(DMCol::TextSecondary, "Reference Frame:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.referenceFrame.empty() ? "ICRF" : b.referenceFrame.c_str());
+                ImGui::NextColumn();
+                ImGui::Columns(1);
+            }
+
+            // SECTION 3: ATMOSPHERE & CHEMICAL COMPOSITION
+            if (ImGui::CollapsingHeader("ATMOSPHERE & CHEMICAL COMPOSITION")) {
+                ImGui::Columns(2, "atmCols", false);
+                ImGui::TextColored(DMCol::TextSecondary, "Atmosphere:");
+                ImGui::NextColumn();
+                ImGui::TextWrapped("%s", b.atmosphereStr.empty() ? "None / Vacuum" : b.atmosphereStr.c_str());
+                ImGui::NextColumn();
+
+                ImGui::TextColored(DMCol::TextSecondary, "Magnetic Field:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.magneticFieldStr.empty() ? "N/A" : b.magneticFieldStr.c_str());
+                ImGui::NextColumn();
+                ImGui::Columns(1);
+
+                if (!b.chemicalInventory.empty()) {
+                    ImGui::Spacing();
+                    ImGui::TextColored(DMCol::TextSecondary, "Constituent Species:");
+                    for (const auto& ch : b.chemicalInventory) {
+                        ImVec4 cCol = ImVec4(ch.color.r, ch.color.g, ch.color.b, 1.0f);
+                        ImGui::ColorButton("##chemDot", cCol, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoInputs, ImVec2(12, 12));
+                        ImGui::SameLine();
+                        ImGui::Text("%s (%s): %.1f%%", ch.name.c_str(), ch.formula.c_str(), ch.percentage);
+                    }
+                }
+            }
+
+            // SECTION 4: VISUAL & APPEARANCE
+            if (ImGui::CollapsingHeader("VISUAL & APPEARANCE MODEL")) {
+                ImGui::Columns(2, "visCols", false);
+                ImGui::TextColored(DMCol::TextSecondary, "Base Texture:");
+                ImGui::NextColumn();
+                ImGui::TextWrapped("%s", b.texturePath.empty() ? "None (Procedural PBR Surface)" : b.texturePath.c_str());
+                ImGui::NextColumn();
+
+                ImGui::TextColored(DMCol::TextSecondary, "Base Albedo:");
+                ImGui::NextColumn();
+                ImGui::Text("%.2f", b.baseAlbedo);
+                ImGui::NextColumn();
+
+                ImGui::TextColored(DMCol::TextSecondary, "Surface Color Tint:");
+                ImGui::NextColumn();
+                ImGui::ColorButton("##objColor", ImVec4(b.color.r, b.color.g, b.color.b, 1.0f), ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoInputs, ImVec2(18, 18));
+                ImGui::NextColumn();
+
+                if (b.ring.hasRing) {
+                    ImGui::TextColored(DMCol::TextSecondary, "Ring System:");
+                    ImGui::NextColumn();
+                    ImGui::Text("Inner: %.0f km | Outer: %.0f km", b.ring.innerRadiusM / 1000.0, b.ring.outerRadiusM / 1000.0);
+                    ImGui::NextColumn();
+                }
+                ImGui::Columns(1);
+            }
+
+            // SECTION 5: DATA PROVENANCE
+            if (ImGui::CollapsingHeader("DATA PROVENANCE & ARCHIVE RECORD")) {
+                ImGui::Columns(2, "provCols", false);
+                ImGui::TextColored(DMCol::TextSecondary, "Data Source:");
+                ImGui::NextColumn();
+                ImGui::TextColored(DMCol::Green, "%s", b.sourceName.c_str());
+                ImGui::NextColumn();
+
+                ImGui::TextColored(DMCol::TextSecondary, "Source Record ID:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.sourceObjectId.empty() ? b.id.c_str() : b.sourceObjectId.c_str());
+                ImGui::NextColumn();
+
+                ImGui::TextColored(DMCol::TextSecondary, "Import Timestamp:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.importTimestamp.c_str());
+                ImGui::NextColumn();
+
+                ImGui::TextColored(DMCol::TextSecondary, "Physical Estimation:");
+                ImGui::NextColumn();
+                ImGui::Text("%s", b.isEstimated ? "Estimated via empirical laws" : "Direct measurement / Astrometric observation");
+                ImGui::NextColumn();
+                ImGui::Columns(1);
+            }
+
+            // ACTION BUTTONS
             ImGui::Spacing();
             ImGui::Separator();
             ImGui::Spacing();
 
-            // Actions
-            if (UIIcon::Button(IconId::Target, "Focus in Viewport", ImVec2(160, 26))) {
+            if (UIIcon::Button(IconId::Target, "Focus in Viewport", ImVec2(150, 26))) {
                 physics.selectBodyById(b.id);
                 const CelestialBody* sel = nullptr;
                 for (const auto& body : physics.getBodies()) {
@@ -447,9 +693,32 @@ void DataManagerUI::drawDatabaseExplorerTab(DataManager& dataManager, ObjectRepo
                     m_statusMessage = "Object '" + b.name + "' is not currently in the active simulation. Load its system first.";
                 }
             }
-            ImGui::SameLine();
+
+            ImGui::SameLine(0, 8);
+            bool inSim = false;
+            for (const auto& body : physics.getBodies()) {
+                if (body.id == b.id || body.dbId == b.dbId) {
+                    inSim = true;
+                    break;
+                }
+            }
+            if (inSim) {
+                ImVec4 inSimCol(0.2f, 0.35f, 0.45f, 0.85f);
+                if (UIIcon::Button("##InSimBtn", IconId::Check, "In Active Sim", ImVec2(140, 26), false, &inSimCol)) {
+                    physics.selectBodyById(b.id);
+                    if (activeTopTab) *activeTopTab = 0;
+                }
+            } else {
+                ImVec4 addSimCol(0.12f, 0.45f, 0.25f, 0.90f);
+                if (UIIcon::Button("##AddSimBtn", IconId::Add, "Add to Active Sim", ImVec2(150, 26), false, &addSimCol)) {
+                    physics.addBody(b);
+                    m_statusMessage = "Added '" + b.name + "' to active simulation.";
+                }
+            }
+
+            ImGui::SameLine(0, 8);
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.2f, 0.2f, 0.85f));
-            if (UIIcon::Button(IconId::Delete, "Delete Object", ImVec2(130, 26))) {
+            if (UIIcon::Button(IconId::Delete, "Delete Object", ImVec2(120, 26))) {
                 for (int bi = 0; bi < (int)physics.getBodies().size(); ++bi) {
                     if (physics.getBodies()[bi].id == b.id || physics.getBodies()[bi].dbId == b.dbId) {
                         physics.removeBody(bi);

@@ -27,6 +27,11 @@ public:
                               std::vector<EphemerisRecord>& outRecords, 
                               std::string& outError) override;
 
+    bool fetchSystemPlanets(const std::string& hostname, 
+                            std::vector<CelestialBodyRecord>& outPlanets, 
+                            CelestialBodyRecord& outHostStar, 
+                            std::string& outError);
+
 private:
     HttpClient& m_http;
 };

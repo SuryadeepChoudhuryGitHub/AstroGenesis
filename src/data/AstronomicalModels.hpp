@@ -14,6 +14,8 @@ struct ObjectRecord {
     std::string type;           // e.g. "Terrestrial Planet", "Gas Giant", "G2V Star", "Asteroid"
     std::optional<int64_t> parentObjectId;
     std::string category = "Solar System"; // "Solar System", "Asteroid Belt", "Exoplanet System", "Comet", "Custom"
+    std::string classification = "Unknown"; // Taxonomic classification e.g. "Terrestrial Planet", "Main Sequence Star"
+    std::string provenanceStatus = "Verified / Observed"; // "Observed", "Derived", "Estimated", "User-Defined"
     bool isSynthetic = false;
     glm::vec3 color{0.0f, 0.83f, 1.0f};
     std::string texturePath;
@@ -39,6 +41,9 @@ struct PhysicalPropertiesRecord {
     std::optional<std::string> magneticFieldStr;
     std::optional<std::string> atmosphereSummary;
     std::optional<std::string> ringsJson; // JSON string if has rings
+    std::optional<std::string> spectralType; // e.g. "G2V", "M1V"
+    std::optional<double> metallicityFeH;   // Stellar metallicity [Fe/H]
+    bool isEstimated = false;               // True if values are procedurally estimated
     int64_t sourceId = 1;
     std::string sourceRecordId;
     std::string importTimestamp;
@@ -155,12 +160,14 @@ struct ValidationResultRecord {
 
 // Search Result from an External Provider
 struct SearchResult {
-    std::string sourceName;      // "JPL Horizons", "JPL SBDB", "NASA Exoplanet"
-    std::string sourceId;        // e.g. "399" (Earth), "2000001" (Ceres), "TRAPPIST-1 e"
-    std::string name;            // "Earth", "1 Ceres", "TRAPPIST-1 e"
-    std::string type;            // "Planet", "Asteroid", "Exoplanet"
-    std::string details;         // Summary string e.g. "Semi-major: 1.000 AU, Ecc: 0.0167"
+    std::string sourceName;      // "JPL Horizons", "JPL SBDB", "NASA Exoplanet", "Stellar Catalogue"
+    std::string sourceId;        // e.g. "399" (Earth), "2000001" (Ceres), "TRAPPIST-1 e", "star_sirius"
+    std::string name;            // "Earth", "1 Ceres", "TRAPPIST-1 e", "Sirius A"
+    std::string type;            // "Planet", "Asteroid", "Exoplanet", "Main Sequence Star", "Binary Star System"
+    std::string details;         // Summary string e.g. "Mass: 2.06 M☉ | Rad: 1.71 R☉"
     bool alreadyInDatabase = false;
+    float dataCompleteness = 1.0f; // Fractional completeness of observed parameters [0.0, 1.0]
+    std::string aliases;         // Cross-catalog identifiers e.g. "HD 48915, HIP 32349, Alpha Canis Majoris"
 };
 
 // Combined aggregate record for importing or hydrating a full celestial body
@@ -171,6 +178,7 @@ struct CelestialBodyRecord {
     StateVectorRecord stateVector;
     std::vector<CompositionRecord> composition;
     std::string sourceName = "Bundled Seed Dataset";
+    std::string hostStarName;
 };
 
 // Complete System Record representing an astronomical or custom star system
@@ -192,6 +200,7 @@ struct SystemObjectRecord {
     int64_t objectId = 0;
     std::optional<int64_t> parentObjectId;
     int orbitalOrder = 0;
+    std::string customOverridesJson;
 };
 
 // Physical plausibility and collision warning during custom system pre-flight checks

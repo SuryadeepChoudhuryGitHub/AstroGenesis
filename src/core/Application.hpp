@@ -15,6 +15,7 @@
 #include "data/repositories/ValidationRepository.hpp"
 #include "ui/UIManager.hpp"
 #include "ai/AIManager.hpp"
+#include "profiler/PerformanceProfiler.hpp"
 
 namespace AstroGenesis {
 
@@ -50,6 +51,7 @@ private:
     ValidationEngine m_valEngine;
     ai::AIManager m_aiManager;
     UIManager m_uiManager;
+    PerformanceProfiler m_profiler;
 
     double m_lastMouseX = 0.0;
     double m_lastMouseY = 0.0;

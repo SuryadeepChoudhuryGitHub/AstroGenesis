@@ -74,7 +74,7 @@ bool ObjectRepository::saveCelestialBodyRecord(const CelestialBodyRecord& record
     if (objId > 0) {
         // Update existing object
         std::string updateSql = "UPDATE objects SET name = ?, type = ?, parent_object_id = ?, category = ?, "
-                                "is_synthetic = ?, color_r = ?, color_g = ?, color_b = ?, texture_path = ?, updated_at = datetime('now') WHERE id = ?;";
+                                "is_synthetic = ?, color_r = ?, color_g = ?, color_b = ?, texture_path = ?, classification = ?, provenance_status = ?, updated_at = datetime('now') WHERE id = ?;";
         stmt = m_db.prepare(updateSql);
         if (!stmt) return false;
 
@@ -88,7 +88,9 @@ bool ObjectRepository::saveCelestialBodyRecord(const CelestialBodyRecord& record
         sqlite3_bind_double(stmt, 7, record.object.color.g);
         sqlite3_bind_double(stmt, 8, record.object.color.b);
         sqlite3_bind_text(stmt, 9, record.object.texturePath.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int64(stmt, 10, objId);
+        sqlite3_bind_text(stmt, 10, record.object.classification.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 11, record.object.provenanceStatus.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(stmt, 12, objId);
 
         if (sqlite3_step(stmt) != SQLITE_DONE) {
             m_db.finalize(stmt);
@@ -97,8 +99,8 @@ bool ObjectRepository::saveCelestialBodyRecord(const CelestialBodyRecord& record
         m_db.finalize(stmt);
     } else {
         // Insert new object
-        std::string insertSql = "INSERT INTO objects (slug, name, type, parent_object_id, category, is_synthetic, color_r, color_g, color_b, texture_path) "
-                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+        std::string insertSql = "INSERT INTO objects (slug, name, type, parent_object_id, category, is_synthetic, color_r, color_g, color_b, texture_path, classification, provenance_status) "
+                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
         stmt = m_db.prepare(insertSql);
         if (!stmt) return false;
 
@@ -113,6 +115,8 @@ bool ObjectRepository::saveCelestialBodyRecord(const CelestialBodyRecord& record
         sqlite3_bind_double(stmt, 8, record.object.color.g);
         sqlite3_bind_double(stmt, 9, record.object.color.b);
         sqlite3_bind_text(stmt, 10, record.object.texturePath.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 11, record.object.classification.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 12, record.object.provenanceStatus.c_str(), -1, SQLITE_TRANSIENT);
 
         if (sqlite3_step(stmt) != SQLITE_DONE) {
             m_db.finalize(stmt);
@@ -129,7 +133,8 @@ bool ObjectRepository::saveCelestialBodyRecord(const CelestialBodyRecord& record
                           "object_id, mass_kg, radius_m, albedo, greenhouse_k, luminosity_w, axial_tilt_deg, "
                           "rotation_period_hours, mean_density_kg_m3, surface_gravity_mps2, escape_velocity_mps, "
                           "surface_temp_k, surface_pressure_kpa, magnetic_field_str, atmosphere_summary, rings_json, "
-                          "source_id, source_record_id, import_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'));";
+                          "spectral_type, metallicity_fe_h, is_estimated, source_id, source_record_id, import_timestamp) "
+                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'));";
     stmt = m_db.prepare(physSql);
     if (!stmt) return false;
 
@@ -149,8 +154,11 @@ bool ObjectRepository::saveCelestialBodyRecord(const CelestialBodyRecord& record
     if (record.physical.magneticFieldStr.has_value()) sqlite3_bind_text(stmt, 14, record.physical.magneticFieldStr.value().c_str(), -1, SQLITE_TRANSIENT); else sqlite3_bind_null(stmt, 14);
     if (record.physical.atmosphereSummary.has_value()) sqlite3_bind_text(stmt, 15, record.physical.atmosphereSummary.value().c_str(), -1, SQLITE_TRANSIENT); else sqlite3_bind_null(stmt, 15);
     if (record.physical.ringsJson.has_value()) sqlite3_bind_text(stmt, 16, record.physical.ringsJson.value().c_str(), -1, SQLITE_TRANSIENT); else sqlite3_bind_null(stmt, 16);
-    sqlite3_bind_int64(stmt, 17, sourceId);
-    sqlite3_bind_text(stmt, 18, record.physical.sourceRecordId.c_str(), -1, SQLITE_TRANSIENT);
+    if (record.physical.spectralType.has_value()) sqlite3_bind_text(stmt, 17, record.physical.spectralType.value().c_str(), -1, SQLITE_TRANSIENT); else sqlite3_bind_null(stmt, 17);
+    if (record.physical.metallicityFeH.has_value()) sqlite3_bind_double(stmt, 18, record.physical.metallicityFeH.value()); else sqlite3_bind_null(stmt, 18);
+    sqlite3_bind_int(stmt, 19, record.physical.isEstimated ? 1 : 0);
+    sqlite3_bind_int64(stmt, 20, sourceId);
+    sqlite3_bind_text(stmt, 21, record.physical.sourceRecordId.c_str(), -1, SQLITE_TRANSIENT);
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         m_db.finalize(stmt);
@@ -253,6 +261,8 @@ bool ObjectRepository::saveCelestialBody(const CelestialBody& body, int64_t* out
     rec.object.color = body.color;
     rec.object.texturePath = body.texturePath;
     rec.object.parentObjectId = body.parentObjectId;
+    rec.object.classification = body.classificationStr.empty() ? body.getClassName() : body.classificationStr;
+    rec.object.provenanceStatus = body.provenanceStatus.empty() ? "Verified" : body.provenanceStatus;
     rec.sourceName = body.sourceName;
 
     rec.physical.massKg = (body.massKg > 0.0) ? std::optional<double>(body.massKg) : std::nullopt;
@@ -266,6 +276,8 @@ bool ObjectRepository::saveCelestialBody(const CelestialBody& body, int64_t* out
     rec.physical.surfaceGravityMps2 = (body.surfaceGravityMps2 > 0.0) ? std::optional<double>(body.surfaceGravityMps2) : std::nullopt;
     rec.physical.escapeVelocityMps = (body.escapeVelocityKmpS > 0.0) ? std::optional<double>(body.escapeVelocityKmpS * 1000.0) : std::nullopt;
     rec.physical.surfaceTempK = (body.surfaceTempK > 0.0) ? std::optional<double>(body.surfaceTempK) : std::nullopt;
+    if (!body.spectralType.empty()) rec.physical.spectralType = body.spectralType;
+    rec.physical.isEstimated = body.isEstimated;
     rec.physical.sourceRecordId = body.sourceObjectId;
 
     if (!body.atmosphereStr.empty()) rec.physical.atmosphereSummary = body.atmosphereStr;
@@ -311,7 +323,7 @@ bool ObjectRepository::saveCelestialBody(const CelestialBody& body, int64_t* out
 
 std::vector<ObjectRecord> ObjectRepository::getAllObjects(const std::string& category, bool includeSynthetic, const std::string& searchQuery) {
     std::vector<ObjectRecord> results;
-    std::string sql = "SELECT id, slug, name, type, parent_object_id, category, is_synthetic, color_r, color_g, color_b, texture_path, created_at, updated_at "
+    std::string sql = "SELECT id, slug, name, type, parent_object_id, category, is_synthetic, color_r, color_g, color_b, texture_path, classification, provenance_status, created_at, updated_at "
                       "FROM objects WHERE 1=1 ";
 
     bool isExoplanetCategory = (category == "Exoplanet System" || category == "Exoplanet Systems");
@@ -357,8 +369,10 @@ std::vector<ObjectRecord> ObjectRepository::getAllObjects(const std::string& cat
         obj.color.g = (float)sqlite3_column_double(stmt, 8);
         obj.color.b = (float)sqlite3_column_double(stmt, 9);
         obj.texturePath = columnTextSafe(stmt, 10);
-        obj.createdAt = columnTextSafe(stmt, 11);
-        obj.updatedAt = columnTextSafe(stmt, 12);
+        obj.classification = columnTextSafe(stmt, 11);
+        obj.provenanceStatus = columnTextSafe(stmt, 12);
+        obj.createdAt = columnTextSafe(stmt, 13);
+        obj.updatedAt = columnTextSafe(stmt, 14);
         results.push_back(obj);
     }
 
@@ -367,7 +381,7 @@ std::vector<ObjectRecord> ObjectRepository::getAllObjects(const std::string& cat
 }
 
 std::optional<ObjectRecord> ObjectRepository::getObjectById(int64_t id) {
-    std::string sql = "SELECT id, slug, name, type, parent_object_id, category, is_synthetic, color_r, color_g, color_b, texture_path, created_at, updated_at "
+    std::string sql = "SELECT id, slug, name, type, parent_object_id, category, is_synthetic, color_r, color_g, color_b, texture_path, classification, provenance_status, created_at, updated_at "
                       "FROM objects WHERE id = ?;";
     sqlite3_stmt* stmt = m_db.prepare(sql);
     if (!stmt) return std::nullopt;
@@ -388,8 +402,10 @@ std::optional<ObjectRecord> ObjectRepository::getObjectById(int64_t id) {
         obj.color.g = (float)sqlite3_column_double(stmt, 8);
         obj.color.b = (float)sqlite3_column_double(stmt, 9);
         obj.texturePath = columnTextSafe(stmt, 10);
-        obj.createdAt = columnTextSafe(stmt, 11);
-        obj.updatedAt = columnTextSafe(stmt, 12);
+        obj.classification = columnTextSafe(stmt, 11);
+        obj.provenanceStatus = columnTextSafe(stmt, 12);
+        obj.createdAt = columnTextSafe(stmt, 13);
+        obj.updatedAt = columnTextSafe(stmt, 14);
         result = obj;
     }
     m_db.finalize(stmt);
@@ -397,7 +413,7 @@ std::optional<ObjectRecord> ObjectRepository::getObjectById(int64_t id) {
 }
 
 std::optional<ObjectRecord> ObjectRepository::getObjectBySlug(const std::string& slug) {
-    std::string sql = "SELECT id, slug, name, type, parent_object_id, category, is_synthetic, color_r, color_g, color_b, texture_path, created_at, updated_at "
+    std::string sql = "SELECT id, slug, name, type, parent_object_id, category, is_synthetic, color_r, color_g, color_b, texture_path, classification, provenance_status, created_at, updated_at "
                       "FROM objects WHERE slug = ?;";
     sqlite3_stmt* stmt = m_db.prepare(sql);
     if (!stmt) return std::nullopt;
@@ -418,8 +434,10 @@ std::optional<ObjectRecord> ObjectRepository::getObjectBySlug(const std::string&
         obj.color.g = (float)sqlite3_column_double(stmt, 8);
         obj.color.b = (float)sqlite3_column_double(stmt, 9);
         obj.texturePath = columnTextSafe(stmt, 10);
-        obj.createdAt = columnTextSafe(stmt, 11);
-        obj.updatedAt = columnTextSafe(stmt, 12);
+        obj.classification = columnTextSafe(stmt, 11);
+        obj.provenanceStatus = columnTextSafe(stmt, 12);
+        obj.createdAt = columnTextSafe(stmt, 13);
+        obj.updatedAt = columnTextSafe(stmt, 14);
         result = obj;
     }
     m_db.finalize(stmt);
@@ -430,6 +448,7 @@ std::optional<PhysicalPropertiesRecord> ObjectRepository::getPhysicalProperties(
     std::string sql = "SELECT id, object_id, mass_kg, radius_m, albedo, greenhouse_k, luminosity_w, axial_tilt_deg, "
                       "rotation_period_hours, mean_density_kg_m3, surface_gravity_mps2, escape_velocity_mps, "
                       "surface_temp_k, surface_pressure_kpa, magnetic_field_str, atmosphere_summary, rings_json, "
+                      "spectral_type, metallicity_fe_h, is_estimated, "
                       "source_id, source_record_id, import_timestamp FROM physical_properties WHERE object_id = ?;";
     sqlite3_stmt* stmt = m_db.prepare(sql);
     if (!stmt) return std::nullopt;
@@ -456,9 +475,12 @@ std::optional<PhysicalPropertiesRecord> ObjectRepository::getPhysicalProperties(
         if (sqlite3_column_type(stmt, 14) != SQLITE_NULL) p.magneticFieldStr = columnTextSafe(stmt, 14);
         if (sqlite3_column_type(stmt, 15) != SQLITE_NULL) p.atmosphereSummary = columnTextSafe(stmt, 15);
         if (sqlite3_column_type(stmt, 16) != SQLITE_NULL) p.ringsJson = columnTextSafe(stmt, 16);
-        p.sourceId = sqlite3_column_int64(stmt, 17);
-        p.sourceRecordId = columnTextSafe(stmt, 18);
-        p.importTimestamp = columnTextSafe(stmt, 19);
+        if (sqlite3_column_type(stmt, 17) != SQLITE_NULL) p.spectralType = columnTextSafe(stmt, 17);
+        if (sqlite3_column_type(stmt, 18) != SQLITE_NULL) p.metallicityFeH = sqlite3_column_double(stmt, 18);
+        p.isEstimated = (sqlite3_column_int(stmt, 19) != 0);
+        p.sourceId = sqlite3_column_int64(stmt, 20);
+        p.sourceRecordId = columnTextSafe(stmt, 21);
+        p.importTimestamp = columnTextSafe(stmt, 22);
         res = p;
     }
     m_db.finalize(stmt);
@@ -566,6 +588,20 @@ void ObjectRepository::hydrateCelestialBodyFields(CelestialBody& body,
     body.color = obj.color;
     body.texturePath = obj.texturePath;
     body.parentObjectId = obj.parentObjectId;
+    body.classificationStr = obj.classification;
+    body.classification = CelestialBody::parseClass(obj.classification);
+    if (body.classification == CelestialClass::Unknown) {
+        body.classify();
+        body.classificationStr = body.getClassName();
+    }
+    body.provenanceStatus = obj.provenanceStatus.empty() ? "Verified" : obj.provenanceStatus;
+    if (!body.texturePath.empty()) {
+        body.appearanceType = "Photographic Texture";
+    } else if (body.isEstimated || body.isSynthetic) {
+        body.appearanceType = "Procedural Estimate";
+    } else {
+        body.appearanceType = "Physical / Spectral Model";
+    }
 
     if (phys.has_value()) {
         const auto& p = phys.value();
@@ -584,6 +620,22 @@ void ObjectRepository::hydrateCelestialBodyFields(CelestialBody& body,
         body.sourceObjectId = p.sourceRecordId;
         body.importTimestamp = p.importTimestamp;
         body.sourceName = getSourceName(p.sourceId);
+        if (p.spectralType.has_value()) body.spectralType = p.spectralType.value();
+        body.isEstimated = p.isEstimated;
+
+        // Auto-compute derived physical properties if mass & radius are present
+        if (body.massKg > 0.0 && body.radiusM > 0.0) {
+            if (body.meanDensityKgM3 <= 0.0) {
+                double volM3 = (4.0 / 3.0) * UnitConverter::PI * std::pow(body.radiusM, 3);
+                if (volM3 > 0.0) body.meanDensityKgM3 = body.massKg / volM3;
+            }
+            if (body.surfaceGravityMps2 <= 0.0) {
+                body.surfaceGravityMps2 = (UnitConverter::G_CONST * body.massKg) / (body.radiusM * body.radiusM);
+            }
+            if (body.escapeVelocityKmpS <= 0.0) {
+                body.escapeVelocityKmpS = std::sqrt(2.0 * UnitConverter::G_CONST * body.massKg / body.radiusM) / 1000.0;
+            }
+        }
 
         if (p.magneticFieldStr.has_value()) body.magneticFieldStr = p.magneticFieldStr.value();
         if (p.atmosphereSummary.has_value()) body.atmosphereStr = p.atmosphereSummary.value();
@@ -603,16 +655,39 @@ void ObjectRepository::hydrateCelestialBodyFields(CelestialBody& body,
         }
         body.rotationPeriodStr = rotBuf;
 
-        snprintf(radBuf, sizeof(radBuf), "%.1f km", body.radiusM / 1000.0);
-        body.radiusStr = radBuf;
+        if (body.radiusM > 0.0) {
+            snprintf(radBuf, sizeof(radBuf), "%.1f km", body.radiusM / 1000.0);
+            body.radiusStr = radBuf;
+        } else {
+            body.radiusStr = "N/A";
+        }
 
-        body.massStr = UnitConverter::formatMass(body.massKg);
-        snprintf(gravBuf, sizeof(gravBuf), "%.2f m/s^2", body.surfaceGravityMps2);
-        body.gravityStr = gravBuf;
-        snprintf(escBuf, sizeof(escBuf), "%.2f km/s", body.escapeVelocityKmpS);
-        body.escapeVelocityStr = escBuf;
-        snprintf(tempBuf, sizeof(tempBuf), "%.0f K", body.surfaceTempK);
-        body.tempStr = tempBuf;
+        if (body.massKg > 0.0) {
+            body.massStr = UnitConverter::formatMass(body.massKg);
+        } else {
+            body.massStr = "N/A";
+        }
+
+        if (body.surfaceGravityMps2 > 0.0) {
+            snprintf(gravBuf, sizeof(gravBuf), "%.2f m/s^2", body.surfaceGravityMps2);
+            body.gravityStr = gravBuf;
+        } else {
+            body.gravityStr = "N/A";
+        }
+
+        if (body.escapeVelocityKmpS > 0.0) {
+            snprintf(escBuf, sizeof(escBuf), "%.2f km/s", body.escapeVelocityKmpS);
+            body.escapeVelocityStr = escBuf;
+        } else {
+            body.escapeVelocityStr = "N/A";
+        }
+
+        if (body.surfaceTempK > 0.0) {
+            snprintf(tempBuf, sizeof(tempBuf), "%.0f K", body.surfaceTempK);
+            body.tempStr = tempBuf;
+        } else {
+            body.tempStr = "N/A";
+        }
 
         if (p.surfacePressureKpa.has_value()) {
             body.surfacePressureKpa = p.surfacePressureKpa.value();
@@ -626,6 +701,8 @@ void ObjectRepository::hydrateCelestialBodyFields(CelestialBody& body,
         if (body.meanDensityKgM3 > 0.0) {
             snprintf(densBuf, sizeof(densBuf), "%.1f kg/m^3", body.meanDensityKgM3);
             body.densityStr = densBuf;
+        } else {
+            body.densityStr = "N/A";
         }
 
         // Parse rings JSON if present
@@ -761,6 +838,15 @@ std::vector<CelestialBody> ObjectRepository::getSystemBodies(const std::string& 
                     auto b = bodyOpt.value();
                     b.parentObjectId = link.parentObjectId;
                     b.category = sysOpt.value().name;
+                    if (!link.customOverridesJson.empty()) {
+                        try {
+                            auto ov = nlohmann::json::parse(link.customOverridesJson);
+                            if (ov.contains("massKg")) b.massKg = ov["massKg"].get<double>();
+                            if (ov.contains("radiusM")) b.radiusM = ov["radiusM"].get<double>();
+                            if (ov.contains("surfaceTempK")) b.surfaceTempK = ov["surfaceTempK"].get<double>();
+                            if (ov.contains("name")) b.name = ov["name"].get<std::string>();
+                        } catch (...) {}
+                    }
                     bodies.push_back(b);
                 }
             }
@@ -1038,9 +1124,9 @@ std::optional<SystemRecord> ObjectRepository::getSystemByName(const std::string&
     return res;
 }
 
-bool ObjectRepository::addSystemObject(int64_t systemId, int64_t objectId, std::optional<int64_t> parentObjectId, int orbitalOrder) {
-    std::string sql = "INSERT OR REPLACE INTO system_objects (system_id, object_id, parent_object_id, orbital_order) "
-                      "VALUES (?, ?, ?, ?);";
+bool ObjectRepository::addSystemObject(int64_t systemId, int64_t objectId, std::optional<int64_t> parentObjectId, int orbitalOrder, const std::string& customOverridesJson) {
+    std::string sql = "INSERT OR REPLACE INTO system_objects (system_id, object_id, parent_object_id, orbital_order, custom_overrides_json) "
+                      "VALUES (?, ?, ?, ?, ?);";
     sqlite3_stmt* stmt = m_db.prepare(sql);
     if (!stmt) return false;
 
@@ -1049,6 +1135,8 @@ bool ObjectRepository::addSystemObject(int64_t systemId, int64_t objectId, std::
     if (parentObjectId.has_value()) sqlite3_bind_int64(stmt, 3, parentObjectId.value());
     else sqlite3_bind_null(stmt, 3);
     sqlite3_bind_int(stmt, 4, orbitalOrder);
+    if (!customOverridesJson.empty()) sqlite3_bind_text(stmt, 5, customOverridesJson.c_str(), -1, SQLITE_TRANSIENT);
+    else sqlite3_bind_null(stmt, 5);
 
     bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
     m_db.finalize(stmt);
@@ -1070,7 +1158,7 @@ bool ObjectRepository::removeSystemObject(int64_t systemId, int64_t objectId) {
 
 std::vector<SystemObjectRecord> ObjectRepository::getSystemObjectLinks(int64_t systemId) {
     std::vector<SystemObjectRecord> list;
-    std::string sql = "SELECT id, system_id, object_id, parent_object_id, orbital_order FROM system_objects "
+    std::string sql = "SELECT id, system_id, object_id, parent_object_id, orbital_order, custom_overrides_json FROM system_objects "
                       "WHERE system_id = ? ORDER BY orbital_order ASC, id ASC;";
     sqlite3_stmt* stmt = m_db.prepare(sql);
     if (!stmt) return list;
@@ -1083,6 +1171,7 @@ std::vector<SystemObjectRecord> ObjectRepository::getSystemObjectLinks(int64_t s
         r.objectId = sqlite3_column_int64(stmt, 2);
         if (sqlite3_column_type(stmt, 3) != SQLITE_NULL) r.parentObjectId = sqlite3_column_int64(stmt, 3);
         r.orbitalOrder = sqlite3_column_int(stmt, 4);
+        r.customOverridesJson = columnTextSafe(stmt, 5);
         list.push_back(r);
     }
     m_db.finalize(stmt);
@@ -1124,6 +1213,21 @@ bool ObjectRepository::saveCustomSystem(const SystemRecord& sys, const std::vect
     std::vector<std::pair<int64_t, std::optional<int64_t>>> savedObjParentPairs;
 
     for (const auto& b : bodies) {
+        int64_t targetObjId = 0;
+        if (b.dbId > 0) {
+            auto existingOpt = getObjectById(b.dbId);
+            if (existingOpt.has_value()) {
+                const auto& existing = existingOpt.value();
+                // If it belongs to a canonical system (not this custom system), do NOT mutate its category or library row!
+                if (existing.category != sys.name && !existing.category.empty() && existing.category != "Custom") {
+                    targetObjId = b.dbId;
+                    oldToNewIdMap[b.dbId] = targetObjId;
+                    savedObjParentPairs.push_back({ targetObjId, b.parentObjectId });
+                    continue;
+                }
+            }
+        }
+
         CelestialBody copyBody = b;
         copyBody.category = sys.name;
         copyBody.parentObjectId = std::nullopt; // clear during base object insert to avoid foreign key errors on uninserted parents
@@ -1158,14 +1262,18 @@ bool ObjectRepository::saveCustomSystem(const SystemRecord& sys, const std::vect
             }
         }
 
-        if (mappedParent.has_value()) {
-            std::string updateParentSql = "UPDATE objects SET parent_object_id = ? WHERE id = ?;";
-            sqlite3_stmt* pStmt = m_db.prepare(updateParentSql);
-            if (pStmt) {
-                sqlite3_bind_int64(pStmt, 1, mappedParent.value());
-                sqlite3_bind_int64(pStmt, 2, objId);
-                sqlite3_step(pStmt);
-                m_db.finalize(pStmt);
+        // Only update objects.parent_object_id if the object belongs specifically to this custom system
+        auto curOpt = getObjectById(objId);
+        if (curOpt.has_value() && curOpt.value().category == sys.name) {
+            if (mappedParent.has_value()) {
+                std::string updateParentSql = "UPDATE objects SET parent_object_id = ? WHERE id = ?;";
+                sqlite3_stmt* pStmt = m_db.prepare(updateParentSql);
+                if (pStmt) {
+                    sqlite3_bind_int64(pStmt, 1, mappedParent.value());
+                    sqlite3_bind_int64(pStmt, 2, objId);
+                    sqlite3_step(pStmt);
+                    m_db.finalize(pStmt);
+                }
             }
         }
 
