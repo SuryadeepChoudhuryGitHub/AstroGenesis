@@ -759,8 +759,7 @@ void SystemWorkspaceUI::drawBuilderSystemTree(ObjectRepository& objRepo, float p
                 auto bOpt = objRepo.getHydratedBodyBySlug(allDbObjs[selDbObjIdx].slug);
                 if (bOpt.has_value()) {
                     CelestialBody added = bOpt.value();
-                    added.dbId = (int64_t)(m_builderBodies.size() + 1);
-                    added.category = m_systemNameBuf;
+                    // Retain canonical dbId and establish parent relationship
                     if (added.type.find("Star") == std::string::npos && !m_builderBodies.empty()) {
                         added.parentObjectId = m_builderBodies[0].dbId;
                     }

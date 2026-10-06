@@ -601,6 +601,23 @@ bool DatabaseManager::runMigrations() {
         }
     }
 
+    // Migration 5: Celestial Object Classification, Taxonomy, Provenance and Instance Overrides
+    if (currentVer < 5) {
+        const char* mig5 = R"(
+            ALTER TABLE objects ADD COLUMN classification TEXT NOT NULL DEFAULT 'Unknown';
+            ALTER TABLE objects ADD COLUMN provenance_status TEXT NOT NULL DEFAULT 'Verified / Observed';
+            ALTER TABLE physical_properties ADD COLUMN spectral_type TEXT;
+            ALTER TABLE physical_properties ADD COLUMN metallicity_fe_h REAL;
+            ALTER TABLE physical_properties ADD COLUMN is_estimated INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE system_objects ADD COLUMN custom_overrides_json TEXT;
+            CREATE INDEX IF NOT EXISTS idx_objects_class ON objects(classification);
+        )";
+
+        if (!applyMigration(5, "Add celestial classification, provenance, and instance overrides", mig5)) {
+            return false;
+        }
+    }
+
     return true;
 }
 

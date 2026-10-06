@@ -31,6 +31,15 @@ public:
                                      double stepDays, 
                                      std::vector<EphemerisRecord>& outRecords, 
                                      std::string& outError) = 0;
+
+    // Optional: Fetch multiple components of a stellar or planetary system
+    virtual bool fetchSystemComponents(const std::string& systemNameOrId,
+                                       std::vector<CelestialBodyRecord>& outComponents,
+                                       std::string& outError) {
+        outComponents.clear();
+        outError = "System component hierarchy is not supported by this provider.";
+        return false;
+    }
 };
 
 } // namespace AstroGenesis

@@ -290,11 +290,32 @@ void VisualStateAdapter::update(
             vs.waterFraction = 0.0f;
         }
 
-        // Ice coverage directly from physical model
-        vs.iceFraction = (float)b.iceCoverage;
-        if (vs.iceFraction <= 0.0f && b.surfaceTempK < 273.15) {
-            float coldFactor = (float)std::clamp((273.15 - b.surfaceTempK) / 100.0, 0.0, 1.0);
-            vs.iceFraction = (b.id == "europa" || b.id == "enceladus") ? 1.0f : std::min(1.0f, 0.15f + 0.85f * coldFactor);
+        // Surface Ice Coverage:
+        // Gas giants, ice giants, stars, and black holes NEVER have surface ice crusts.
+        // Airless rocky bodies (Mercury, Moon, generic dry asteroids) do not have surface water ice crusts.
+        // Only bodies with surface water volatiles or explicit ice simulation have ice coverage.
+        bool supportsSurfaceIce = !isGasGiant && !vs.isStar && !vs.isBlackHole;
+        bool isIcyWorld = (b.id == "europa" || b.id == "enceladus" || b.id == "ganymede" || b.id == "callisto" || b.id == "triton" || b.id == "pluto");
+        if (!isIcyWorld) {
+            for (const auto& ab : b.chemicalInventory) {
+                if ((ab.speciesId == "H2O" || ab.speciesId == "Water Ice" || ab.speciesId == "N2 Ice") && ab.percentage > 5.0) {
+                    isIcyWorld = true;
+                    break;
+                }
+            }
+        }
+
+        if (!supportsSurfaceIce) {
+            vs.iceFraction = 0.0f;
+        } else if (b.iceCoverage > 0.0) {
+            vs.iceFraction = (float)b.iceCoverage;
+        } else if (isIcyWorld) {
+            vs.iceFraction = (b.id == "europa" || b.id == "enceladus") ? 0.90f : 0.45f;
+        } else if (hasWater && b.surfaceTempK < 273.15) {
+            float coldFactor = (float)std::clamp((273.15 - b.surfaceTempK) / 80.0, 0.0, 1.0);
+            vs.iceFraction = 0.10f + 0.60f * coldFactor;
+        } else {
+            vs.iceFraction = 0.0f;
         }
 
         // PBR Surface Roughness blending

@@ -50,9 +50,10 @@ void main() {
         baseColor = uCinematicMode ? pow(rawColor, vec3(2.2)) : rawColor;
     }
 
-    // Dynamic temperature-dependent ice albedo brightening
-    if (uIceFraction > 0.01) {
-        baseColor = mix(baseColor, vec3(0.92, 0.95, 1.0), uIceFraction * 0.82);
+    // Dynamic temperature-dependent ice albedo (only on untextured procedural surfaces with physical polar weighting)
+    if (!uUseTexture && uIceFraction > 0.01) {
+        float polarDistribution = (uIceFraction > 0.85) ? 1.0 : smoothstep(0.35, 0.85, abs(normalize(LocalPos).y));
+        baseColor = mix(baseColor, vec3(0.88, 0.92, 0.98), uIceFraction * polarDistribution * 0.65);
     }
 
     vec3 norm = normalize(Normal);

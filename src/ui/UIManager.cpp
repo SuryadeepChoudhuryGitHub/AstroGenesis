@@ -1954,6 +1954,14 @@ void UIManager::drawEditPropertiesPanel(PhysicsEngine& physics, Camera& camera, 
     std::string winTitle = body.name + " — Property Studio##EditStudioPanel";
     if (ImGui::Begin(winTitle.c_str(), nullptr, flags)) {
         // ── TOP HEADER: Type badge, Compact toggle, Focus, Close ────────────
+        std::string classStr = body.classificationStr.empty() ? body.getClassName() : body.classificationStr;
+        ImVec4 cBadge = Col::AccentCyan;
+        if (body.isStar()) cBadge = ImVec4(0.95f, 0.75f, 0.20f, 1.0f);
+        else if (body.isGasOrIceGiant()) cBadge = ImVec4(0.35f, 0.65f, 0.95f, 1.0f);
+        else if (body.isBlackHole()) cBadge = ImVec4(0.80f, 0.35f, 0.95f, 1.0f);
+        else if (body.isMoon()) cBadge = ImVec4(0.65f, 0.75f, 0.85f, 1.0f);
+        ImGui::TextColored(cBadge, "[%s]", classStr.c_str());
+        ImGui::SameLine();
         ImGui::TextColored(Col::AccentCyan, "%s", body.type.c_str());
         ImGui::SameLine(panelW - 142.0f);
         if (UIIcon::SmallButton(IconId::ChevronDown, "Compact")) {

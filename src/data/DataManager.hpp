@@ -15,14 +15,17 @@
 #include "data/providers/JPLHorizonsProvider.hpp"
 #include "data/providers/JPLSBDBProvider.hpp"
 #include "data/providers/NASAExoplanetProvider.hpp"
+#include "data/providers/StellarCatalogProvider.hpp"
 #include "net/HttpClient.hpp"
 
 namespace AstroGenesis {
 
 enum class ProviderType {
-    JPL_Horizons,
-    JPL_SBDB,
-    NASA_Exoplanet
+    Auto_Resolve = 0,     // Automatic cross-catalogue object resolver
+    Stellar_Catalog,      // Stellar Catalogue (CDS/SIMBAD & Bright Stars)
+    NASA_Exoplanet,       // NASA Exoplanet Archive (Confirmed Exoplanets & Host Stars)
+    JPL_Horizons,         // NASA JPL Horizons (Major Solar System Bodies & Moons)
+    JPL_SBDB              // NASA JPL Small-Body Database (Asteroids & Comets)
 };
 
 struct AsyncJobState {
@@ -48,6 +51,9 @@ public:
     IAstronomicalDataProvider* getProvider(ProviderType type);
     std::vector<std::string> getProviderNames() const;
 
+    // Cross-Catalog Object Resolution
+    std::vector<SearchResult> resolveQuery(const std::string& query, std::string& outError);
+
     // Asynchronous Search
     void searchAsync(ProviderType provider, const std::string& query);
     bool isSearching() const;
@@ -60,6 +66,14 @@ public:
 
     // Direct Synchronous Import (Worker Thread)
     bool importObject(ProviderType provider, const std::string& sourceIdOrName, const std::string& categoryOverride, std::string& outError);
+
+    // Planetary System Import (Host Star + all orbiting exoplanets)
+    bool importExoplanetSystem(const std::string& hostname, std::string& outError);
+    void importExoplanetSystemAsync(const std::string& hostname);
+
+    // Multiple-Star / Stellar System Import (e.g. Sirius A + Sirius B, Alpha Centauri A + B)
+    bool importStellarSystem(const std::string& systemName, std::string& outError);
+    void importStellarSystemAsync(const std::string& systemName);
 
     // Ephemeris Sync
     bool fetchAndStoreEphemerisSeries(const std::string& sourceIdOrName, int64_t objectId, double startJd, double endJd, double stepDays, std::string& outError);
@@ -82,6 +96,7 @@ private:
     std::unique_ptr<JPLHorizonsProvider> m_horizonsProvider;
     std::unique_ptr<JPLSBDBProvider> m_sbdbProvider;
     std::unique_ptr<NASAExoplanetProvider> m_exoplanetProvider;
+    std::unique_ptr<StellarCatalogProvider> m_stellarProvider;
 
     // Threading & Async State
     std::mutex m_searchMutex;

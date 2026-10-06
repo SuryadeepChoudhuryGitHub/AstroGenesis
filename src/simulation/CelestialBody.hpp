@@ -45,6 +45,28 @@ struct PlanetaryRing {
 };
 
 struct CelestialBody {
+    enum class CelestialClass {
+        Star_MainSequence,
+        Star_RedDwarf,
+        Star_Giant,
+        Star_Supergiant,
+        Star_WhiteDwarf,
+        Star_NeutronStar,
+        Star_Pulsar,
+        Star_Magnetar,
+        Planet_Terrestrial,
+        Planet_SuperEarth,
+        Planet_GasGiant,
+        Planet_IceGiant,
+        DwarfPlanet,
+        Moon,
+        Asteroid,
+        Comet,
+        BlackHole,
+        Other,
+        Unknown
+    };
+
     // Database and Provenance Identifiers
     int64_t dbId = 0;
     std::string id;           // Slug / unique code, e.g. "earth", "sol", "ceres", "trappist_1e"
@@ -55,9 +77,19 @@ struct CelestialBody {
     std::optional<int64_t> parentObjectId;
     PlanetaryRing ring;
 
+    // Classification Taxonomy
+    CelestialClass classification = CelestialClass::Unknown;
+    std::string classificationStr = "Unknown";
+
     // External Data Source Provenance & Verification Metadata
     std::string sourceName = "Bundled Seed Dataset"; // "JPL Horizons", "JPL SBDB", "NASA Exoplanet Archive", etc.
     std::string sourceObjectId;                       // e.g. "399", "2000001", "TRAPPIST-1 e"
+    std::string datasetVersion = "NASA/JPL Baseline";
+    std::string provenanceStatus = "Verified / Observed"; // "Observed", "Derived", "Estimated", "User-Defined"
+    std::string hostStarName;                         // Host star name for exoplanetary systems
+    std::string spectralType;                         // e.g. "G2V", "M1V", "O9.7 Iab"
+    std::string appearanceType = "Procedural Estimate"; // "Photographic Texture", "Procedural Atmosphere", "Blackbody Emission", "Relativistic Singularity", etc.
+    bool isEstimated = false;                         // True if physical parameters or appearance are procedurally estimated
     std::string importTimestamp;                      // e.g. "2026-08-19 22:00:00"
     std::string referenceFrame = "ICRF/Barycentric";  // "ICRF/Barycentric", "Ecliptic/J2000"
     double epochJd = 2451545.0;                       // Julian Date of state vector / elements
@@ -180,6 +212,155 @@ struct CelestialBody {
     double orbitalAngleRad = 0.0;
     double orbitalSpeedRadPerSec = 0.0;
     double rotationSpeedRadPerSec = 0.0;
+
+    static std::string getClassName(CelestialClass cls) {
+        switch (cls) {
+            case CelestialClass::Star_MainSequence: return "Main Sequence Star";
+            case CelestialClass::Star_RedDwarf:     return "Red Dwarf Star";
+            case CelestialClass::Star_Giant:        return "Giant Star";
+            case CelestialClass::Star_Supergiant:   return "Supergiant Star";
+            case CelestialClass::Star_WhiteDwarf:   return "White Dwarf";
+            case CelestialClass::Star_NeutronStar:  return "Neutron Star";
+            case CelestialClass::Star_Pulsar:       return "Pulsar";
+            case CelestialClass::Star_Magnetar:     return "Magnetar";
+            case CelestialClass::Planet_Terrestrial:return "Terrestrial Planet";
+            case CelestialClass::Planet_SuperEarth: return "Super-Earth";
+            case CelestialClass::Planet_GasGiant:   return "Gas Giant";
+            case CelestialClass::Planet_IceGiant:   return "Ice Giant";
+            case CelestialClass::DwarfPlanet:       return "Dwarf Planet";
+            case CelestialClass::Moon:              return "Natural Satellite (Moon)";
+            case CelestialClass::Asteroid:          return "Asteroid";
+            case CelestialClass::Comet:             return "Comet";
+            case CelestialClass::BlackHole:         return "Black Hole";
+            case CelestialClass::Other:             return "Other";
+            default:                                return "Unknown";
+        }
+    }
+
+    std::string getClassName() const {
+        return getClassName(classification);
+    }
+
+    static CelestialClass parseClass(const std::string& str) {
+        std::string s = str;
+        for (auto& c : s) c = (char)tolower((unsigned char)c);
+        if (s.empty()) return CelestialClass::Unknown;
+        if (s.find("main sequence") != std::string::npos) return CelestialClass::Star_MainSequence;
+        if (s.find("red dwarf") != std::string::npos) return CelestialClass::Star_RedDwarf;
+        if (s.find("supergiant") != std::string::npos) return CelestialClass::Star_Supergiant;
+        if (s.find("giant") != std::string::npos && s.find("gas") == std::string::npos && s.find("ice") == std::string::npos) return CelestialClass::Star_Giant;
+        if (s.find("white dwarf") != std::string::npos) return CelestialClass::Star_WhiteDwarf;
+        if (s.find("neutron") != std::string::npos) return CelestialClass::Star_NeutronStar;
+        if (s.find("pulsar") != std::string::npos) return CelestialClass::Star_Pulsar;
+        if (s.find("magnetar") != std::string::npos) return CelestialClass::Star_Magnetar;
+        if (s.find("black hole") != std::string::npos || s.find("singularity") != std::string::npos) return CelestialClass::BlackHole;
+        if (s.find("super-earth") != std::string::npos || s.find("superearth") != std::string::npos) return CelestialClass::Planet_SuperEarth;
+        if (s.find("terrestrial") != std::string::npos || s.find("rocky") != std::string::npos) return CelestialClass::Planet_Terrestrial;
+        if (s.find("gas giant") != std::string::npos || s.find("jovian") != std::string::npos) return CelestialClass::Planet_GasGiant;
+        if (s.find("ice giant") != std::string::npos || s.find("neptun") != std::string::npos) return CelestialClass::Planet_IceGiant;
+        if (s.find("dwarf planet") != std::string::npos) return CelestialClass::DwarfPlanet;
+        if (s.find("moon") != std::string::npos || s.find("satellite") != std::string::npos) return CelestialClass::Moon;
+        if (s.find("comet") != std::string::npos) return CelestialClass::Comet;
+        if (s.find("asteroid") != std::string::npos) return CelestialClass::Asteroid;
+        if (s.find("star") != std::string::npos) return CelestialClass::Star_MainSequence;
+        if (s.find("planet") != std::string::npos) return CelestialClass::Planet_Terrestrial;
+        if (s.find("other") != std::string::npos) return CelestialClass::Other;
+        return CelestialClass::Unknown;
+    }
+
+    static CelestialClass classify(const std::string& typeStr, double massKg, double radiusM, double tempK, double lumW, const std::string& category = "") {
+        std::string t = typeStr;
+        for (auto& c : t) c = (char)tolower((unsigned char)c);
+
+        if (t.find("black hole") != std::string::npos || t.find("singularity") != std::string::npos) {
+            return CelestialClass::BlackHole;
+        }
+        if (t.find("pulsar") != std::string::npos) return CelestialClass::Star_Pulsar;
+        if (t.find("magnetar") != std::string::npos) return CelestialClass::Star_Magnetar;
+        if (t.find("neutron") != std::string::npos) return CelestialClass::Star_NeutronStar;
+        if (t.find("white dwarf") != std::string::npos) return CelestialClass::Star_WhiteDwarf;
+        if (t.find("supergiant") != std::string::npos) return CelestialClass::Star_Supergiant;
+        if (t.find("red dwarf") != std::string::npos || (t.find("star") != std::string::npos && tempK > 0.0 && tempK < 3900.0 && massKg < 0.6 * 1.989e30)) {
+            return CelestialClass::Star_RedDwarf;
+        }
+        if (t.find("giant star") != std::string::npos || (t.find("star") != std::string::npos && radiusM > 10.0 * 6.9634e8)) {
+            return CelestialClass::Star_Giant;
+        }
+        if (t.find("star") != std::string::npos || lumW > 1e23 || (tempK >= 2400.0 && massKg > 1e29)) {
+            return CelestialClass::Star_MainSequence;
+        }
+
+        if (t.find("moon") != std::string::npos || t.find("satellite") != std::string::npos) {
+            return CelestialClass::Moon;
+        }
+        if (t.find("comet") != std::string::npos) {
+            return CelestialClass::Comet;
+        }
+        if (t.find("dwarf planet") != std::string::npos) {
+            return CelestialClass::DwarfPlanet;
+        }
+        if (t.find("asteroid") != std::string::npos || category == "Asteroid Belt") {
+            return CelestialClass::Asteroid;
+        }
+        if (t.find("ice giant") != std::string::npos || t.find("neptun") != std::string::npos) {
+            return CelestialClass::Planet_IceGiant;
+        }
+        if (t.find("gas giant") != std::string::npos || t.find("jovian") != std::string::npos || massKg >= 50.0 * 5.972e24) {
+            return CelestialClass::Planet_GasGiant;
+        }
+        if (t.find("super-earth") != std::string::npos || (massKg >= 2.0 * 5.972e24 && massKg < 15.0 * 5.972e24)) {
+            return CelestialClass::Planet_SuperEarth;
+        }
+        if (t.find("terrestrial") != std::string::npos || t.find("planet") != std::string::npos || (massKg >= 0.01 * 5.972e24 && massKg <= 2.0 * 5.972e24)) {
+            return CelestialClass::Planet_Terrestrial;
+        }
+
+        return CelestialClass::Unknown;
+    }
+
+    void classify() {
+        classification = classify(type, massKg, radiusM, surfaceTempK, luminosityW, category);
+        classificationStr = getClassName(classification);
+    }
+
+    bool isStar() const {
+        return classification == CelestialClass::Star_MainSequence ||
+               classification == CelestialClass::Star_RedDwarf ||
+               classification == CelestialClass::Star_Giant ||
+               classification == CelestialClass::Star_Supergiant ||
+               classification == CelestialClass::Star_WhiteDwarf ||
+               classification == CelestialClass::Star_NeutronStar ||
+               classification == CelestialClass::Star_Pulsar ||
+               classification == CelestialClass::Star_Magnetar;
+    }
+
+    bool isPlanet() const {
+        return classification == CelestialClass::Planet_Terrestrial ||
+               classification == CelestialClass::Planet_SuperEarth ||
+               classification == CelestialClass::Planet_GasGiant ||
+               classification == CelestialClass::Planet_IceGiant ||
+               classification == CelestialClass::DwarfPlanet;
+    }
+
+    bool isGasOrIceGiant() const {
+        return classification == CelestialClass::Planet_GasGiant ||
+               classification == CelestialClass::Planet_IceGiant;
+    }
+
+    bool isBlackHole() const {
+        return classification == CelestialClass::BlackHole;
+    }
+
+    bool isMinorBody() const {
+        return classification == CelestialClass::Asteroid ||
+               classification == CelestialClass::Comet;
+    }
+
+    bool isMoon() const {
+        return classification == CelestialClass::Moon;
+    }
 };
+
+using CelestialClass = CelestialBody::CelestialClass;
 
 } // namespace AstroGenesis

@@ -357,7 +357,31 @@ void ObjectWorkspaceUI::drawEditorPanel(ObjectRepository& objRepo, PhysicsEngine
             m_editingBody.dbId = newId;
             m_selectedObjectId = newId;
             m_selectedObjectSlug = m_editingBody.id;
-            m_statusFeedbackMsg = "Object '" + m_editingBody.name + "' successfully saved in SQLite library.";
+            m_statusFeedbackMsg = "Object '" + m_editingBody.name + "' saved to library.";
+
+            // Real-time synchronization: update body if actively running in simulation
+            for (auto& simBody : physics.getBodies()) {
+                if (simBody.id == m_editingBody.id || (newId > 0 && simBody.dbId == newId)) {
+                    simBody.name = m_editingBody.name;
+                    simBody.massKg = m_editingBody.massKg;
+                    simBody.radiusM = m_editingBody.radiusM;
+                    simBody.surfaceTempK = m_editingBody.surfaceTempK;
+                    simBody.color = m_editingBody.color;
+                    simBody.classification = m_editingBody.classification;
+                    simBody.classificationStr = m_editingBody.classificationStr;
+                    simBody.baseAlbedo = m_editingBody.baseAlbedo;
+                    simBody.albedo = m_editingBody.baseAlbedo;
+                    simBody.luminosityW = m_editingBody.luminosityW;
+                    simBody.semiMajorAxisAU = m_editingBody.semiMajorAxisAU;
+                    simBody.semiMajorAxisM = m_editingBody.semiMajorAxisM;
+                    simBody.eccentricity = m_editingBody.eccentricity;
+                    simBody.chemicalInventory = m_editingBody.chemicalInventory;
+                    simBody.composition = m_editingBody.composition;
+                    physics.updateBodyScales();
+                    m_statusFeedbackMsg += " (Synchronized with live simulation)";
+                    break;
+                }
+            }
         } else {
             m_statusFeedbackMsg = "Failed to save object '" + m_editingBody.name + "' to database.";
         }
@@ -367,12 +391,24 @@ void ObjectWorkspaceUI::drawEditorPanel(ObjectRepository& objRepo, PhysicsEngine
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.00f, 0.65f, 0.85f, 0.95f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
-    if (UIIcon::Button(IconId::Play, "TEST RUN IN SIMULATION", ImVec2(220, 30))) {
+    if (UIIcon::Button(IconId::Play, "INSPECT IN SIMULATION", ImVec2(220, 30))) {
         recomputeDerived(m_editingBody);
         objRepo.saveCelestialBody(m_editingBody);
-        physics.clearBodies();
-        physics.addBody(m_editingBody);
-        camera.resetOverview(glm::vec3(0.0f), 4.0f);
+        
+        bool foundInSim = false;
+        for (const auto& simBody : physics.getBodies()) {
+            if (simBody.id == m_editingBody.id || (m_editingBody.dbId > 0 && simBody.dbId == m_editingBody.dbId)) {
+                foundInSim = true;
+                break;
+            }
+        }
+
+        if (!foundInSim) {
+            physics.addBody(m_editingBody);
+        }
+        physics.selectBodyById(m_editingBody.id);
+        const auto& sel = physics.getSelectedBody();
+        camera.focusOnBody(sel.position, sel.radius3D, 0.85f);
         activeTopTab = 0; // UNIVERSE
     }
     ImGui::PopStyleColor(2);
@@ -400,7 +436,7 @@ void ObjectWorkspaceUI::drawStarEditor(CelestialBody& body) {
         ImGui::SameLine();
         double rSun = body.radiusM / UnitConverter::SOLAR_RADIUS_M;
         float rF = (float)rSun;
-        if (ImGui::DragFloat("Stellar Radius (R☉)##rStar", &rF, 0.05f, 0.01f, 1500.0f, "%.3f R☉")) {
+        if (ImGui::DragFloat("Stellar Radius (R☉)##rStar", &rF, 0.05f, 0.005f, 2000.0f, "%.3f R☉")) {
             body.radiusM = (double)rF * UnitConverter::SOLAR_RADIUS_M;
             recomputeDerived(body);
         }
@@ -408,22 +444,52 @@ void ObjectWorkspaceUI::drawStarEditor(CelestialBody& body) {
         ImGui::TextColored(Col::Green, "[Editable]");
         ImGui::SameLine();
         float tempF = (float)body.surfaceTempK;
-        if (ImGui::DragFloat("Surface Effective Temp (K)##tStar", &tempF, 25.0f, 1000.0f, 50000.0f, "%.0f K")) {
+        if (ImGui::DragFloat("Surface Effective Temp (K)##tStar", &tempF, 25.0f, 1000.0f, 60000.0f, "%.0f K")) {
             body.surfaceTempK = tempF;
         }
 
+        // Stefan-Boltzmann Luminosity: L = 4 * pi * R^2 * sigma * T^4
+        // In solar units: L/Lsun = (R/Rsun)^2 * (T / 5778)^4
+        double rRatio = std::max(1e-4, body.radiusM / UnitConverter::SOLAR_RADIUS_M);
+        double tRatio = std::max(0.1, (double)body.surfaceTempK / 5778.0);
+        double lumLsun = std::pow(rRatio, 2.0) * std::pow(tRatio, 4.0);
+        double lumWatts = lumLsun * UnitConverter::SOLAR_LUMINOSITY_W;
+
         ImGui::Spacing();
-        ImGui::TextColored(Col::Accent, "[Derived]");
+        ImGui::TextColored(Col::Accent, "[Derived Astrophysics]");
+        ImGui::TextColored(Col::TextSecondary, "Stefan-Boltzmann Radiative Output:");
         ImGui::SameLine();
+        ImGui::TextColored(Col::TextPrimary, "%.3e W (%.2f L☉)", lumWatts, lumLsun);
+
+        // Spectral Class estimation from Effective Temperature
+        const char* specClass = "G-type (Yellow)";
+        if (body.surfaceTempK >= 30000.0) specClass = "O-type (Blue Ionizing)";
+        else if (body.surfaceTempK >= 10000.0) specClass = "B-type (Blue-White High-Mass)";
+        else if (body.surfaceTempK >= 7500.0) specClass = "A-type (White Main-Sequence)";
+        else if (body.surfaceTempK >= 6000.0) specClass = "F-type (Yellow-White)";
+        else if (body.surfaceTempK >= 5200.0) specClass = "G-type (Yellow Solar-Analog)";
+        else if (body.surfaceTempK >= 3700.0) specClass = "K-type (Orange Dwarf/Giant)";
+        else specClass = "M-type (Cool Red Star)";
+
+        ImGui::TextColored(Col::TextSecondary, "Spectral Classification:");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.98f, 0.82f, 0.25f, 1.0f), "%s", specClass);
+
+        ImGui::Spacing();
+        ImGui::TextColored(Col::Accent, "[Derived Geophysics]");
         ImGui::TextColored(Col::TextSecondary, "Mean Density: ");
         ImGui::SameLine();
         ImGui::TextColored(Col::TextPrimary, "%s", body.densityStr.c_str());
 
-        ImGui::TextColored(Col::Accent, "[Derived]");
-        ImGui::SameLine();
+        ImGui::SameLine(0, 16);
         ImGui::TextColored(Col::TextSecondary, "Surface Gravity: ");
         ImGui::SameLine();
         ImGui::TextColored(Col::TextPrimary, "%s", body.gravityStr.c_str());
+
+        ImGui::SameLine(0, 16);
+        ImGui::TextColored(Col::TextSecondary, "Escape Velocity: ");
+        ImGui::SameLine();
+        ImGui::TextColored(Col::TextPrimary, "%s", body.escapeVelocityStr.c_str());
     }
 }
 

@@ -52,6 +52,7 @@ set(ASTROGENESIS_CORE_SOURCES
     src/data/providers/JPLHorizonsProvider.cpp
     src/data/providers/JPLSBDBProvider.cpp
     src/data/providers/NASAExoplanetProvider.cpp
+    src/data/providers/StellarCatalogProvider.cpp
     src/simulation/PhysicsEngine.cpp
     src/simulation/ChemicalComposition.cpp
     src/simulation/ParticleSystem.cpp
