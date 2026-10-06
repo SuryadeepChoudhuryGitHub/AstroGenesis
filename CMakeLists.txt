@@ -74,12 +74,13 @@ set(ASTROGENESIS_CORE_SOURCES
     src/ai/ModelInference.cpp
     src/ai/OrbitalStabilityPredictor.cpp
     src/ai/AIManager.cpp
+    src/profiler/PerformanceProfiler.cpp
 )
 
 
 # ── Platform-Specific Dependencies ─────────────────────────────────────────────
 if (WIN32)
-    set(PLATFORM_LIBS opengl32 winhttp)
+    set(PLATFORM_LIBS opengl32 winhttp psapi)
 elseif (APPLE)
     find_package(OpenGL REQUIRED)
     set(PLATFORM_LIBS

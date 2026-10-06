@@ -4453,6 +4453,10 @@ void UIManager::drawSimulationWorkspace(PhysicsEngine& physics, Camera& camera, 
     if (UIIcon::Button(IconId::Heat, "Open Deformable Matter Impact Lab", ImVec2(-1, 28))) {
         m_showMatterLab = true;
     }
+    if (UIIcon::Button(IconId::Speed, "Open Engine Performance Profiler", ImVec2(-1, 28))) {
+        m_requestOpenProfiler = true;
+        addEventLog("Performance Profiler window opened");
+    }
 
     ImGui::EndChild();
 
