@@ -174,12 +174,26 @@ bool Renderer::initialize() {
     glDeleteShader(bhV);
     glDeleteShader(bhF);
 
-    m_uBhMVPLoc         = glGetUniformLocation(m_blackHoleProgram, "uMVP");
-    m_uBhModelLoc       = glGetUniformLocation(m_blackHoleProgram, "uModel");
-    m_uBhCameraPosLoc   = glGetUniformLocation(m_blackHoleProgram, "uCameraPos");
-    m_uBhSchwRadiusLoc  = glGetUniformLocation(m_blackHoleProgram, "uSchwRadius");
-    m_uBhPhotonRadiusLoc= glGetUniformLocation(m_blackHoleProgram, "uPhotonRadius");
-    m_uBhSimTimeLoc     = glGetUniformLocation(m_blackHoleProgram, "uSimTime");
+    m_uBhMVPLoc             = glGetUniformLocation(m_blackHoleProgram, "uMVP");
+    m_uBhModelLoc           = glGetUniformLocation(m_blackHoleProgram, "uModel");
+    m_uBhInvViewProjLoc     = glGetUniformLocation(m_blackHoleProgram, "uInvViewProj");
+    m_uBhCameraPosLoc       = glGetUniformLocation(m_blackHoleProgram, "uCameraPos");
+    m_uBhCenterLoc          = glGetUniformLocation(m_blackHoleProgram, "uBhCenter");
+    m_uBhBoundRadiusLoc     = glGetUniformLocation(m_blackHoleProgram, "uBoundRadius");
+    m_uBhSchwRadiusLoc      = glGetUniformLocation(m_blackHoleProgram, "uSchwRadius");
+    m_uBhHorizonRadiusLoc   = glGetUniformLocation(m_blackHoleProgram, "uHorizonRadius");
+    m_uBhPhotonRadiusLoc    = glGetUniformLocation(m_blackHoleProgram, "uPhotonRadius");
+    m_uBhShadowRadiusLoc    = glGetUniformLocation(m_blackHoleProgram, "uShadowRadius");
+    m_uBhSpinParamLoc       = glGetUniformLocation(m_blackHoleProgram, "uSpinParam");
+    m_uBhSpinAxisLoc        = glGetUniformLocation(m_blackHoleProgram, "uSpinAxis");
+    m_uBhHasDiskLoc         = glGetUniformLocation(m_blackHoleProgram, "uHasDisk");
+    m_uBhDiskInnerRadiusLoc = glGetUniformLocation(m_blackHoleProgram, "uDiskInnerRadius");
+    m_uBhDiskOuterRadiusLoc = glGetUniformLocation(m_blackHoleProgram, "uDiskOuterRadius");
+    m_uBhDiskPeakTempLoc    = glGetUniformLocation(m_blackHoleProgram, "uDiskPeakTemp");
+    m_uBhSimTimeLoc         = glGetUniformLocation(m_blackHoleProgram, "uSimTime");
+    m_uBhVisualModeLoc      = glGetUniformLocation(m_blackHoleProgram, "uVisualMode");
+    m_uBhSkyboxTexLoc       = glGetUniformLocation(m_blackHoleProgram, "uSkyboxTex");
+    m_uBhHasSkyboxLoc       = glGetUniformLocation(m_blackHoleProgram, "uHasSkybox");
 
     // 6. Compile Impact FX Shader
     std::string impactVertSrc = loadShaderSource("assets/shaders/impact.vert");
@@ -1137,21 +1151,93 @@ void Renderer::renderBlackHole(
     glm::mat4 proj = camera.getProjectionMatrix(aspect);
     glm::mat4 view = camera.getViewMatrix();
     glm::vec3 camPos = camera.getEyePosition();
-
     glm::vec3 relativePos = vBody.positionAU - cameraTarget;
+
+    // Geometric radii: true scale vs visual scale adaptation
+    float schwRadius = vBody.schwarzschildRadiusAU;
+    float shadowRadius = vBody.shadowRadiusAU;
+    float photonRadius = vBody.photonSphereRadiusAU;
+    float horizonRadius = schwRadius * 0.5f * (1.0f + std::sqrt(std::max(0.0f, 1.0f - vBody.spinParameter * vBody.spinParameter)));
+    float diskInner = vBody.diskInnerRadiusAU;
+    float diskOuter = vBody.diskOuterRadiusAU;
+
+    // If renderRadius is exaggerated relative to true Schwarzschild radius,
+    // scale the visual geometry proportionally so the black hole shadow and lensing
+    // match the body's visual rendered presence in the viewport.
+    if (vBody.renderRadius > 0.0001f && schwRadius < vBody.renderRadius * 0.05f) {
+        float visualScale = vBody.renderRadius / std::max(shadowRadius, 1e-12f);
+        schwRadius   *= visualScale;
+        shadowRadius *= visualScale;
+        photonRadius *= visualScale;
+        horizonRadius *= visualScale;
+        diskInner    *= visualScale;
+        diskOuter    *= visualScale;
+    }
+
+    // Ensure fallback minimums for stable numerical integration
+    if (schwRadius <= 0.0f) schwRadius = vBody.renderRadius / 2.598f;
+    if (shadowRadius <= 0.0f) shadowRadius = schwRadius * 2.598f;
+    if (photonRadius <= 0.0f) photonRadius = schwRadius * 1.5f;
+    if (horizonRadius <= 0.0f) horizonRadius = schwRadius;
+
+    // Outer bounding sphere encompassing lensing deflection zone & accretion disk
+    float boundRadius = std::max(shadowRadius * 3.8f, vBody.hasAccretionDisk ? (diskOuter * 1.35f) : (shadowRadius * 3.8f));
+
     glm::mat4 model = glm::translate(glm::mat4(1.0f), relativePos);
-    model = glm::scale(model, glm::vec3(vBody.renderRadius));
+    model = glm::scale(model, glm::vec3(boundRadius));
 
     glm::mat4 mvp = proj * view * model;
 
     glUniformMatrix4fv(m_uBhMVPLoc, 1, GL_FALSE, glm::value_ptr(mvp));
     glUniformMatrix4fv(m_uBhModelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glUniform3fv(m_uBhCameraPosLoc, 1, glm::value_ptr(camPos));
+    glUniform3fv(m_uBhCenterLoc, 1, glm::value_ptr(relativePos));
+    glUniform1f(m_uBhBoundRadiusLoc, boundRadius);
+    glUniform1f(m_uBhSchwRadiusLoc, schwRadius);
+    glUniform1f(m_uBhHorizonRadiusLoc, horizonRadius);
+    glUniform1f(m_uBhPhotonRadiusLoc, photonRadius);
+    glUniform1f(m_uBhShadowRadiusLoc, shadowRadius);
+    glUniform1f(m_uBhSpinParamLoc, vBody.spinParameter);
+    glUniform3fv(m_uBhSpinAxisLoc, 1, glm::value_ptr(vBody.spinAxis));
+
+    glUniform1i(m_uBhHasDiskLoc, vBody.hasAccretionDisk ? 1 : 0);
+    glUniform1f(m_uBhDiskInnerRadiusLoc, diskInner);
+    glUniform1f(m_uBhDiskOuterRadiusLoc, diskOuter);
+    glUniform1f(m_uBhDiskPeakTempLoc, vBody.diskPeakTempK);
     glUniform1f(m_uBhSimTimeLoc, simTime);
+    glUniform1i(m_uBhVisualModeLoc, m_cinematicEnabled ? 2 : 1);
 
-    glBindVertexArray(m_sphereMesh.vao);
-    glDrawElements(GL_TRIANGLES, m_sphereMesh.indexCount, GL_UNSIGNED_INT, 0);
+    // Bind Skybox texture for background deflection
+    if (m_skyboxTexture == 0) {
+        m_skyboxTexture = loadTexture("assets/textures/stars_milky_way.jpg");
+    }
 
+    if (m_skyboxTexture > 0) {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, m_skyboxTexture);
+        glUniform1i(m_uBhSkyboxTexLoc, 1);
+        glUniform1i(m_uBhHasSkyboxLoc, 1);
+    } else {
+        glUniform1i(m_uBhHasSkyboxLoc, 0);
+    }
+
+    glm::mat4 invViewProj = glm::inverse(proj * view);
+    if (m_uBhInvViewProjLoc != -1) {
+        glUniformMatrix4fv(m_uBhInvViewProjLoc, 1, GL_FALSE, glm::value_ptr(invViewProj));
+    }
+
+    // Fullscreen quad raymarching: seamless across entire screen with zero geometry clipping
+    glDisable(GL_CULL_FACE);
+    glDepthMask(GL_FALSE);
+
+    glBindVertexArray(m_quadMesh.vao);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+
+    // Restore GL state
+    glDepthMask(GL_TRUE);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
     glDisable(GL_BLEND);
 }
 

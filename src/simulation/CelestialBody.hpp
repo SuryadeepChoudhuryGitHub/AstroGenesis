@@ -122,6 +122,13 @@ struct CelestialBody {
     std::string magneticFieldStr;  // e.g. "25.0-65.0 uT"
     std::string auroraActivityStr; // e.g. "Moderate"
     std::string timeDilationStr;   // e.g. "-14.8 us/day"
+    std::string properTimeStr;     // e.g. "124.52 days (tau)"
+    std::string properTimeRateStr; // e.g. "0.9999853 s/s"
+    std::string spinStr;           // e.g. "a* = +0.950 (Prograde Kerr)"
+    std::string horizonRadiusStr;  // e.g. "29.5 km"
+    std::string iscoRadiusStr;     // e.g. "14.8 km (ISCO)"
+    std::string shadowRadiusStr;   // e.g. "76.7 km (Shadow)"
+    std::string accretionDiskStr;  // e.g. "Active (1.0e-5 M_sun/yr)"
 
     // Dynamic Orbital Mechanics & Keplerian Elements Stats
     std::string semiMajorAxisStr;   // e.g. "1.000 AU (149.6M km)"
@@ -171,6 +178,27 @@ struct CelestialBody {
     double surfaceAreaKm2 = 0.0;     // Total surface area in km^2
     double timeDilationShift = 0.0;  // Fractional proper time shift (1 - dt_proper / dt_coord)
     double timeDriftMicrosecPerDay = 0.0; // Relativistic clock drift in microseconds / Earth day
+    double properTimeElapsedSeconds = 0.0;    // Accumulated proper time tau along worldline
+    double instantaneousProperTimeRate = 1.0; // Instantaneous dtau / dt
+    double cumulativeProperTimeDriftSec = 0.0;// t_coord - tau
+
+    // General Relativity & Kerr Black Hole Physics
+    double spinParameter = 0.0;              // Dimensionless spin a* in [-1.0, 1.0] (0 = Schwarzschild, +-1 = extreme Kerr)
+    glm::dvec3 spinAxis{0.0, 1.0, 0.0};       // Kerr angular momentum unit vector
+    bool hasAccretionDisk = false;            // Relativistic Novikov-Thorne accretion disk present
+    double accretionRateSolarMassPerYear = 1.0e-5; // Mdot in M_sun / yr
+    double diskInnerRadiusM = 0.0;            // r_in = r_isco
+    double diskOuterRadiusM = 0.0;            // r_out
+    double diskPeakTempK = 0.0;               // T_peak from Novikov-Thorne profile
+    double diskLuminosityW = 0.0;             // L_disk = eta * Mdot * c^2
+    double schwarzschildRadiusM = 0.0;        // r_s = 2GM / c^2
+    double photonSphereRadiusM = 0.0;         // r_ph = 1.5 * r_s
+    double shadowRadiusM = 0.0;               // b_crit = (3*sqrt(3)/2) * r_s
+    double kerrOuterHorizonM = 0.0;           // r_+
+    double kerrInnerHorizonM = 0.0;           // r_-
+    double iscoRadiusM = 0.0;                 // r_isco
+    double ergosphereEquatorialM = 0.0;       // r_ergo(pi/2) = r_s
+
 
     // Dynamic Keplerian / Relativistic Orbital Parameters
     double semiMajorAxisAU = 0.0;

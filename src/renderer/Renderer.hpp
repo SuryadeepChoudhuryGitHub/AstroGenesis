@@ -240,10 +240,24 @@ private:
     GLuint m_blackHoleProgram = 0;
     GLint m_uBhMVPLoc = -1;
     GLint m_uBhModelLoc = -1;
+    GLint m_uBhInvViewProjLoc = -1;
     GLint m_uBhCameraPosLoc = -1;
+    GLint m_uBhCenterLoc = -1;
+    GLint m_uBhBoundRadiusLoc = -1;
     GLint m_uBhSchwRadiusLoc = -1;
+    GLint m_uBhHorizonRadiusLoc = -1;
     GLint m_uBhPhotonRadiusLoc = -1;
+    GLint m_uBhShadowRadiusLoc = -1;
+    GLint m_uBhSpinParamLoc = -1;
+    GLint m_uBhSpinAxisLoc = -1;
+    GLint m_uBhHasDiskLoc = -1;
+    GLint m_uBhDiskInnerRadiusLoc = -1;
+    GLint m_uBhDiskOuterRadiusLoc = -1;
+    GLint m_uBhDiskPeakTempLoc = -1;
     GLint m_uBhSimTimeLoc = -1;
+    GLint m_uBhVisualModeLoc = -1;
+    GLint m_uBhSkyboxTexLoc = -1;
+    GLint m_uBhHasSkyboxLoc = -1;
 
     // 6. Collision & Impact Shockwave FX Shader
     GLuint m_impactProgram = 0;

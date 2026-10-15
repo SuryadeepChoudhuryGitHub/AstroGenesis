@@ -44,6 +44,9 @@ struct PhysicalPropertiesRecord {
     std::optional<std::string> spectralType; // e.g. "G2V", "M1V"
     std::optional<double> metallicityFeH;   // Stellar metallicity [Fe/H]
     bool isEstimated = false;               // True if values are procedurally estimated
+    std::optional<double> spinParameter;              // Dimensionless Kerr spin a* in [-1, 1]
+    std::optional<bool> hasAccretionDisk;             // Active Novikov-Thorne disk
+    std::optional<double> accretionRateSolarMassPerYear; // Accretion rate in M_sun/yr
     int64_t sourceId = 1;
     std::string sourceRecordId;
     std::string importTimestamp;

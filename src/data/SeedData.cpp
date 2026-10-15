@@ -595,7 +595,7 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
     binPl.orbital.eccentricity = 0.02;
     repo.saveCelestialBodyRecord(binPl);
 
-    // 15. Extreme Tidal Test Preset (Black Hole + Star + Planet)
+    // 15. Extreme Tidal Test Preset (Kerr Black Hole + Companion Star)
     CelestialBodyRecord bh;
     bh.sourceName = "Preset System Template";
     bh.object.slug = "cygnus_bh";
@@ -603,11 +603,14 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
     bh.object.type = "Stellar Mass Black Hole";
     bh.object.category = "Extreme Tidal Test";
     bh.object.color = glm::vec3(0.6f, 0.1f, 0.85f);
-    bh.physical.massKg = 10.0 * UnitConverter::SOLAR_MASS_KG;
-    bh.physical.radiusM = 29530.0; // 29.5 km Event Horizon (Schwarzschild Radius Rs = 2GM/c^2)
-    bh.physical.surfaceGravityMps2 = 1.5e12;
+    bh.physical.massKg = 14.8 * UnitConverter::SOLAR_MASS_KG;
+    bh.physical.radiusM = 43710.0; // 43.71 km Event Horizon (Schwarzschild Radius Rs = 2GM/c^2)
+    bh.physical.surfaceGravityMps2 = 1.03e12;
     bh.physical.escapeVelocityMps = UnitConverter::SPEED_OF_LIGHT;
-    bh.physical.surfaceTempK = 6.17e-9;
+    bh.physical.surfaceTempK = 4.17e-9;
+    bh.physical.spinParameter = 0.95;
+    bh.physical.hasAccretionDisk = true;
+    bh.physical.accretionRateSolarMassPerYear = 1.2e-5;
     bh.stateVector.positionM = glm::dvec3(0.0);
     bh.stateVector.velocityMps = glm::dvec3(0.0);
     int64_t bhId = 0;
@@ -632,6 +635,50 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
     bhCompanion.orbital.semiMajorAxisM = starDistM;
     bhCompanion.orbital.eccentricity = 0.06;
     repo.saveCelestialBodyRecord(bhCompanion);
+
+    // 15b. Sagittarius A* Supermassive Black Hole System Preset
+    CelestialBodyRecord sgrA;
+    sgrA.sourceName = "EHT / VLTI GRAVITY baseline";
+    sgrA.object.slug = "sagittarius_a_star";
+    sgrA.object.name = "Sagittarius A*";
+    sgrA.object.type = "Supermassive Black Hole";
+    sgrA.object.category = "Sagittarius A* System";
+    sgrA.object.color = glm::vec3(0.85f, 0.55f, 0.20f);
+    sgrA.physical.massKg = 4.154e6 * UnitConverter::SOLAR_MASS_KG;
+    sgrA.physical.radiusM = 1.227e10; // ~0.082 AU event horizon
+    sgrA.physical.surfaceGravityMps2 = 2.47e6;
+    sgrA.physical.escapeVelocityMps = UnitConverter::SPEED_OF_LIGHT;
+    sgrA.physical.surfaceTempK = 1.48e-14; // Hawking radiation temperature
+    sgrA.physical.spinParameter = 0.90;
+    sgrA.physical.hasAccretionDisk = false; // Quiescent low-luminosity supermassive core
+    sgrA.physical.accretionRateSolarMassPerYear = 1.0e-8;
+    sgrA.stateVector.positionM = glm::dvec3(0.0);
+    sgrA.stateVector.velocityMps = glm::dvec3(0.0);
+    int64_t sgrAId = 0;
+    repo.saveCelestialBodyRecord(sgrA, &sgrAId);
+
+    // Relativistic S2 Star Orbiting Sgr A*
+    CelestialBodyRecord s2Star;
+    s2Star.sourceName = "VLTI GRAVITY Collaboration";
+    s2Star.object.slug = "star_s2";
+    s2Star.object.name = "Star S2";
+    s2Star.object.type = "B0V Main Sequence Star";
+    s2Star.object.category = "Sagittarius A* System";
+    s2Star.object.parentObjectId = sgrAId;
+    s2Star.object.color = glm::vec3(0.55f, 0.75f, 1.0f);
+    s2Star.physical.massKg = 14.0 * UnitConverter::SOLAR_MASS_KG;
+    s2Star.physical.radiusM = 8.0 * UnitConverter::SOLAR_RADIUS_M;
+    s2Star.physical.surfaceTempK = 28000.0;
+    s2Star.orbital.semiMajorAxisAU = 970.0;
+    s2Star.orbital.semiMajorAxisM = 970.0 * UnitConverter::AU_TO_METERS;
+    double s2Ecc = 0.884;
+    s2Star.orbital.eccentricity = s2Ecc;
+    s2Star.orbital.orbitalPeriodDays = 16.05 * 365.25;
+    double s2ApoDistM = s2Star.orbital.semiMajorAxisM.value() * (1.0 + s2Ecc);
+    double s2ApoVelMps = std::sqrt(UnitConverter::G_CONST * sgrA.physical.massKg.value() * (1.0 - s2Ecc) / (s2Star.orbital.semiMajorAxisM.value() * (1.0 + s2Ecc)));
+    s2Star.stateVector.positionM = glm::dvec3(s2ApoDistM, 0.0, 0.0);
+    s2Star.stateVector.velocityMps = glm::dvec3(0.0, 0.0, s2ApoVelMps);
+    repo.saveCelestialBodyRecord(s2Star);
 
     // 16. Earth-Moon System Preset (Isolated high-precision two-body system)
     CelestialBodyRecord emEarth;
@@ -690,7 +737,8 @@ bool SeedData::seedDefaultDatabase(ObjectRepository& repo) {
         { "TRAPPIST-1 System", "Preset", "NASA Exoplanet Archive", "Ultracool red dwarf host star with 7 Earth-sized temperate planets." },
         { "Kepler-90 System", "Preset", "NASA Exoplanet Archive", "Sun-like G-type star with 8 confirmed transiting exoplanets." },
         { "Binary Star System", "Preset", "Astrophysical Template", "Co-orbiting binary star pair with a stable circumbinary habitable planet." },
-        { "Extreme Tidal Test", "Preset", "Relativity Model", "10 Solar Mass Black Hole orbiting a Blue Supergiant star and planet." },
+        { "Extreme Tidal Test", "Preset", "Relativity Model", "14.8 Solar Mass Kerr Black Hole with accretion disk orbiting a Blue Supergiant star." },
+        { "Sagittarius A* System", "Preset", "EHT / VLTI GRAVITY baseline", "Supermassive Black Hole Sgr A* (4.15M M_sun) with relativistic S2 star." },
         { "Proxima Centauri", "Preset", "NASA Exoplanet Archive", "Closest stellar neighbour red dwarf hosting habitable zone exoplanet." },
         { "Kepler-186 System", "Preset", "NASA Exoplanet Archive", "M-dwarf system hosting first validated Earth-sized habitable planet." },
         { "Asteroid Belt", "Preset", "JPL SBDB baseline", "Inner Solar System asteroid belt with Ceres, Vesta, Pallas, and Hygiea." }

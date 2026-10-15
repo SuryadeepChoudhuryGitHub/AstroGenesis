@@ -22,6 +22,10 @@ public:
     void setTargetBodyRadius(float radius3D);
     void focusOnBody(const glm::vec3& targetPos, float targetRadius3D, float durationSeconds = 0.85f);
     void setDistance(float dist) { m_distance = dist; }
+    void setOrbit(float yawRad, float pitchRad) {
+        m_yaw = yawRad;
+        m_pitch = glm::clamp(pitchRad, -1.55f, 1.55f);
+    }
 
     bool isTransitioning() const { return m_isTransitioning; }
 

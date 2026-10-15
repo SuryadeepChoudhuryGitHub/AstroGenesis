@@ -300,8 +300,8 @@ void DeformableBody::computeExternalForces(const std::vector<CelestialBody>& att
             double newtonCoeff = (G_CONST * body.massKg) / (r2 * r);
             glm::dvec3 acc = newtonCoeff * r_vec;
 
-            // Einstein 1PN Post-Newtonian relativistic correction
-            if (enableGR && body.id == "sol" && r > 1.0e6) {
+            // Einstein 1PN Post-Newtonian relativistic correction (applies to black holes and massive bodies)
+            if (enableGR && (body.isBlackHole() || body.isStar() || body.massKg >= 1e28) && r > 1.0e3) {
                 double c2 = C_LIGHT * C_LIGHT;
                 double v2 = glm::dot(nodeVel, nodeVel);
                 double rDotV = glm::dot(r_vec, nodeVel);

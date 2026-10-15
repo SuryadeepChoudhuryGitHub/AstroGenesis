@@ -252,6 +252,22 @@ void PhysicsEngine::integrateNBody(double deltaSeconds) {
         m_bodies[i].positionM = positions[i];
         m_bodies[i].velocityMps = velocities[i];
 
+        // Accumulate Relativistic Proper Time along timelike worldline
+        double potentialSum = 0.0;
+        for (size_t j = 0; j < n; ++j) {
+            if (i == j || m_bodies[j].massKg <= 0.0) continue;
+            double distM = glm::distance(positions[i], positions[j]);
+            if (distM < 100.0) distM = 100.0;
+            potentialSum += (2.0 * G_CONST * m_bodies[j].massKg) / (C_LIGHT_SQ * distM);
+        }
+        double vSq = glm::dot(velocities[i], velocities[i]);
+        double metricFactor = 1.0 - potentialSum - (vSq / C_LIGHT_SQ);
+        double dtau_dt = (metricFactor > 0.0) ? std::sqrt(metricFactor) : 0.0;
+
+        m_bodies[i].instantaneousProperTimeRate = dtau_dt;
+        m_bodies[i].properTimeElapsedSeconds += dtau_dt * deltaSeconds;
+        m_bodies[i].cumulativeProperTimeDriftSec = m_simulatedTimeSeconds - m_bodies[i].properTimeElapsedSeconds;
+
         // Sync AU-space rendering positions
         m_bodies[i].position = glm::vec3((float)(positions[i].x / AU_METERS),
                                          (float)(positions[i].y / AU_METERS),
@@ -490,16 +506,98 @@ void PhysicsEngine::updatePhysicalQuantities() {
         else if (shieldedRadFlux > 200.0) b.radLevelStr = "Moderate";
         else b.radLevelStr = "Low";
 
-        // Relativistic Time Dilation
-        double phiPotential = - (G_CONST * attractorMass) / rM;
-        double gravitationalShift = phiPotential / C_LIGHT_SQ;
-        double kinematicShift = - 0.5 * (vMps * vMps) / C_LIGHT_SQ;
-        b.timeDilationShift = gravitationalShift + kinematicShift;
-        b.timeDriftMicrosecPerDay = b.timeDilationShift * SEC_PER_DAY * 1e6;
+        // Metric-based Relativistic Time Dilation
+        double potentialSum = 0.0;
+        for (size_t k = 0; k < m_bodies.size(); ++k) {
+            if (k == i || m_bodies[k].massKg <= 0.0) continue;
+            double dM = glm::distance(b.positionM, m_bodies[k].positionM);
+            if (dM < 100.0) dM = 100.0;
+            potentialSum += (2.0 * G_CONST * m_bodies[k].massKg) / (C_LIGHT_SQ * dM);
+        }
+        double betaSq = (vMps * vMps) / C_LIGHT_SQ;
+        double metricFactor = 1.0 - potentialSum - betaSq;
+        b.instantaneousProperTimeRate = (metricFactor > 0.0) ? std::sqrt(metricFactor) : 0.0;
+        b.timeDilationShift = 1.0 - b.instantaneousProperTimeRate;
+        b.timeDriftMicrosecPerDay = - b.timeDilationShift * SEC_PER_DAY * 1e6;
 
         char driftBuf[64];
         snprintf(driftBuf, sizeof(driftBuf), "%+.2f us/day", b.timeDriftMicrosecPerDay);
         b.timeDilationStr = driftBuf;
+
+        char rateBuf[64];
+        snprintf(rateBuf, sizeof(rateBuf), "%.7f s/s", b.instantaneousProperTimeRate);
+        b.properTimeRateStr = rateBuf;
+
+        char tauBuf[64];
+        double tauDays = b.properTimeElapsedSeconds / SEC_PER_DAY;
+        if (std::abs(tauDays) >= 1.0) {
+            snprintf(tauBuf, sizeof(tauBuf), "%.3f days (tau)", tauDays);
+        } else {
+            snprintf(tauBuf, sizeof(tauBuf), "%.2f hrs (tau)", b.properTimeElapsedSeconds / 3600.0);
+        }
+        b.properTimeStr = tauBuf;
+
+        // Relativistic Black Hole Metrics & Kerr Spacetime Geometry
+        if (b.isBlackHole()) {
+            b.schwarzschildRadiusM = RelativisticPhysics::calculateSchwarzschildRadius(b.massKg);
+            b.photonSphereRadiusM = RelativisticPhysics::calculatePhotonSphereRadius(b.massKg);
+            b.shadowRadiusM = RelativisticPhysics::calculateCriticalImpactParameter(b.massKg);
+            b.kerrOuterHorizonM = RelativisticPhysics::calculateKerrOuterHorizon(b.massKg, b.spinParameter);
+            b.kerrInnerHorizonM = RelativisticPhysics::calculateKerrInnerHorizon(b.massKg, b.spinParameter);
+            b.iscoRadiusM = RelativisticPhysics::calculateISCORadius(b.massKg, b.spinParameter, true);
+            b.ergosphereEquatorialM = b.schwarzschildRadiusM;
+
+            b.radiusM = (b.spinParameter != 0.0) ? b.kerrOuterHorizonM : b.schwarzschildRadiusM;
+            b.realRadiusAU = b.radiusM / AU_METERS;
+
+            char rHBuf[64], iscoBuf[64], shadBuf[64], spinBuf[64];
+            snprintf(rHBuf, sizeof(rHBuf), "%.1f km", b.radiusM / 1000.0);
+            b.horizonRadiusStr = rHBuf;
+            b.radiusStr = rHBuf;
+
+            snprintf(iscoBuf, sizeof(iscoBuf), "%.1f km (ISCO)", b.iscoRadiusM / 1000.0);
+            b.iscoRadiusStr = iscoBuf;
+
+            snprintf(shadBuf, sizeof(shadBuf), "%.1f km (Shadow)", b.shadowRadiusM / 1000.0);
+            b.shadowRadiusStr = shadBuf;
+
+            if (b.spinParameter > 0.001) {
+                snprintf(spinBuf, sizeof(spinBuf), "a* = +%.3f (Prograde Kerr)", b.spinParameter);
+            } else if (b.spinParameter < -0.001) {
+                snprintf(spinBuf, sizeof(spinBuf), "a* = %.3f (Retrograde Kerr)", b.spinParameter);
+            } else {
+                snprintf(spinBuf, sizeof(spinBuf), "a* = 0.000 (Schwarzschild)");
+            }
+            b.spinStr = spinBuf;
+
+            if (b.hasAccretionDisk) {
+                auto diskProps = RelativisticPhysics::calculateAccretionDiskProperties(
+                    b.massKg, b.spinParameter, b.accretionRateSolarMassPerYear
+                );
+                b.diskInnerRadiusM = diskProps.innerRadiusM;
+                b.diskOuterRadiusM = diskProps.outerRadiusM;
+                b.diskPeakTempK = diskProps.peakTemperatureK;
+                b.diskLuminosityW = diskProps.totalLuminosityW;
+                b.luminosityW = b.diskLuminosityW;
+
+                char dBuf[64];
+                snprintf(dBuf, sizeof(dBuf), "Active (%.1e M☉/yr, %d K)", b.accretionRateSolarMassPerYear, (int)std::round(b.diskPeakTempK));
+                b.accretionDiskStr = dBuf;
+            } else {
+                b.diskLuminosityW = 0.0;
+                b.accretionDiskStr = "None (Isolated)";
+            }
+
+            b.hasAtmosphere = false;
+            b.atmosphereStr = "None (Singularity)";
+            b.surfaceGravityMps2 = (C_LIGHT_SQ * C_LIGHT_SQ) / (4.0 * G_CONST * std::max(1.0, b.massKg));
+            char gravBuf[64];
+            snprintf(gravBuf, sizeof(gravBuf), "%.2e m/s^2 (Surface Gravity kappa)", b.surfaceGravityMps2);
+            b.gravityStr = gravBuf;
+
+            b.escapeVelocityKmpS = RelativisticPhysics::SPEED_OF_LIGHT / 1000.0;
+            b.escapeVelocityStr = "299,792 km/s (c)";
+        }
 
         // Dynamic Keplerian Orbital Elements
         glm::dvec3 hVec = glm::cross(rVec, vVec);
@@ -882,41 +980,77 @@ void PhysicsEngine::checkAndResolveCollisions() {
                 double reducedMass = (m1 * m2) / mTotal;
                 double impactEnergyJ = 0.5 * reducedMass * relVelSq;
 
-                // Combined volume & new radius
-                double vol1 = (4.0 / 3.0) * PI_DBL * std::pow(survivor.radiusM, 3.0);
-                double vol2 = (4.0 / 3.0) * PI_DBL * std::pow(absorbed.radiusM, 3.0);
-                double newRadiusM = std::cbrt((vol1 + vol2) / ((4.0 / 3.0) * PI_DBL));
+                // Check if survivor or absorbed is a black hole
+                bool survivorIsBH = survivor.isBlackHole();
+                bool absorbedIsBH = absorbed.isBlackHole();
 
-                // Thermal flash heating at impact site
-                double specificHeat = (survivor.type.find("Gas") != std::string::npos) ? 3500.0 : 900.0;
-                double deltaTK = impactEnergyJ / (mTotal * specificHeat);
-                deltaTK = std::clamp(deltaTK, 0.0, 5000.0);
-                survivor.surfaceTempK = std::max(survivor.surfaceTempK, survivor.surfaceTempK + deltaTK);
-                survivor.hasCustomTemp = true;
+                if (absorbedIsBH && !survivorIsBH) {
+                    // Black hole always survives and engulfs regular matter
+                    std::swap(survivorIdx, absorbedIdx);
+                    survivorIsBH = true;
+                    absorbedIsBH = false;
+                }
+
+                auto& finalSurvivor = m_bodies[survivorIdx];
+                const auto& finalAbsorbed = m_bodies[absorbedIdx];
+
+                double newRadiusM = 0.0;
+
+                if (survivorIsBH) {
+                    // Angular momentum transfer: orbital angular momentum into black hole spin
+                    glm::dvec3 rRel = finalAbsorbed.positionM - finalSurvivor.positionM;
+                    glm::dvec3 pRel = m2 * (finalAbsorbed.velocityMps - finalSurvivor.velocityMps);
+                    glm::dvec3 L_orbital = glm::cross(rRel, pRel);
+                    double L_spin = glm::dot(L_orbital, finalSurvivor.spinAxis);
+                    double deltaAStar = (L_spin * C_LIGHT) / (G_CONST * mTotal * mTotal);
+                    finalSurvivor.spinParameter = std::clamp(finalSurvivor.spinParameter + deltaAStar, -0.998, 0.998);
+
+                    // Recalculate horizon radius
+                    newRadiusM = (finalSurvivor.spinParameter != 0.0)
+                        ? RelativisticPhysics::calculateKerrOuterHorizon(mTotal, finalSurvivor.spinParameter)
+                        : RelativisticPhysics::calculateSchwarzschildRadius(mTotal);
+                    finalSurvivor.hasAccretionDisk = true; // Infalling matter fuels accretion disk
+                } else {
+                    // Combined volume & new radius for non-black-hole celestial bodies
+                    double vol1 = (4.0 / 3.0) * PI_DBL * std::pow(finalSurvivor.radiusM, 3.0);
+                    double vol2 = (4.0 / 3.0) * PI_DBL * std::pow(finalAbsorbed.radiusM, 3.0);
+                    newRadiusM = std::cbrt((vol1 + vol2) / ((4.0 / 3.0) * PI_DBL));
+
+                    // Thermal flash heating at impact site
+                    double specificHeat = (finalSurvivor.type.find("Gas") != std::string::npos) ? 3500.0 : 900.0;
+                    double deltaTK = impactEnergyJ / (mTotal * specificHeat);
+                    deltaTK = std::clamp(deltaTK, 0.0, 5000.0);
+                    finalSurvivor.surfaceTempK = std::max(finalSurvivor.surfaceTempK, finalSurvivor.surfaceTempK + deltaTK);
+                    finalSurvivor.hasCustomTemp = true;
+                }
 
                 // Update survivor physical attributes
-                survivor.massKg = mTotal;
-                survivor.radiusM = newRadiusM;
-                survivor.realRadiusAU = newRadiusM / AU_METERS;
-                survivor.positionM = newPosM;
-                survivor.velocityMps = newVelMps;
-                survivor.position = glm::vec3((float)(newPosM.x / AU_METERS), (float)(newPosM.y / AU_METERS), (float)(newPosM.z / AU_METERS));
-                survivor.velocity = glm::vec3((float)(newVelMps.x / AU_METERS), (float)(newVelMps.y / AU_METERS), (float)(newVelMps.z / AU_METERS));
+                finalSurvivor.massKg = mTotal;
+                finalSurvivor.radiusM = newRadiusM;
+                finalSurvivor.realRadiusAU = newRadiusM / AU_METERS;
+                finalSurvivor.positionM = newPosM;
+                finalSurvivor.velocityMps = newVelMps;
+                finalSurvivor.position = glm::vec3((float)(newPosM.x / AU_METERS), (float)(newPosM.y / AU_METERS), (float)(newPosM.z / AU_METERS));
+                finalSurvivor.velocity = glm::vec3((float)(newVelMps.x / AU_METERS), (float)(newVelMps.y / AU_METERS), (float)(newVelMps.z / AU_METERS));
 
                 // Record collision event for visual shockwave FX and notification log
                 CelestialCollisionEvent ev;
-                ev.survivorName = survivor.name;
-                ev.absorbedName = absorbed.name;
-                ev.positionAU = survivor.position;
-                glm::dvec3 n = glm::normalize(absorbed.positionM - survivor.positionM);
+                ev.survivorName = finalSurvivor.name;
+                ev.absorbedName = finalAbsorbed.name;
+                ev.positionAU = finalSurvivor.position;
+                glm::dvec3 n = glm::normalize(finalAbsorbed.positionM - finalSurvivor.positionM);
                 if (glm::length(n) < 0.1 || std::isnan(n.x)) n = glm::dvec3(0.0, 1.0, 0.0);
                 ev.normal = glm::vec3((float)n.x, (float)n.y, (float)n.z);
                 ev.impactEnergyJoules = impactEnergyJ;
-                ev.thermalTempK = (float)survivor.surfaceTempK;
+                ev.thermalTempK = (float)finalSurvivor.surfaceTempK;
 
                 char eBuf[64];
                 snprintf(eBuf, sizeof(eBuf), "%.2e J", impactEnergyJ);
-                ev.description = "COLLISION: " + absorbed.name + " merged into " + survivor.name + " (Energy: " + eBuf + ")";
+                if (survivorIsBH) {
+                    ev.description = "EVENT HORIZON INGESTION: " + finalAbsorbed.name + " accreted into " + finalSurvivor.name + " (Mass: " + UnitConverter::formatMass(mTotal) + ")";
+                } else {
+                    ev.description = "COLLISION: " + finalAbsorbed.name + " merged into " + finalSurvivor.name + " (Energy: " + eBuf + ")";
+                }
                 m_recentCollisions.push_back(ev);
 
                 // Update selection tracking
@@ -1089,10 +1223,14 @@ int PhysicsEngine::spawnCelestialBody(const std::string& templateClass, const gl
         body.id = "custom_black_hole_" + std::to_string(curNum);
         body.name = "Singularity " + std::to_string(curNum);
         body.type = "Stellar Mass Black Hole";
+        body.classification = CelestialClass::BlackHole;
         body.color = glm::vec3(0.7f, 0.2f, 0.95f);
         body.massKg = 10.0 * UnitConverter::SOLAR_MASS_KG;
-        body.radiusM = 29530.0;
+        body.spinParameter = 0.0;
+        body.hasAccretionDisk = false;
+        body.radiusM = RelativisticPhysics::calculateSchwarzschildRadius(body.massKg);
         body.surfaceTempK = 6.17e-9;
+        body.hasAtmosphere = false;
     } else {
         body.id = "custom_planet_" + std::to_string(curNum);
         body.name = "New Planet " + std::to_string(curNum);
@@ -1398,6 +1536,66 @@ void PhysicsEngine::resetBodyAtmosphereToBaseline(int bodyIdx) {
 void PhysicsEngine::forceUpdatePhysicalQuantities() {
     updatePhysicalQuantities();
     updateBodyScales();
+}
+
+RelativisticPhysics::ClockComparisonResult PhysicsEngine::compareObserverClocks(int indexA, int indexB) const {
+    if (indexA < 0 || indexA >= (int)m_bodies.size() || indexB < 0 || indexB >= (int)m_bodies.size()) {
+        RelativisticPhysics::ClockComparisonResult empty;
+        empty.description = "Invalid observer index selection";
+        return empty;
+    }
+    const auto& bA = m_bodies[indexA];
+    const auto& bB = m_bodies[indexB];
+    return RelativisticPhysics::compareClocks(
+        bA.properTimeElapsedSeconds,
+        bB.properTimeElapsedSeconds,
+        bA.instantaneousProperTimeRate,
+        bB.instantaneousProperTimeRate,
+        m_simulatedTimeSeconds,
+        bA.name,
+        bB.name
+    );
+}
+
+void PhysicsEngine::setBlackHoleSpin(int bodyIdx, double spinParam) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    m_bodies[bodyIdx].spinParameter = std::clamp(spinParam, -0.998, 0.998);
+    updateBodyScales();
+    updatePhysicalQuantities();
+}
+
+void PhysicsEngine::setBlackHoleAccretionDisk(int bodyIdx, bool enabled, double accretionRateMsunYr) {
+    if (bodyIdx < 0 || bodyIdx >= (int)m_bodies.size()) return;
+    m_bodies[bodyIdx].hasAccretionDisk = enabled;
+    m_bodies[bodyIdx].accretionRateSolarMassPerYear = std::max(1e-9, accretionRateMsunYr);
+    updatePhysicalQuantities();
+}
+
+RelativisticPhysics::ClockComparisonResult PhysicsEngine::compareObserverClocks(const std::string& idA, const std::string& idB) const {
+    int idxA = -1, idxB = -1;
+    for (int i = 0; i < (int)m_bodies.size(); ++i) {
+        if (m_bodies[i].id == idA || m_bodies[i].name == idA) idxA = i;
+        if (m_bodies[i].id == idB || m_bodies[i].name == idB) idxB = i;
+    }
+    return compareObserverClocks(idxA, idxB);
+}
+
+void PhysicsEngine::setBlackHoleSpin(const std::string& bodyId, double spinParam) {
+    for (int i = 0; i < (int)m_bodies.size(); ++i) {
+        if (m_bodies[i].id == bodyId || m_bodies[i].name == bodyId) {
+            setBlackHoleSpin(i, spinParam);
+            return;
+        }
+    }
+}
+
+void PhysicsEngine::setBlackHoleAccretionDisk(const std::string& bodyId, bool enabled, double accretionRateMsunYr) {
+    for (int i = 0; i < (int)m_bodies.size(); ++i) {
+        if (m_bodies[i].id == bodyId || m_bodies[i].name == bodyId) {
+            setBlackHoleAccretionDisk(i, enabled, accretionRateMsunYr);
+            return;
+        }
+    }
 }
 
 } // namespace AstroGenesis

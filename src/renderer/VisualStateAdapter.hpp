@@ -118,6 +118,16 @@ struct VisualBodyState {
     float coronaIntensity = 0.0f;
     float schwarzschildRadiusAU = 0.0f;
     float photonSphereRadiusAU = 0.0f;
+    float shadowRadiusAU = 0.0f;
+    float iscoRadiusAU = 0.0f;
+    float ergosphereRadiusAU = 0.0f;
+    float spinParameter = 0.0f;
+    glm::vec3 spinAxis{0.0f, 1.0f, 0.0f};
+    bool hasAccretionDisk = false;
+    float accretionRateSolarMassPerYear = 1e-5f;
+    float diskInnerRadiusAU = 0.0f;
+    float diskOuterRadiusAU = 0.0f;
+    float diskPeakTempK = 0.0f;
     
     // Material Phase & Debug Overlays
     MaterialPhase phase = MaterialPhase::Solid;

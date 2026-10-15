@@ -1,4 +1,5 @@
 #include "renderer/VisualStateAdapter.hpp"
+#include "simulation/RelativisticPhysics.hpp"
 #include <cmath>
 #include <algorithm>
 #include <iostream>
@@ -216,16 +217,26 @@ void VisualStateAdapter::update(
             b.luminosityW > 1e22 || 
             b.surfaceTempK >= 2400.0
         );
-        vs.isBlackHole = (b.type.find("Black Hole") != std::string::npos || b.type.find("Singularity") != std::string::npos);
+        vs.isBlackHole = b.isBlackHole() || (b.type.find("Black Hole") != std::string::npos || b.type.find("Singularity") != std::string::npos);
         vs.surfaceTempK = b.surfaceTempK;
         vs.luminosityWatts = b.luminosityW;
 
-        // Black Hole Relativistic Radii
+        // Black Hole Relativistic Radii, Kerr Geometry & Accretion Disk
         if (vs.isBlackHole) {
             double massKg = (b.massKg > 0.0) ? b.massKg : 1.989e30;
-            double rSchwM = (2.0 * G_CONST * massKg) / (C_LIGHT * C_LIGHT);
+            double rSchwM = RelativisticPhysics::calculateSchwarzschildRadius(massKg);
             vs.schwarzschildRadiusAU = (float)(rSchwM / AU_METERS);
-            vs.photonSphereRadiusAU = (float)(1.5 * vs.schwarzschildRadiusAU);
+            vs.photonSphereRadiusAU = (float)(RelativisticPhysics::calculatePhotonSphereRadius(massKg) / AU_METERS);
+            vs.shadowRadiusAU = (float)(RelativisticPhysics::calculateCriticalImpactParameter(massKg) / AU_METERS);
+            vs.iscoRadiusAU = (float)(RelativisticPhysics::calculateISCORadius(massKg, b.spinParameter, true) / AU_METERS);
+            vs.ergosphereRadiusAU = (float)(RelativisticPhysics::calculateKerrErgosphereRadius(massKg, b.spinParameter, 3.1415926535 / 2.0) / AU_METERS);
+            vs.spinParameter = (float)b.spinParameter;
+            vs.spinAxis = glm::vec3(b.spinAxis);
+            vs.hasAccretionDisk = b.hasAccretionDisk;
+            vs.accretionRateSolarMassPerYear = (float)b.accretionRateSolarMassPerYear;
+            vs.diskInnerRadiusAU = (float)(b.diskInnerRadiusM / AU_METERS);
+            vs.diskOuterRadiusAU = (float)(b.diskOuterRadiusM / AU_METERS);
+            vs.diskPeakTempK = (float)b.diskPeakTempK;
         }
 
         // Photometry, Thermal Radiation & Emission
