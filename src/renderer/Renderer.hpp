@@ -90,9 +90,20 @@ public:
         const Camera& camera,
         float aspect,
         const VisualBodyState& vBody,
+        const std::vector<VisualBodyState>& sceneBodies,
         const glm::vec3& cameraTarget,
         float simTime
     );
+
+    void renderBlackHole(
+        const Camera& camera,
+        float aspect,
+        const VisualBodyState& vBody,
+        const glm::vec3& cameraTarget,
+        float simTime
+    ) {
+        renderBlackHole(camera, aspect, vBody, {}, cameraTarget, simTime);
+    }
 
     void renderImpactFX(
         const Camera& camera,
@@ -258,6 +269,15 @@ private:
     GLint m_uBhVisualModeLoc = -1;
     GLint m_uBhSkyboxTexLoc = -1;
     GLint m_uBhHasSkyboxLoc = -1;
+    GLint m_uBhDiskLuminosityLoc = -1;
+    GLint m_uBhAccretionRateLoc = -1;
+    GLint m_uBhNumLensedBodiesLoc = -1;
+    GLint m_uBhLensedBodyPosLoc[16];
+    GLint m_uBhLensedBodyRadiusLoc[16];
+    GLint m_uBhLensedBodyColorLoc[16];
+    GLint m_uBhLensedBodyTempLoc[16];
+    GLint m_uBhLensedBodyLumLoc[16];
+    GLint m_uBhLensedBodyIsStarLoc[16];
 
     // 6. Collision & Impact Shockwave FX Shader
     GLuint m_impactProgram = 0;

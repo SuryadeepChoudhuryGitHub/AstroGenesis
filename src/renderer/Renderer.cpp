@@ -194,6 +194,25 @@ bool Renderer::initialize() {
     m_uBhVisualModeLoc      = glGetUniformLocation(m_blackHoleProgram, "uVisualMode");
     m_uBhSkyboxTexLoc       = glGetUniformLocation(m_blackHoleProgram, "uSkyboxTex");
     m_uBhHasSkyboxLoc       = glGetUniformLocation(m_blackHoleProgram, "uHasSkybox");
+    m_uBhDiskLuminosityLoc  = glGetUniformLocation(m_blackHoleProgram, "uDiskLuminosity");
+    m_uBhAccretionRateLoc   = glGetUniformLocation(m_blackHoleProgram, "uAccretionRate");
+    m_uBhNumLensedBodiesLoc = glGetUniformLocation(m_blackHoleProgram, "uNumLensedBodies");
+
+    for (int i = 0; i < 16; ++i) {
+        char pBuf[64], rBuf[64], cBuf[64], tBuf[64], lBuf[64], sBuf[64];
+        snprintf(pBuf, sizeof(pBuf), "uLensedBodyPos[%d]", i);
+        snprintf(rBuf, sizeof(rBuf), "uLensedBodyRadius[%d]", i);
+        snprintf(cBuf, sizeof(cBuf), "uLensedBodyColor[%d]", i);
+        snprintf(tBuf, sizeof(tBuf), "uLensedBodyTemp[%d]", i);
+        snprintf(lBuf, sizeof(lBuf), "uLensedBodyLum[%d]", i);
+        snprintf(sBuf, sizeof(sBuf), "uLensedBodyIsStar[%d]", i);
+        m_uBhLensedBodyPosLoc[i]    = glGetUniformLocation(m_blackHoleProgram, pBuf);
+        m_uBhLensedBodyRadiusLoc[i] = glGetUniformLocation(m_blackHoleProgram, rBuf);
+        m_uBhLensedBodyColorLoc[i]  = glGetUniformLocation(m_blackHoleProgram, cBuf);
+        m_uBhLensedBodyTempLoc[i]   = glGetUniformLocation(m_blackHoleProgram, tBuf);
+        m_uBhLensedBodyLumLoc[i]    = glGetUniformLocation(m_blackHoleProgram, lBuf);
+        m_uBhLensedBodyIsStarLoc[i] = glGetUniformLocation(m_blackHoleProgram, sBuf);
+    }
 
     // 6. Compile Impact FX Shader
     std::string impactVertSrc = loadShaderSource("assets/shaders/impact.vert");
@@ -1137,6 +1156,7 @@ void Renderer::renderBlackHole(
     const Camera& camera,
     float aspect,
     const VisualBodyState& vBody,
+    const std::vector<VisualBodyState>& sceneBodies,
     const glm::vec3& cameraTarget,
     float simTime
 ) {
@@ -1207,6 +1227,14 @@ void Renderer::renderBlackHole(
     glUniform1f(m_uBhSimTimeLoc, simTime);
     glUniform1i(m_uBhVisualModeLoc, m_cinematicEnabled ? 2 : 1);
 
+    // Live Physical Accretion Dynamics Uniforms
+    if (m_uBhDiskLuminosityLoc != -1) {
+        glUniform1f(m_uBhDiskLuminosityLoc, (float)vBody.luminosityWatts);
+    }
+    if (m_uBhAccretionRateLoc != -1) {
+        glUniform1f(m_uBhAccretionRateLoc, vBody.accretionRateSolarMassPerYear);
+    }
+
     // Bind Skybox texture for background deflection
     if (m_skyboxTexture == 0) {
         m_skyboxTexture = loadTexture("assets/textures/stars_milky_way.jpg");
@@ -1219,6 +1247,41 @@ void Renderer::renderBlackHole(
         glUniform1i(m_uBhHasSkyboxLoc, 1);
     } else {
         glUniform1i(m_uBhHasSkyboxLoc, 0);
+    }
+
+    // Upload general-purpose lensed celestial bodies in black-hole-centric frame
+    int lensedCount = 0;
+    for (const auto& sb : sceneBodies) {
+        if (lensedCount >= 16) break;
+        if (!vBody.id.empty() && sb.id == vBody.id) continue;
+        if (!vBody.name.empty() && sb.name == vBody.name) continue;
+        if (sb.isBlackHole && glm::distance(sb.positionAU, vBody.positionAU) < 1e-4f) continue;
+
+        // Coordinates in black-hole-centric space: vector from black hole center to body
+        glm::vec3 relPosToBH = sb.positionAU - vBody.positionAU;
+        float r = (sb.renderRadius > 0.0f) ? sb.renderRadius : ((sb.trueRadiusAU > 0.0f) ? sb.trueRadiusAU : 0.03f);
+        glm::vec3 col = sb.isStar ? sb.temperatureColor : sb.baseAlbedo;
+        float tempK = (float)sb.surfaceTempK;
+        float lum = sb.isStar ? (float)std::clamp(sb.luminosityWatts / 3.828e26, 0.2, 50.0) : 1.0f;
+        int isStar = sb.isStar ? 1 : 0;
+
+        if (m_uBhLensedBodyPosLoc[lensedCount] != -1)
+            glUniform3fv(m_uBhLensedBodyPosLoc[lensedCount], 1, glm::value_ptr(relPosToBH));
+        if (m_uBhLensedBodyRadiusLoc[lensedCount] != -1)
+            glUniform1f(m_uBhLensedBodyRadiusLoc[lensedCount], r);
+        if (m_uBhLensedBodyColorLoc[lensedCount] != -1)
+            glUniform3fv(m_uBhLensedBodyColorLoc[lensedCount], 1, glm::value_ptr(col));
+        if (m_uBhLensedBodyTempLoc[lensedCount] != -1)
+            glUniform1f(m_uBhLensedBodyTempLoc[lensedCount], tempK);
+        if (m_uBhLensedBodyLumLoc[lensedCount] != -1)
+            glUniform1f(m_uBhLensedBodyLumLoc[lensedCount], lum);
+        if (m_uBhLensedBodyIsStarLoc[lensedCount] != -1)
+            glUniform1i(m_uBhLensedBodyIsStarLoc[lensedCount], isStar);
+
+        lensedCount++;
+    }
+    if (m_uBhNumLensedBodiesLoc != -1) {
+        glUniform1i(m_uBhNumLensedBodiesLoc, lensedCount);
     }
 
     glm::mat4 invViewProj = glm::inverse(proj * view);

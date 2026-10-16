@@ -20,8 +20,20 @@ uniform vec3 uSpinAxis;         // Normalized spin axis vector
 uniform bool uHasDisk;
 uniform float uDiskInnerRadius; // r_in = r_isco
 uniform float uDiskOuterRadius; // r_out
-uniform float uDiskPeakTemp;    // T_peak in Kelvin
+uniform float uDiskPeakTemp;    // T_peak in Kelvin (live from simulation)
+uniform float uDiskLuminosity;  // Total disk luminosity in Watts
+uniform float uAccretionRate;   // Mdot in M_sun/yr (live from simulation)
 uniform float uSimTime;
+
+// General-Purpose Gravitational Lensing of Active Celestial Bodies
+const int MAX_LENSED_BODIES = 16;
+uniform int uNumLensedBodies;
+uniform vec3 uLensedBodyPos[MAX_LENSED_BODIES];       // Relative to BH center in AU
+uniform float uLensedBodyRadius[MAX_LENSED_BODIES];   // in AU
+uniform vec3 uLensedBodyColor[MAX_LENSED_BODIES];     // Base / spectral color
+uniform float uLensedBodyTemp[MAX_LENSED_BODIES];     // Surface temp in Kelvin
+uniform float uLensedBodyLum[MAX_LENSED_BODIES];      // Relative luminosity factor
+uniform int uLensedBodyIsStar[MAX_LENSED_BODIES];     // 1: star, 0: planet/moon
 
 // Visual Mode & Background Skybox
 uniform int uVisualMode;        // 0: Normal, 1: Realistic, 2: Cinematic
@@ -118,12 +130,103 @@ vec3 sampleSkyboxColor(vec3 dir) {
     if (!uHasSkybox) return vec3(0.0);
     vec2 uv = dirToSkyboxUV(dir);
     vec3 raw = texture(uSkyboxTex, uv).rgb;
-    // Linearize from sRGB to radiometric space so stars shine with authentic intensity
     return pow(raw, vec3(2.2)) * 1.5;
 }
 
+// ── Ray-Sphere Intersection Helper for Celestial Bodies ──────────────────────
+bool intersectSphere(vec3 ro, vec3 rd, vec3 center, float radius, out float tHit, out vec3 normal) {
+    vec3 oc = ro - center;
+    float b = dot(oc, rd);
+    float c = dot(oc, oc) - radius * radius;
+    float disc = b * b - c;
+    if (disc < 0.0) return false;
+    float sqrtDisc = sqrt(disc);
+    float t0 = -b - sqrtDisc;
+    float t1 = -b + sqrtDisc;
+    if (t0 > 1e-4) {
+        tHit = t0;
+        normal = normalize(oc + rd * t0);
+        return true;
+    } else if (t1 > 1e-4) {
+        tHit = t1;
+        normal = normalize(oc + rd * t1);
+        return true;
+    }
+    return false;
+}
+
+// ── General-Purpose Sampling of Lensed Celestial Bodies ──────────────────────
+// Intersects rays with individual stars and planets, including stellar limb darkening
+// and luminous atmospheric coronas for authentic Einstein rings and arcs.
+vec3 sampleLensedBodies(vec3 rayOrig, vec3 rayDir, float maxDist) {
+    vec3 totalRadiance = vec3(0.0);
+    float closestT = maxDist;
+    int hitIdx = -1;
+    vec3 hitNorm = vec3(0.0);
+
+    // 1. Direct surface intersection
+    for (int i = 0; i < uNumLensedBodies && i < MAX_LENSED_BODIES; ++i) {
+        float t;
+        vec3 norm;
+        if (intersectSphere(rayOrig, rayDir, uLensedBodyPos[i], uLensedBodyRadius[i], t, norm)) {
+            if (t < closestT) {
+                closestT = t;
+                hitIdx = i;
+                hitNorm = norm;
+            }
+        }
+    }
+
+    if (hitIdx >= 0) {
+        // Direct hit on body surface
+        vec3 col = uLensedBodyColor[hitIdx];
+        if (uLensedBodyIsStar[hitIdx] == 1) {
+            // Star surface: Planck blackbody with Eddington limb darkening
+            float mu = clamp(dot(hitNorm, -rayDir), 0.0, 1.0);
+            float limbDarkening = (1.0 + 2.0 * mu) / 3.0;
+            totalRadiance = col * uLensedBodyLum[hitIdx] * limbDarkening * 3.5;
+        } else {
+            // Planet surface
+            float diff = max(0.0, dot(hitNorm, -rayDir));
+            totalRadiance = col * (0.2 + 0.8 * diff);
+        }
+        return totalRadiance;
+    }
+
+    // 2. Extended Luminous Corona / Diffraction Glare for Stars (Produces authentic Einstein Rings & Arcs)
+    for (int i = 0; i < uNumLensedBodies && i < MAX_LENSED_BODIES; ++i) {
+        if (uLensedBodyIsStar[i] == 1) {
+            vec3 toStar = uLensedBodyPos[i] - rayOrig;
+            float tProj = dot(toStar, rayDir);
+            if (tProj > 0.0) {
+                vec3 closestPt = rayOrig + rayDir * tProj;
+                float dPerpSq = dot(closestPt - uLensedBodyPos[i], closestPt - uLensedBodyPos[i]);
+                float rStar = uLensedBodyRadius[i];
+                float rStarSq = rStar * rStar;
+
+                // Two-component stellar glare: intense inner core + wide diffraction halo
+                float core = rStarSq / (dPerpSq + 0.08 * rStarSq);
+                core = pow(core, 1.6) * 1.8;
+
+                float rHalo = rStar * 1.8;
+                float rHaloSq = rHalo * rHalo;
+                float halo = rHaloSq / (dPerpSq + 0.25 * rHaloSq);
+                halo = pow(halo, 1.4) * 0.6;
+
+                float rMax = rStar * 4.5;
+                float dPerp = sqrt(dPerpSq);
+                float fade = clamp(1.0 - smoothstep(rStar * 1.2, rMax, dPerp), 0.0, 1.0);
+
+                float totalGlare = (core + halo) * uLensedBodyLum[i] * fade;
+                totalRadiance += uLensedBodyColor[i] * totalGlare;
+            }
+        }
+    }
+
+    return totalRadiance;
+}
+
 // ── Relativistic Geodesic Acceleration: a = d^2 x / d lambda^2 ────────────────
-// Exact Schwarzschild spatial acceleration + Kerr gravitomagnetic frame-dragging
 vec3 computeGeodesicAcceleration(vec3 pos, vec3 dir, float rs, float spinParam, vec3 spinNorm) {
     float rSq = dot(pos, pos);
     float r = sqrt(rSq);
@@ -172,12 +275,13 @@ void sampleDiskAtPoint(
     float cosInc = abs(dot(rayDir, spinNorm));
     float dsPath = (2.0 * diskH) / max(cosInc, 0.035);
 
-    // Astrophysical Novikov-Thorne Temperature Profile:
-    // T(r) peaks near 1.78 r_in and smoothly falls off as r^(-3/4)
-    float fPeak = 0.4886; // value of (1/rNorm^3)^0.25 * (1 - 1/sqrt(rNorm))^0.25 at rNorm = 1.778
+    // Astrophysical Novikov-Thorne Temperature Profile Driven by Live Physics Simulation:
+    // Uses uDiskPeakTemp dynamically calculated from M and Mdot
+    float fPeak = 0.4886; // value at rNorm = 1.778
     float fR = pow(1.0 / (rNorm * rNorm * rNorm), 0.25) * pow(max(0.0, 1.0 - 1.0 / sqrt(rNorm)), 0.25);
     float tNorm = clamp(fR / fPeak, 0.0, 1.0);
-    float localTemp = mix(1800.0, 14000.0, tNorm);
+    float peakTemp = (uDiskPeakTemp > 100.0) ? uDiskPeakTemp : 14000.0;
+    float localTemp = mix(1200.0, peakTemp, tNorm);
 
     // Relativistic Keplerian Orbital Motion in Kerr Spacetime
     float rg = rs * 0.5;
@@ -209,26 +313,44 @@ void sampleDiskAtPoint(
     float omegaKepler = pow(rIn / r, 1.5);
     float phiSheared = phi - omegaKepler * (uSimTime * 0.6 + 4.5 * log(rNorm));
 
-    // Continuous 2D periodic coordinates eliminate any seam at phi = +/- PI
-    vec3 noiseCoord = vec3(cos(phiSheared) * 2.8, sin(phiSheared) * 2.8, rNorm * 0.65);
-    float turbulence = 0.55 + 0.45 * fbmDisk(noiseCoord);
+    // Multi-octave azimuthal Keplerian shearing noise
+    vec3 noiseCoord = vec3(cos(phiSheared) * 3.5, sin(phiSheared) * 3.5, rNorm * 1.5);
+    float turb1 = fbmDisk(noiseCoord);
+    vec3 fineCoord = vec3(cos(phiSheared * 2.2) * 8.0, sin(phiSheared * 2.2) * 8.0, rNorm * 3.8);
+    float turb2 = fbmDisk(fineCoord);
+    float turbulence = 0.40 + 0.35 * turb1 + 0.25 * turb2;
+
+    // High-frequency Keplerian concentric shear striations
+    float striations = 0.85 + 0.15 * sin(rNorm * 28.0 + 2.5 * turb1);
 
     // Harmonic multi-arm logarithmic spiral density waves
     float spiral1 = cos(2.0 * phiSheared - 3.0 * log(rNorm));
-    float spiral2 = cos(4.0 * phiSheared - 4.5 * log(rNorm));
-    float spiralArm = 0.76 + 0.18 * spiral1 + 0.06 * spiral2;
+    float spiral2 = cos(4.0 * phiSheared - 5.5 * log(rNorm));
+    float spiralArm = 0.70 + 0.22 * spiral1 + 0.08 * spiral2;
+
+    // Dark cooler dust absorption lanes weaving through plasma
+    float dustCoord = fbmDisk(vec3(cos(phiSheared * 1.2) * 5.0, sin(phiSheared * 1.2) * 5.0, rNorm * 2.0));
+    float dustLane = smoothstep(0.15, 0.75, dustCoord);
 
     // Sharp ISCO inner edge truncation and gentle outer rim fade
-    float innerCut = smoothstep(rIn * 0.98, rIn * 1.03, r);
-    float outerCut = smoothstep(rOut * 1.01, rOut * 0.70, r);
-    float density = turbulence * spiralArm * innerCut * outerCut;
+    float innerCut = smoothstep(rIn * 0.985, rIn * 1.025, r);
+    float outerCut = smoothstep(rOut * 1.01, rOut * 0.65, r);
+    float density = turbulence * striations * spiralArm * (0.65 + 0.35 * dustLane) * innerCut * outerCut;
 
     // Radiative transfer optical depth
-    float opacityCoeff = 2.4 / max(rs, 1e-4);
+    float opacityCoeff = 2.8 / max(rs, 1e-4);
     float opticalDepth = density * dsPath * opacityCoeff;
     float alphaHit = clamp(1.0 - exp(-opticalDepth), 0.0, 0.95);
 
-    vec3 hitRadiance = emitCol * beaming * (0.80 + 0.40 * turbulence) * 2.2;
+    // Radiance intensity dynamically driven by live accretion rate and disk luminosity
+    float mdotFactor = (uAccretionRate > 1e-7) ? clamp(uAccretionRate / 1.0e-5, 0.2, 50.0) : 
+                       ((uDiskLuminosity > 1e20) ? clamp(uDiskLuminosity / 5.7e31, 0.2, 50.0) : 1.0);
+
+    // Relativistic ISCO plunge thermal emission enhancement
+    float iscoPlunge = exp(-4.0 * max(0.0, rNorm - 1.0));
+    vec3 plungeColor = vec3(0.95, 1.15, 1.50) * iscoPlunge * 1.6;
+
+    vec3 hitRadiance = (emitCol * (0.75 + 0.45 * turbulence) + plungeColor) * beaming * mdotFactor * 1.8;
 
     diskRadiance += (1.0 - diskAlpha) * hitRadiance * alphaHit;
     diskAlpha += (1.0 - diskAlpha) * alphaHit;
@@ -247,125 +369,186 @@ void main() {
 
     vec3 spinNorm = length(uSpinAxis) > 0.01 ? normalize(uSpinAxis) : vec3(0.0, 1.0, 0.0);
 
-    // Bounding sphere intersection test
-    float bProj = dot(camRel, rayDir);
-    float cVal = dot(camRel, camRel) - rBound * rBound;
-    float disc = bProj * bProj - cVal;
-
-    vec3 rayPos;
-    if (camDist >= rBound) {
-        if (bProj > 0.0 || disc < 0.0) {
-            // Ray passes outside the black hole influence zone: pass through unbent skybox
-            discard;
+    // ── Pre-Check: Foreground Celestial Bodies (Closer than Black Hole) ───────────
+    float fgClosestT = camDist;
+    int fgHitIdx = -1;
+    vec3 fgHitNorm = vec3(0.0);
+    for (int i = 0; i < uNumLensedBodies && i < MAX_LENSED_BODIES; ++i) {
+        float t;
+        vec3 norm;
+        if (intersectSphere(camRel, rayDir, uLensedBodyPos[i], uLensedBodyRadius[i], t, norm)) {
+            if (t < fgClosestT) {
+                fgClosestT = t;
+                fgHitIdx = i;
+                fgHitNorm = norm;
+            }
         }
-        float tEnter = -bProj - sqrt(disc);
-        rayPos = camRel + rayDir * max(0.0, tEnter);
-    } else {
-        rayPos = camRel;
     }
+
+    if (fgHitIdx >= 0) {
+        // Direct foreground body occlusion in front of black hole
+        vec3 col = uLensedBodyColor[fgHitIdx];
+        if (uLensedBodyIsStar[fgHitIdx] == 1) {
+            float mu = clamp(dot(fgHitNorm, -rayDir), 0.0, 1.0);
+            float limb = (1.0 + 2.0 * mu) / 3.0;
+            FragColor = vec4(col * uLensedBodyLum[fgHitIdx] * limb * 3.5, 1.0);
+        } else {
+            float diff = max(0.0, dot(fgHitNorm, -rayDir));
+            FragColor = vec4(col * (0.2 + 0.8 * diff), 1.0);
+        }
+        BrightColor = vec4(max(vec3(0.0), FragColor.rgb - vec3(1.10)) * 0.45, 1.0);
+        return;
+    }
+
+    // ── Geodesic Light Propagation ───────────────────────────────────────────────
+    float bProj = dot(camRel, rayDir);
+    vec3 bPerpVec = camRel - bProj * rayDir;
+    float bParam = length(bPerpVec);
 
     vec3 diskRadiance = vec3(0.0);
     float diskAlpha = 0.0;
     bool rayCaptured = false;
-    float minRayDist = length(rayPos);
-    float accumulatedAngle = 0.0;
+    vec3 finalExitDir = rayDir;
+    vec3 finalExitPos = camRel;
 
-    int maxSteps = (uVisualMode >= 2) ? 144 : (uVisualMode == 1 ? 112 : 72);
+    // Determine if ray passes through strong gravitational field
+    bool entersStrongField = (camDist < rBound) || (bProj < 0.0 && bParam < rBound);
 
-    vec3 curPos = rayPos;
-    vec3 curDir = rayDir;
-
-    for (int step = 0; step < maxSteps; ++step) {
-        float r = length(curPos);
-        minRayDist = min(minRayDist, r);
-
-        // 1. Relativistic Capture: Inward ray inside photon sphere or horizon cannot escape
-        if (r <= rHorizon * 1.01 || (r <= uPhotonRadius * 1.01 && dot(curPos, curDir) < 0.0)) {
-            rayCaptured = true;
-            break;
-        }
-
-        // 2. Escape Condition
-        if (r > rBound && dot(curPos, curDir) > 0.0) {
-            break;
-        }
-
-        // 3. Adaptive Step Size
-        float dt;
-        if (r < rs * 3.0) {
-            dt = clamp(0.038 * r * sqrt(r / rs), 0.005 * rs, 0.12 * rs);
-        } else if (r < rs * 8.0) {
-            dt = clamp(0.065 * r, 0.04 * rs, 0.30 * rs);
+    if (entersStrongField) {
+        vec3 rayPos;
+        if (camDist >= rBound) {
+            float cVal = dot(camRel, camRel) - rBound * rBound;
+            float disc = bProj * bProj - cVal;
+            float tEnter = -bProj - sqrt(max(0.0, disc));
+            rayPos = camRel + rayDir * max(0.0, tEnter);
         } else {
-            dt = clamp(0.12 * r, 0.18 * rs, 0.08 * rBound);
+            rayPos = camRel;
         }
 
-        // 4. 4th-Order Runge-Kutta (RK4) Geodesic Integrator
-        vec3 k1_v = curDir;
-        vec3 k1_a = computeGeodesicAcceleration(curPos, curDir, rs, uSpinParam, spinNorm);
+        vec3 curPos = rayPos;
+        vec3 curDir = rayDir;
+        float minRayDist = length(rayPos);
+        float accumulatedAngle = 0.0;
+        int maxSteps = (uVisualMode >= 2) ? 144 : (uVisualMode == 1 ? 112 : 72);
 
-        vec3 p2 = curPos + 0.5 * dt * k1_v;
-        vec3 v2 = normalize(curDir + 0.5 * dt * k1_a);
-        vec3 k2_v = v2;
-        vec3 k2_a = computeGeodesicAcceleration(p2, v2, rs, uSpinParam, spinNorm);
+        for (int step = 0; step < maxSteps; ++step) {
+            float r = length(curPos);
+            minRayDist = min(minRayDist, r);
 
-        vec3 p3 = curPos + 0.5 * dt * k2_v;
-        vec3 v3 = normalize(curDir + 0.5 * dt * k2_a);
-        vec3 k3_v = v3;
-        vec3 k3_a = computeGeodesicAcceleration(p3, v3, rs, uSpinParam, spinNorm);
-
-        vec3 p4 = curPos + dt * k3_v;
-        vec3 v4 = normalize(curDir + dt * k3_a);
-        vec3 k4_v = v4;
-        vec3 k4_a = computeGeodesicAcceleration(p4, v4, rs, uSpinParam, spinNorm);
-
-        vec3 nextPos = curPos + (dt / 6.0) * (k1_v + 2.0 * k2_v + 2.0 * k3_v + k4_v);
-        vec3 nextDir = normalize(curDir + (dt / 6.0) * (k1_a + 2.0 * k2_a + 2.0 * k3_a + k4_a));
-
-        accumulatedAngle += acos(clamp(dot(curDir, nextDir), -1.0, 1.0));
-
-        // 5. Analytic Equatorial Accretion Disk Crossing
-        // Accurately catches both the front disk and the lensed upper and lower arches
-        if (uHasDisk && diskAlpha < 0.98) {
-            float z0 = dot(curPos, spinNorm);
-            float z1 = dot(nextPos, spinNorm);
-
-            // Did the ray cross the equatorial plane z = 0 during this step?
-            if (z0 * z1 <= 0.0 && z0 != z1) {
-                float tHit = clamp(z0 / (z0 - z1), 0.0, 1.0);
-                vec3 hitPos = mix(curPos, nextPos, tHit);
-                vec3 avgDir = normalize(mix(curDir, nextDir, tHit));
-
-                sampleDiskAtPoint(hitPos, avgDir, rs, rIn, rOut, spinNorm, diskRadiance, diskAlpha);
+            // 1. Relativistic Capture: Inward ray inside photon sphere or horizon cannot escape
+            if (r <= rHorizon * 1.01 || (r <= uPhotonRadius * 1.01 && dot(curPos, curDir) < 0.0)) {
+                rayCaptured = true;
+                break;
             }
+
+            // 2. Escape Condition
+            if (r > rBound && dot(curPos, curDir) > 0.0) {
+                break;
+            }
+
+            // 3. Adaptive Step Size
+            float dt;
+            if (r < rs * 3.0) {
+                dt = clamp(0.038 * r * sqrt(r / rs), 0.005 * rs, 0.12 * rs);
+            } else if (r < rs * 8.0) {
+                dt = clamp(0.065 * r, 0.04 * rs, 0.30 * rs);
+            } else {
+                dt = clamp(0.12 * r, 0.18 * rs, 0.08 * rBound);
+            }
+
+            // 4. RK4 Geodesic Integrator with Kerr Gravitomagnetic Frame-Dragging
+            vec3 k1_v = curDir;
+            vec3 k1_a = computeGeodesicAcceleration(curPos, curDir, rs, uSpinParam, spinNorm);
+
+            vec3 p2 = curPos + 0.5 * dt * k1_v;
+            vec3 v2 = normalize(curDir + 0.5 * dt * k1_a);
+            vec3 k2_v = v2;
+            vec3 k2_a = computeGeodesicAcceleration(p2, v2, rs, uSpinParam, spinNorm);
+
+            vec3 p3 = curPos + 0.5 * dt * k2_v;
+            vec3 v3 = normalize(curDir + 0.5 * dt * k2_a);
+            vec3 k3_v = v3;
+            vec3 k3_a = computeGeodesicAcceleration(p3, v3, rs, uSpinParam, spinNorm);
+
+            vec3 p4 = curPos + dt * k3_v;
+            vec3 v4 = normalize(curDir + dt * k3_a);
+            vec3 k4_v = v4;
+            vec3 k4_a = computeGeodesicAcceleration(p4, v4, rs, uSpinParam, spinNorm);
+
+            vec3 nextPos = curPos + (dt / 6.0) * (k1_v + 2.0 * k2_v + 2.0 * k3_v + k4_v);
+            vec3 nextDir = normalize(curDir + (dt / 6.0) * (k1_a + 2.0 * k2_a + 2.0 * k3_a + k4_a));
+
+            accumulatedAngle += acos(clamp(dot(curDir, nextDir), -1.0, 1.0));
+
+            // 5. Analytic Equatorial Accretion Disk Crossing
+            if (uHasDisk && diskAlpha < 0.98) {
+                float z0 = dot(curPos, spinNorm);
+                float z1 = dot(nextPos, spinNorm);
+
+                if (z0 * z1 <= 0.0 && z0 != z1) {
+                    float tHit = clamp(z0 / (z0 - z1), 0.0, 1.0);
+                    vec3 hitPos = mix(curPos, nextPos, tHit);
+                    vec3 avgDir = normalize(mix(curDir, nextDir, tHit));
+
+                    sampleDiskAtPoint(hitPos, avgDir, rs, rIn, rOut, spinNorm, diskRadiance, diskAlpha);
+                }
+            }
+
+            curPos = nextPos;
+            curDir = nextDir;
         }
 
-        curPos = nextPos;
-        curDir = nextDir;
+        finalExitPos = curPos;
+        finalExitDir = curDir;
+
+        // Razor-thin photon ring highlight at critical boundary
+        if (!rayCaptured && minRayDist < rs * 1.62 && minRayDist > rHorizon && accumulatedAngle > 1.9 * PI) {
+            float turns = clamp((accumulatedAngle - 1.9 * PI) / (1.2 * PI), 0.0, 1.0);
+            float ringPeak = pow(turns, 3.0) * smoothstep(rs * 1.62, rs * 1.50, minRayDist);
+            diskRadiance += vec3(1.0, 0.98, 0.94) * ringPeak * (uHasDisk ? 3.0 : 1.5) * (1.0 - diskAlpha);
+        }
+
+        // Seamless C1 Hermite transition across strong-to-weak field boundary
+        if (!rayCaptured) {
+            float deflAngle = (2.0 * rs) / max(bParam, 1e-4);
+            vec3 bDir = (bParam > 1e-5) ? normalize(bPerpVec) : vec3(0.0, 1.0, 0.0);
+            vec3 weakDir = normalize(rayDir - deflAngle * bDir);
+            vec3 weakPos = bPerpVec;
+
+            float w = smoothstep(rBound * 0.70, rBound, bParam);
+            finalExitPos = mix(curPos, weakPos, w);
+            finalExitDir = normalize(mix(curDir, weakDir, w));
+        }
+    } else {
+        // Outside strong-field zone (Weak-Field Einstein Deflection):
+        // Deflection angle alpha = 4GM / (c^2 * b) = 2 rs / b
+        // Smoothly curves rays with zero discontinuity, zero discard, and zero circular boundary
+        float bClamped = max(bParam, rBound);
+        float deflAngle = (2.0 * rs) / bClamped;
+        vec3 bDir = (bParam > 1e-5) ? normalize(bPerpVec) : vec3(0.0, 1.0, 0.0);
+        finalExitDir = normalize(rayDir - deflAngle * bDir);
+        finalExitPos = bPerpVec;
     }
 
     vec3 finalColor = vec3(0.0);
     vec3 brightColor = vec3(0.0);
 
     if (rayCaptured) {
-        // Pure black shadow: only foreground disk emission is visible in front of horizon
+        // 100% OPAQUE BLACK HOLE SHADOW:
+        // No background star, skybox, or outside light can penetrate the event horizon.
+        // Only foreground accretion disk emission is visible.
         finalColor = diskRadiance;
         brightColor = max(vec3(0.0), diskRadiance - vec3(1.10)) * 0.45;
     } else {
-        // Deflected Background Light from Stars / Skybox
-        vec3 skyColor = sampleSkyboxColor(curDir);
+        // 1. Sample lensed celestial bodies along deflected ray
+        vec3 lensedBodiesRadiance = sampleLensedBodies(finalExitPos, finalExitDir, 1000.0);
 
-        // Razor-thin exponential relativistic photon ring highlight
-        // Concentrated strictly at critical boundary for highly deflected rays
-        if (minRayDist < rs * 1.62 && minRayDist > rHorizon && accumulatedAngle > 1.9 * PI) {
-            float turns = clamp((accumulatedAngle - 1.9 * PI) / (1.2 * PI), 0.0, 1.0);
-            float ringPeak = pow(turns, 3.0) * smoothstep(rs * 1.62, rs * 1.50, minRayDist);
-            vec3 photonHighlight = vec3(1.0, 0.98, 0.94) * ringPeak * (uHasDisk ? 3.0 : 1.5);
-            skyColor += photonHighlight;
-        }
+        // 2. Sample lensed background skybox
+        vec3 skyColor = sampleSkyboxColor(finalExitDir);
 
-        // Composite accretion disk emission over lensed background sky and photon ring
-        finalColor = diskRadiance + (1.0 - diskAlpha) * skyColor;
+        // 3. Composite lensed scene
+        vec3 backgroundRadiance = skyColor + lensedBodiesRadiance;
+        finalColor = diskRadiance + (1.0 - diskAlpha) * backgroundRadiance;
 
         // HDR Bright-Pass extraction for bloom
         vec3 excessLum = max(vec3(0.0), finalColor - vec3(1.10));

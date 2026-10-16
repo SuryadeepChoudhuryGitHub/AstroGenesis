@@ -576,13 +576,30 @@ void Application::run() {
         // 3. Asteroid belt / granular particle swarm
         m_renderer.renderParticleField(m_camera, aspect, m_physics.getAsteroidBelt(), primarySunPos, camTarget, m_physics.getSimulatedTimeSeconds());
 
-        // 4. Physical-to-Visual Celestial Bodies (Multi-Star Lighting, Atmospheres, Clouds, Black Holes)
+        // 4. Physical-to-Visual Celestial Bodies (Multi-Star Lighting, Atmospheres, Clouds, Relativistic Lensing)
         const auto& visualBodies = m_visualAdapter.getVisualBodies();
         const auto& physicsBodies = m_physics.getBodies();
-        for (size_t i = 0; i < visualBodies.size(); ++i) {
-            const auto& vb = visualBodies[i];
-            std::string texPath = (i < physicsBodies.size()) ? physicsBodies[i].texturePath : "";
-            m_renderer.renderCelestialBody(m_camera, aspect, vb, starLights, camTarget, texPath, m_visualAdapter.getVisualMode(), m_visualAdapter.getDebugOverlay(), simTime);
+
+        const VisualBodyState* activeBH = nullptr;
+        for (const auto& vb : visualBodies) {
+            if (vb.isBlackHole) {
+                activeBH = &vb;
+                break;
+            }
+        }
+
+        if (activeBH) {
+            // Unified Relativistic Optical System:
+            // When a black hole is present, all light rays propagate along general relativistic geodesics.
+            // The black hole shader renders the entire scene: lensed celestial bodies (stars, planets),
+            // Einstein rings and arcs, background skybox, opaque event horizon shadow, and accretion disk.
+            m_renderer.renderBlackHole(m_camera, aspect, *activeBH, visualBodies, camTarget, simTime);
+        } else {
+            for (size_t i = 0; i < visualBodies.size(); ++i) {
+                const auto& vb = visualBodies[i];
+                std::string texPath = (i < physicsBodies.size()) ? physicsBodies[i].texturePath : "";
+                m_renderer.renderCelestialBody(m_camera, aspect, vb, starLights, camTarget, texPath, m_visualAdapter.getVisualMode(), m_visualAdapter.getDebugOverlay(), simTime);
+            }
         }
 
         // 5. Planetary rings with multi-shadow occlusions

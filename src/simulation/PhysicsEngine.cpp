@@ -1010,6 +1010,9 @@ void PhysicsEngine::checkAndResolveCollisions() {
                         ? RelativisticPhysics::calculateKerrOuterHorizon(mTotal, finalSurvivor.spinParameter)
                         : RelativisticPhysics::calculateSchwarzschildRadius(mTotal);
                     finalSurvivor.hasAccretionDisk = true; // Infalling matter fuels accretion disk
+                    double infallingMsun = finalAbsorbed.massKg / RelativisticPhysics::SOLAR_MASS_KG;
+                    double accretionSurge = std::clamp(infallingMsun * 2.5e-4, 2.0e-5, 5.0e-3);
+                    finalSurvivor.accretionRateSolarMassPerYear += accretionSurge;
                 } else {
                     // Combined volume & new radius for non-black-hole celestial bodies
                     double vol1 = (4.0 / 3.0) * PI_DBL * std::pow(finalSurvivor.radiusM, 3.0);

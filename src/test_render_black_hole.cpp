@@ -116,40 +116,135 @@ int main(int argc, char** argv) {
     double rIscoM = RelativisticPhysics::calculateISCORadius(massKg, cygX1.spinParameter, true);
     cygX1.diskInnerRadiusAU = (float)(rIscoM / auM);
     cygX1.diskOuterRadiusAU = cygX1.schwarzschildRadiusAU * 14.0f;
-    cygX1.diskPeakTempK = 1.2e7f;
+    cygX1.diskPeakTempK = 24000.0f; // 24,000 K peak at ISCO -> fiery amber outer rim to brilliant diamond-white inner core
 
-    // Define test camera positions
-    struct TestView {
+    // Define test scenes
+    struct TestScene {
         std::string name;
         float pitch;
         float yaw;
         float distance;
         bool hasDisk;
+        float customPeakTempK;
+        std::vector<VisualBodyState> sceneBodies;
         std::string filename;
     };
 
-    std::vector<TestView> views = {
-        { "Face-On Disk", glm::radians(85.0f), glm::radians(0.0f), 6.2f, true, "output/visual_validation/01_face_on.png" },
-        { "Inclined Disk (35 deg)", glm::radians(35.0f), glm::radians(0.0f), 6.2f, true, "output/visual_validation/02_inclined_35deg.png" },
-        { "Near Edge-On Disk (10 deg)", glm::radians(10.0f), glm::radians(0.0f), 6.2f, true, "output/visual_validation/03_near_edge_on.png" },
-        { "Edge-On Disk (2 deg)", glm::radians(2.0f), glm::radians(0.0f), 6.2f, true, "output/visual_validation/04_edge_on.png" },
-        { "Isolated Black Hole (Pure Lensing)", glm::radians(15.0f), glm::radians(30.0f), 2.4f, false, "output/visual_validation/05_pure_lensing.png" }
+    // Helper to create a star
+    auto makeStar = [](const std::string& name, const glm::vec3& pos, float radius, const glm::vec3& col, double tempK, double lumW) {
+        VisualBodyState s;
+        s.id = name;
+        s.name = name;
+        s.isStar = true;
+        s.isBlackHole = false;
+        s.positionAU = pos;
+        s.renderRadius = radius;
+        s.trueRadiusAU = radius;
+        s.baseAlbedo = col;
+        s.temperatureColor = col;
+        s.surfaceTempK = tempK;
+        s.luminosityWatts = lumW;
+        return s;
     };
 
-    for (const auto& view : views) {
+    // 1. Aligned Star (Directly behind black hole at (0,0,-15) along camera view axis -> Complete Einstein Ring)
+    // Camera is at (0, 0, +6), looking at black hole at (0, 0, 0).
+    // Star is at (0, 0, -15) directly behind.
+    std::vector<VisualBodyState> alignedScene;
+    alignedScene.push_back(makeStar("AlignedSol", glm::vec3(0.0f, 0.0f, -15.0f), 0.35f, glm::vec3(1.0f, 0.85f, 0.55f), 5778.0, 3.828e26 * 3.5));
+
+    // 2. Off-Axis Star (Displaced near Einstein radius -> Primary curved arc + secondary counter-image)
+    std::vector<VisualBodyState> offAxisScene;
+    offAxisScene.push_back(makeStar("OffAxisStar", glm::vec3(2.2f, 0.8f, -15.0f), 0.35f, glm::vec3(1.0f, 0.88f, 0.65f), 6200.0, 3.828e26 * 4.0));
+
+    // 3. Multi-Star Field (Blue supergiant, Sol-like yellow star, Red giant)
+    std::vector<VisualBodyState> multiStarScene;
+    multiStarScene.push_back(makeStar("RigelBlue", glm::vec3(-2.8f, 1.4f, -18.0f), 0.40f, glm::vec3(0.65f, 0.85f, 1.30f), 12000.0, 3.828e26 * 8.0));
+    multiStarScene.push_back(makeStar("SolYellow", glm::vec3(1.8f, -1.2f, -14.0f), 0.35f, glm::vec3(1.0f, 0.85f, 0.55f), 5800.0, 3.828e26 * 3.5));
+    multiStarScene.push_back(makeStar("BetelgeuseRed", glm::vec3(0.5f, 2.5f, -20.0f), 0.55f, glm::vec3(1.10f, 0.40f, 0.15f), 3200.0, 3.828e26 * 6.0));
+
+    // 4. Combined: Accretion Disk + Background Lensed Star
+    std::vector<VisualBodyState> diskAndStarScene;
+    diskAndStarScene.push_back(makeStar("BackgroundBeacon", glm::vec3(0.0f, 0.85f, -16.0f), 0.40f, glm::vec3(1.0f, 0.90f, 0.70f), 7500.0, 3.828e26 * 5.0));
+
+    std::vector<TestScene> scenes = {
+        {
+            "Test A: Aligned Star (Einstein Ring & Opaque Shadow)",
+            glm::radians(0.0f), glm::radians(0.0f), 6.0f,
+            false, 0.0f,
+            alignedScene,
+            "output/visual_validation/01_einstein_ring_aligned_star.png"
+        },
+        {
+            "Test B: Off-Axis Star (Gravitational Arc & Counter-Image)",
+            glm::radians(0.0f), glm::radians(0.0f), 6.0f,
+            false, 0.0f,
+            offAxisScene,
+            "output/visual_validation/02_off_axis_star_arc.png"
+        },
+        {
+            "Test C: Multi-Star Gravitational Lensing Field",
+            glm::radians(0.0f), glm::radians(0.0f), 6.0f,
+            false, 0.0f,
+            multiStarScene,
+            "output/visual_validation/03_multi_star_lensing.png"
+        },
+        {
+            "Test D: Accretion Disk (35 deg Inclined - Doppler Beaming & Arches)",
+            glm::radians(35.0f), glm::radians(0.0f), 6.2f,
+            true, 0.0f,
+            {},
+            "output/visual_validation/04_accretion_disk_35deg.png"
+        },
+        {
+            "Test E: Accretion Disk (Edge-On - Slicing Disk & Dual Arches)",
+            glm::radians(2.0f), glm::radians(0.0f), 6.2f,
+            true, 0.0f,
+            {},
+            "output/visual_validation/05_accretion_disk_edge_on.png"
+        },
+        {
+            "Test F: Isolated Black Hole (Pure Milky Way Lensing)",
+            glm::radians(15.0f), glm::radians(30.0f), 2.5f,
+            false, 0.0f,
+            {},
+            "output/visual_validation/06_pure_skybox_lensing.png"
+        },
+        {
+            "Test G: Combined Accretion Disk with Lensed Background Star",
+            glm::radians(25.0f), glm::radians(0.0f), 6.2f,
+            true, 0.0f,
+            diskAndStarScene,
+            "output/visual_validation/07_disk_and_lensed_star.png"
+        },
+        {
+            "Test H: Accretion Disk (Golden-Amber Novikov-Thorne Temperature)",
+            glm::radians(30.0f), glm::radians(0.0f), 6.2f,
+            true, 7800.0f,
+            {},
+            "output/visual_validation/08_accretion_disk_golden_amber.png"
+        }
+    };
+
+    for (const auto& scene : scenes) {
         Camera camera;
-        camera.resetOverview(glm::vec3(0.0f), view.distance);
-        camera.setOrbit(view.yaw, view.pitch);
+        camera.resetOverview(glm::vec3(0.0f), scene.distance);
+        camera.setOrbit(scene.yaw, scene.pitch);
         camera.update(0.016f);
 
-        cygX1.hasAccretionDisk = view.hasDisk;
+        cygX1.hasAccretionDisk = scene.hasDisk;
+        if (scene.customPeakTempK > 0.0f) {
+            cygX1.diskPeakTempK = scene.customPeakTempK;
+        } else {
+            cygX1.diskPeakTempK = 24000.0f;
+        }
 
         renderer.beginViewport(0, 0, width, height, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
         renderer.renderSkybox(camera, aspect);
-        renderer.renderCelestialBody(camera, aspect, cygX1, {}, glm::vec3(0.0f), "", VisualMode::Cinematic, DebugVisualOverlay::None, 0.0f);
+        renderer.renderBlackHole(camera, aspect, cygX1, scene.sceneBodies, glm::vec3(0.0f), 0.0f);
         renderer.endViewport(width, height);
 
-        saveFrameToPNG(width, height, view.filename);
+        saveFrameToPNG(width, height, scene.filename);
     }
 
     std::cout << "All visual validation frames rendered successfully." << std::endl;
