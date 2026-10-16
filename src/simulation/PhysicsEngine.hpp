@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include "simulation/CelestialBody.hpp"
+#include "simulation/RelativisticPhysics.hpp"
 #include "simulation/ParticleSystem.hpp"
 #include "simulation/MatterSystem.hpp"
 #include "data/repositories/ObjectRepository.hpp"
@@ -123,6 +124,14 @@ public:
     void setBodyBareAlbedo(int bodyIdx, double baseAlbedo);
     void resetBodyAtmosphereToBaseline(int bodyIdx);
     void forceUpdatePhysicalQuantities();
+
+    // Relativistic Black Hole & Proper Time Controls
+    RelativisticPhysics::ClockComparisonResult compareObserverClocks(int indexA, int indexB) const;
+    RelativisticPhysics::ClockComparisonResult compareObserverClocks(const std::string& idA, const std::string& idB) const;
+    void setBlackHoleSpin(int bodyIdx, double spinParam);
+    void setBlackHoleSpin(const std::string& bodyId, double spinParam);
+    void setBlackHoleAccretionDisk(int bodyIdx, bool enabled, double accretionRateMsunYr = 1.0e-5);
+    void setBlackHoleAccretionDisk(const std::string& bodyId, bool enabled, double accretionRateMsunYr = 1.0e-5);
 
     // Collision Detection & Events
     struct CelestialCollisionEvent {

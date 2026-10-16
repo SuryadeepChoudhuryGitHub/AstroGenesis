@@ -207,6 +207,9 @@ public:
     UndoRedoManager m_undoRedo;
     std::vector<EventLogEntry> m_eventLogs;
 
+    // Relativistic Clock Comparison
+    int m_clockObserverBIndex = 0;
+
     DataManagerUI m_dataManagerUI;
     ValidationUI m_validationUI;
     SystemWorkspaceUI m_systemWorkspaceUI;

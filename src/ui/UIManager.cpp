@@ -3,6 +3,7 @@
 #include "ai/AIManager.hpp"
 #include "simulation/MaterialModel.hpp"
 #include "data/UnitConverter.hpp"
+#include "simulation/RelativisticPhysics.hpp"
 #include <cstdio>
 #include <cmath>
 #include <algorithm>
@@ -886,7 +887,10 @@ void UIManager::drawInfoOverlay(const CelestialBody& body, float x, float y) {
     InfoRow("Surface Temp.",    body.tempStr);
     InfoRow("Solar Flux",       body.solarRadiationStr);
     if (body.id != "sol") {
-        InfoRow("Time Dilation", body.timeDilationStr);
+        InfoRow("Clock Rate (dτ/dt)", body.properTimeRateStr.empty() ? body.timeDilationStr : body.properTimeRateStr);
+        if (!body.properTimeStr.empty()) {
+            InfoRow("Proper Time (τ)", body.properTimeStr);
+        }
     }
     InfoRow("Axial Tilt",       body.axialTiltStr);
     InfoRow("Atmosphere",       body.atmosphereStr);
@@ -1226,16 +1230,143 @@ void UIManager::drawRightPanel(PhysicsEngine& physics, Camera& camera, Celestial
         ImGui::EndGroup();
 
         ImGui::BeginGroup();
-        StatItem(IconId::Time, "Rel. Drift", body.timeDilationStr.c_str());
+        StatItem(IconId::Time, "Clock Rate (dτ/dt)", body.properTimeRateStr.empty() ? body.timeDilationStr.c_str() : body.properTimeRateStr.c_str());
         ImGui::SameLine(hw);
         StatItem(IconId::Speed, "Orbital Velocity", body.orbitalSpeedStr.c_str());
         ImGui::EndGroup();
 
         ImGui::BeginGroup();
-        StatItem(IconId::Energy, "Magnetic Field", body.magneticFieldStr.c_str());
+        StatItem(IconId::Time, "Proper Time (τ)", body.properTimeStr.empty() ? "0.0 s" : body.properTimeStr.c_str());
         ImGui::SameLine(hw);
-        StatItem(IconId::Sparkles, "Aurora Activity", body.auroraActivityStr.c_str());
+        StatItem(IconId::Energy, "Magnetic Field", body.magneticFieldStr.c_str());
         ImGui::EndGroup();
+    }
+
+    if (body.isBlackHole() || body.type.find("Black Hole") != std::string::npos || body.type.find("Singularity") != std::string::npos) {
+        ImGui::Separator();
+        if (SectionHeader("RELATIVISTIC BLACK HOLE INSPECTOR")) {
+            float hw = (panelW - 40) / 2.0f;
+
+            char rsBuf[48], rphBuf[48], rshadBuf[48], rplusBuf[48], riscoBuf[48], rergoBuf[48];
+            snprintf(rsBuf, sizeof(rsBuf), "%.2f km", body.schwarzschildRadiusM / 1000.0);
+            snprintf(rphBuf, sizeof(rphBuf), "%.2f km", body.photonSphereRadiusM / 1000.0);
+            snprintf(rshadBuf, sizeof(rshadBuf), "%.2f km", body.shadowRadiusM / 1000.0);
+            snprintf(rplusBuf, sizeof(rplusBuf), "%.2f km", body.kerrOuterHorizonM / 1000.0);
+            snprintf(riscoBuf, sizeof(riscoBuf), "%.2f km", body.iscoRadiusM / 1000.0);
+            snprintf(rergoBuf, sizeof(rergoBuf), "%.2f km", body.ergosphereEquatorialM / 1000.0);
+
+            ImGui::BeginGroup();
+            StatItem(IconId::Physics, "Horizon (r+)", rplusBuf);
+            ImGui::SameLine(hw);
+            StatItem(IconId::Ruler, "Schwarzschild (rs)", rsBuf);
+            ImGui::EndGroup();
+
+            ImGui::BeginGroup();
+            StatItem(IconId::Orbit, "Photon Sphere", rphBuf);
+            ImGui::SameLine(hw);
+            StatItem(IconId::Target, "Apparent Shadow", rshadBuf);
+            ImGui::EndGroup();
+
+            ImGui::BeginGroup();
+            StatItem(IconId::Orbit, "ISCO Radius", riscoBuf);
+            ImGui::SameLine(hw);
+            StatItem(IconId::Physics, "Ergosphere (Eq)", rergoBuf);
+            ImGui::EndGroup();
+
+            ImGui::Spacing();
+            ImGui::TextColored(Col::Accent, "Kerr Spin Parameter a* [-1, 1]:");
+            float curSpin = (float)body.spinParameter;
+            ImGui::SetNextItemWidth(panelW - 20);
+            if (ImGui::SliderFloat("##BhSpinSlider", &curSpin, -0.998f, 0.998f, "a* = %.3f")) {
+                physics.setBlackHoleSpin(body.id, curSpin);
+            }
+
+            ImGui::Spacing();
+            bool hasDisk = body.hasAccretionDisk;
+            if (ImGui::Checkbox("Accretion Disk Present", &hasDisk)) {
+                physics.setBlackHoleAccretionDisk(body.id, hasDisk, body.accretionRateSolarMassPerYear);
+            }
+
+            if (hasDisk) {
+                float accRate = (float)body.accretionRateSolarMassPerYear;
+                ImGui::TextColored(Col::TextSecondary, "Accretion Rate (M_sun/yr):");
+                ImGui::SetNextItemWidth(panelW - 20);
+                if (ImGui::SliderFloat("##BhAccRate", &accRate, 1e-7f, 1e-4f, "%.2e M_sun/yr", ImGuiSliderFlags_Logarithmic)) {
+                    physics.setBlackHoleAccretionDisk(body.id, true, accRate);
+                }
+
+                char tPeakBuf[32], lDiskBuf[48];
+                snprintf(tPeakBuf, sizeof(tPeakBuf), "%.0f K", body.diskPeakTempK);
+                snprintf(lDiskBuf, sizeof(lDiskBuf), "%.2e W", body.diskLuminosityW);
+
+                ImGui::BeginGroup();
+                StatItem(IconId::Heat, "Peak Disk Temp", tPeakBuf);
+                ImGui::SameLine(hw);
+                StatItem(IconId::Sun, "Luminosity", lDiskBuf);
+                ImGui::EndGroup();
+
+                double eta = RelativisticPhysics::calculateAccretionEfficiency(body.spinParameter);
+                char etaBuf[32];
+                snprintf(etaBuf, sizeof(etaBuf), "%.1f %%", eta * 100.0);
+                StatItem(IconId::Energy, "Radiative Efficiency", etaBuf);
+            }
+        }
+    }
+
+    ImGui::Separator();
+    if (SectionHeader("DUAL-OBSERVER CLOCK COMPARISON")) {
+        const auto& allBodies = physics.getBodies();
+        if (!allBodies.empty()) {
+            if (m_clockObserverBIndex < 0 || m_clockObserverBIndex >= (int)allBodies.size()) {
+                m_clockObserverBIndex = 0;
+            }
+
+            ImGui::TextColored(Col::TextSecondary, "Comparative Clock B:");
+            ImGui::SetNextItemWidth(panelW - 20);
+            if (ImGui::BeginCombo("##ObsBCombo", allBodies[m_clockObserverBIndex].name.c_str())) {
+                for (int i = 0; i < (int)allBodies.size(); ++i) {
+                    bool isSelected = (m_clockObserverBIndex == i);
+                    if (ImGui::Selectable(allBodies[i].name.c_str(), isSelected)) {
+                        m_clockObserverBIndex = i;
+                    }
+                    if (isSelected) ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+
+            auto compResult = physics.compareObserverClocks(body.id, allBodies[m_clockObserverBIndex].id);
+            float hw = (panelW - 40) / 2.0f;
+
+            char rateABuf[32], rateBBuf[32], ratioBuf[32], driftBuf[32], diffBuf[48];
+            snprintf(rateABuf, sizeof(rateABuf), "%.9f", compResult.clockRateA);
+            snprintf(rateBBuf, sizeof(rateBBuf), "%.9f", compResult.clockRateB);
+            snprintf(ratioBuf, sizeof(ratioBuf), "%.9f", compResult.clockRatioAoverB);
+
+            double usPerDay = (compResult.clockRateA - compResult.clockRateB) * 86400.0 * 1e6;
+            snprintf(driftBuf, sizeof(driftBuf), "%+.2f us/d", usPerDay);
+
+            if (std::abs(compResult.cumulativeTimeDifferenceSec) < 0.001) {
+                snprintf(diffBuf, sizeof(diffBuf), "%.3f us", compResult.timeDifferenceMicrosec);
+            } else if (std::abs(compResult.cumulativeTimeDifferenceSec) < 1.0) {
+                snprintf(diffBuf, sizeof(diffBuf), "%.3f ms", compResult.cumulativeTimeDifferenceSec * 1e3);
+            } else {
+                snprintf(diffBuf, sizeof(diffBuf), "%.4f s", compResult.cumulativeTimeDifferenceSec);
+            }
+
+            ImGui::BeginGroup();
+            StatItem(IconId::Time, "Rate A (dtau/dt)", rateABuf);
+            ImGui::SameLine(hw);
+            StatItem(IconId::Time, "Rate B (dtau/dt)", rateBBuf);
+            ImGui::EndGroup();
+
+            ImGui::BeginGroup();
+            StatItem(IconId::Physics, "Ratio (A/B)", ratioBuf);
+            ImGui::SameLine(hw);
+            StatItem(IconId::Time, "Drift Rate", driftBuf);
+            ImGui::EndGroup();
+
+            StatItem(IconId::Time, "Cumulative Drift", diffBuf);
+        }
     }
 
     ImGui::Separator();

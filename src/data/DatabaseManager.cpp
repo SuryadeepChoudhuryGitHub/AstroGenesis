@@ -18,6 +18,10 @@ DatabaseManager::~DatabaseManager() {
 }
 
 std::string DatabaseManager::resolveAuthoritativePath(const std::string& dbPath) {
+    if (dbPath == ":memory:" || dbPath.rfind("file:", 0) == 0 || dbPath.empty()) {
+        return dbPath;
+    }
+
     std::error_code ec;
     std::filesystem::path p(dbPath);
     if (p.is_absolute() && std::filesystem::exists(p, ec)) {
@@ -614,6 +618,19 @@ bool DatabaseManager::runMigrations() {
         )";
 
         if (!applyMigration(5, "Add celestial classification, provenance, and instance overrides", mig5)) {
+            return false;
+        }
+    }
+
+    // Migration 6: Relativistic Black Hole Spin & Accretion Disk Physics
+    if (currentVer < 6) {
+        const char* mig6 = R"(
+            ALTER TABLE physical_properties ADD COLUMN spin_parameter REAL;
+            ALTER TABLE physical_properties ADD COLUMN has_accretion_disk INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE physical_properties ADD COLUMN accretion_rate_msun_yr REAL;
+        )";
+
+        if (!applyMigration(6, "Add relativistic black hole and accretion disk parameters", mig6)) {
             return false;
         }
     }

@@ -54,6 +54,7 @@ set(ASTROGENESIS_CORE_SOURCES
     src/data/providers/NASAExoplanetProvider.cpp
     src/data/providers/StellarCatalogProvider.cpp
     src/simulation/PhysicsEngine.cpp
+    src/simulation/RelativisticPhysics.cpp
     src/simulation/ChemicalComposition.cpp
     src/simulation/ParticleSystem.cpp
     src/simulation/MaterialModel.cpp
@@ -185,6 +186,50 @@ target_link_libraries(test_cinematic_mode PRIVATE
     ${PLATFORM_LIBS}
 )
 
+# ── Relativistic Physics & Black Hole Test Suite Executable ──────────────────
+add_executable(test_relativity_system
+    src/test_relativity_system.cpp
+    ${ASTROGENESIS_CORE_SOURCES}
+)
+
+target_include_directories(test_relativity_system PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/external
+    ${CMAKE_SOURCE_DIR}/external/sqlite
+    ${CMAKE_SOURCE_DIR}/external/nlohmann
+)
+
+target_link_libraries(test_relativity_system PRIVATE 
+    imgui 
+    glfw 
+    glad 
+    glm::glm 
+    sqlite3
+    ${PLATFORM_LIBS}
+)
+
+# ── Black Hole Visual Validation Capture Executable ──────────────────────────
+add_executable(test_render_black_hole
+    src/test_render_black_hole.cpp
+    ${ASTROGENESIS_CORE_SOURCES}
+)
+
+target_include_directories(test_render_black_hole PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/external
+    ${CMAKE_SOURCE_DIR}/external/sqlite
+    ${CMAKE_SOURCE_DIR}/external/nlohmann
+)
+
+target_link_libraries(test_render_black_hole PRIVATE 
+    imgui 
+    glfw 
+    glad 
+    glm::glm 
+    sqlite3
+    ${PLATFORM_LIBS}
+)
+
 # ── Assets & Data Sync ─────────────────────────────────────────────────────────
 add_custom_command(TARGET AstroGenesis POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -209,4 +254,16 @@ add_custom_command(TARGET test_cinematic_mode POST_BUILD
         ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:test_cinematic_mode>/assets
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:test_cinematic_mode>/data
+)
+add_custom_command(TARGET test_relativity_system POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:test_relativity_system>/assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:test_relativity_system>/data
+)
+add_custom_command(TARGET test_render_black_hole POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:test_render_black_hole>/assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:test_render_black_hole>/data
 )

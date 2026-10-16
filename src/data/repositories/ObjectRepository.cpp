@@ -1,6 +1,7 @@
 #include "data/repositories/ObjectRepository.hpp"
 #include "data/UnitConverter.hpp"
 #include "simulation/ChemicalComposition.hpp"
+#include "simulation/RelativisticPhysics.hpp"
 #include <iostream>
 #include <sstream>
 #include <cmath>
@@ -133,8 +134,9 @@ bool ObjectRepository::saveCelestialBodyRecord(const CelestialBodyRecord& record
                           "object_id, mass_kg, radius_m, albedo, greenhouse_k, luminosity_w, axial_tilt_deg, "
                           "rotation_period_hours, mean_density_kg_m3, surface_gravity_mps2, escape_velocity_mps, "
                           "surface_temp_k, surface_pressure_kpa, magnetic_field_str, atmosphere_summary, rings_json, "
-                          "spectral_type, metallicity_fe_h, is_estimated, source_id, source_record_id, import_timestamp) "
-                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'));";
+                          "spectral_type, metallicity_fe_h, is_estimated, spin_parameter, has_accretion_disk, accretion_rate_msun_yr, "
+                          "source_id, source_record_id, import_timestamp) "
+                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'));";
     stmt = m_db.prepare(physSql);
     if (!stmt) return false;
 
@@ -157,8 +159,11 @@ bool ObjectRepository::saveCelestialBodyRecord(const CelestialBodyRecord& record
     if (record.physical.spectralType.has_value()) sqlite3_bind_text(stmt, 17, record.physical.spectralType.value().c_str(), -1, SQLITE_TRANSIENT); else sqlite3_bind_null(stmt, 17);
     if (record.physical.metallicityFeH.has_value()) sqlite3_bind_double(stmt, 18, record.physical.metallicityFeH.value()); else sqlite3_bind_null(stmt, 18);
     sqlite3_bind_int(stmt, 19, record.physical.isEstimated ? 1 : 0);
-    sqlite3_bind_int64(stmt, 20, sourceId);
-    sqlite3_bind_text(stmt, 21, record.physical.sourceRecordId.c_str(), -1, SQLITE_TRANSIENT);
+    if (record.physical.spinParameter.has_value()) sqlite3_bind_double(stmt, 20, record.physical.spinParameter.value()); else sqlite3_bind_null(stmt, 20);
+    sqlite3_bind_int(stmt, 21, record.physical.hasAccretionDisk.value_or(false) ? 1 : 0);
+    if (record.physical.accretionRateSolarMassPerYear.has_value()) sqlite3_bind_double(stmt, 22, record.physical.accretionRateSolarMassPerYear.value()); else sqlite3_bind_null(stmt, 22);
+    sqlite3_bind_int64(stmt, 23, sourceId);
+    sqlite3_bind_text(stmt, 24, record.physical.sourceRecordId.c_str(), -1, SQLITE_TRANSIENT);
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         m_db.finalize(stmt);
@@ -279,6 +284,9 @@ bool ObjectRepository::saveCelestialBody(const CelestialBody& body, int64_t* out
     if (!body.spectralType.empty()) rec.physical.spectralType = body.spectralType;
     rec.physical.isEstimated = body.isEstimated;
     rec.physical.sourceRecordId = body.sourceObjectId;
+    rec.physical.spinParameter = body.spinParameter;
+    rec.physical.hasAccretionDisk = body.hasAccretionDisk;
+    rec.physical.accretionRateSolarMassPerYear = body.accretionRateSolarMassPerYear;
 
     if (!body.atmosphereStr.empty()) rec.physical.atmosphereSummary = body.atmosphereStr;
     if (!body.magneticFieldStr.empty()) rec.physical.magneticFieldStr = body.magneticFieldStr;
@@ -448,7 +456,7 @@ std::optional<PhysicalPropertiesRecord> ObjectRepository::getPhysicalProperties(
     std::string sql = "SELECT id, object_id, mass_kg, radius_m, albedo, greenhouse_k, luminosity_w, axial_tilt_deg, "
                       "rotation_period_hours, mean_density_kg_m3, surface_gravity_mps2, escape_velocity_mps, "
                       "surface_temp_k, surface_pressure_kpa, magnetic_field_str, atmosphere_summary, rings_json, "
-                      "spectral_type, metallicity_fe_h, is_estimated, "
+                      "spectral_type, metallicity_fe_h, is_estimated, spin_parameter, has_accretion_disk, accretion_rate_msun_yr, "
                       "source_id, source_record_id, import_timestamp FROM physical_properties WHERE object_id = ?;";
     sqlite3_stmt* stmt = m_db.prepare(sql);
     if (!stmt) return std::nullopt;
@@ -478,9 +486,12 @@ std::optional<PhysicalPropertiesRecord> ObjectRepository::getPhysicalProperties(
         if (sqlite3_column_type(stmt, 17) != SQLITE_NULL) p.spectralType = columnTextSafe(stmt, 17);
         if (sqlite3_column_type(stmt, 18) != SQLITE_NULL) p.metallicityFeH = sqlite3_column_double(stmt, 18);
         p.isEstimated = (sqlite3_column_int(stmt, 19) != 0);
-        p.sourceId = sqlite3_column_int64(stmt, 20);
-        p.sourceRecordId = columnTextSafe(stmt, 21);
-        p.importTimestamp = columnTextSafe(stmt, 22);
+        if (sqlite3_column_type(stmt, 20) != SQLITE_NULL) p.spinParameter = sqlite3_column_double(stmt, 20);
+        p.hasAccretionDisk = (sqlite3_column_int(stmt, 21) != 0);
+        if (sqlite3_column_type(stmt, 22) != SQLITE_NULL) p.accretionRateSolarMassPerYear = sqlite3_column_double(stmt, 22);
+        p.sourceId = sqlite3_column_int64(stmt, 23);
+        p.sourceRecordId = columnTextSafe(stmt, 24);
+        p.importTimestamp = columnTextSafe(stmt, 25);
         res = p;
     }
     m_db.finalize(stmt);
@@ -719,6 +730,31 @@ void ObjectRepository::hydrateCelestialBodyFields(CelestialBody& body,
                 body.ring.baseColor = glm::vec3(j.value("colorR", 0.88f), j.value("colorG", 0.82f), j.value("colorB", 0.70f));
                 body.ring.texturePath = j.value("texturePath", "assets/textures/saturn_ring_alpha.png");
             } catch (...) {}
+        }
+
+        // Relativistic black hole & Kerr geometry hydration
+        if (body.isBlackHole() || body.type.find("Black Hole") != std::string::npos || body.type.find("Singularity") != std::string::npos) {
+            if (p.spinParameter.has_value()) body.spinParameter = p.spinParameter.value();
+            if (p.hasAccretionDisk.has_value()) body.hasAccretionDisk = p.hasAccretionDisk.value();
+            if (p.accretionRateSolarMassPerYear.has_value()) body.accretionRateSolarMassPerYear = p.accretionRateSolarMassPerYear.value();
+
+            double mKg = (body.massKg > 0.0) ? body.massKg : (10.0 * RelativisticPhysics::SOLAR_MASS_KG);
+            body.schwarzschildRadiusM = RelativisticPhysics::calculateSchwarzschildRadius(mKg);
+            body.photonSphereRadiusM = RelativisticPhysics::calculatePhotonSphereRadius(mKg);
+            body.shadowRadiusM = RelativisticPhysics::calculateCriticalImpactParameter(mKg);
+            body.kerrOuterHorizonM = RelativisticPhysics::calculateKerrOuterHorizon(mKg, body.spinParameter);
+            body.kerrInnerHorizonM = RelativisticPhysics::calculateKerrInnerHorizon(mKg, body.spinParameter);
+            body.iscoRadiusM = RelativisticPhysics::calculateISCORadius(mKg, body.spinParameter, true);
+            body.ergosphereEquatorialM = RelativisticPhysics::calculateKerrErgosphereRadius(mKg, body.spinParameter, 3.141592653589793 / 2.0);
+
+            if (body.hasAccretionDisk) {
+                auto diskState = RelativisticPhysics::calculateAccretionDiskProperties(
+                    mKg, body.spinParameter, body.accretionRateSolarMassPerYear, 25.0);
+                body.diskInnerRadiusM = diskState.innerRadiusM;
+                body.diskOuterRadiusM = diskState.outerRadiusM;
+                body.diskPeakTempK = diskState.peakTemperatureK;
+                body.diskLuminosityW = diskState.totalLuminosityW;
+            }
         }
     }
 
